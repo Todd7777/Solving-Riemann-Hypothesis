@@ -14,6 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
 EXPERIMENTS = [
+    ("verify_vasyunin_formula.py", [], []),
     ("run_verify.py", [], ["--T", "5000"]),
     ("run_arithmetic.py", [], ["--robin-N", "1000000", "--nicolas-K", "1000", "--ca-K", "50", "--speiser-T", "300", "--dh-T", "150"]),
     ("run_statistics.py", [], ["--n-windows", "20000"]),
