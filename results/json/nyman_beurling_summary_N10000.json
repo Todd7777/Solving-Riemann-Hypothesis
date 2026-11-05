@@ -60,44 +60,49 @@
   },
   "rigorous_arb": {
     "50": {
-      "lower": 0.011869048866095565,
+      "lower": 0.011869048866095567,
       "upper": 0.011869048866095567,
       "float64": 0.011869048866098963,
-      "abs_diff_float64_vs_rigorous": 3.398323289438565e-15,
-      "enclosure_radius": 3.918634760011698e-45,
-      "seconds": 0.06825065612792969
+      "abs_diff_float64_vs_rigorous": 3.3965885659625883e-15,
+      "enclosure_radius": 3.937539183044232e-45,
+      "seconds": 0.1366889476776123,
+      "note": "recomputed after fixing arb(2*pi) -> 2*arb.pi() in gram_entry_arb"
     },
     "100": {
       "lower": 0.01018876250147799,
-      "upper": 0.010188762501477992,
+      "upper": 0.01018876250147799,
       "float64": 0.010188762501479709,
       "abs_diff_float64_vs_rigorous": 1.7191109646930158e-15,
-      "enclosure_radius": 4.035690207950322e-44,
-      "seconds": 0.45443224906921387
+      "enclosure_radius": 4.043942736497879e-44,
+      "seconds": 0.5658459663391113,
+      "note": "recomputed after fixing arb(2*pi) -> 2*arb.pi() in gram_entry_arb"
     },
     "200": {
-      "lower": 0.008920725383469963,
+      "lower": 0.008920725383469965,
       "upper": 0.008920725383469965,
       "float64": 0.008920725383476547,
       "abs_diff_float64_vs_rigorous": 6.581540867856006e-15,
-      "enclosure_radius": 4.24398240679068e-43,
-      "seconds": 3.919182777404785
+      "enclosure_radius": 4.248384510405408e-43,
+      "seconds": 4.993385314941406,
+      "note": "recomputed after fixing arb(2*pi) -> 2*arb.pi() in gram_entry_arb"
     },
     "400": {
       "lower": 0.007707773753683388,
-      "upper": 0.0077077737536833885,
+      "upper": 0.007707773753683388,
       "float64": 0.007707773753675595,
       "abs_diff_float64_vs_rigorous": 7.792377854087817e-15,
-      "enclosure_radius": 4.563747704291721e-42,
-      "seconds": 27.676494121551514
+      "enclosure_radius": 4.566148263952679e-42,
+      "seconds": 33.21599507331848,
+      "note": "recomputed after fixing arb(2*pi) -> 2*arb.pi() in gram_entry_arb"
     },
     "800": {
       "lower": 0.006713075464704964,
-      "upper": 0.006713075464704965,
+      "upper": 0.006713075464704964,
       "float64": 0.006713075464703011,
       "abs_diff_float64_vs_rigorous": 1.9532986339498848e-15,
-      "enclosure_radius": 4.908195596072304e-41,
-      "seconds": 228.4951524734497
+      "enclosure_radius": 4.909584527119763e-41,
+      "seconds": 254.89955401420593,
+      "note": "recomputed after fixing arb(2*pi) -> 2*arb.pi() in gram_entry_arb"
     }
   }
 }
