@@ -390,7 +390,7 @@
   ],
   "max_abs_residual_gaussian_sigma_le_1": 2.6645352591003757e-15,
   "max_abs_residual_modulated": 1.594813170413545e-11,
-  "checks_seconds": 0.20976495742797852,
+  "checks_seconds": 0.43770694732666016,
   "convergence_in_zeros": [
     {
       "test_function": "gaussian(sigma=0.01)",
@@ -677,7 +677,7 @@
       ]
     }
   ],
-  "convergence_seconds": 1.2387399673461914,
+  "convergence_seconds": 1.9895353317260742,
   "weil_positivity": [
     {
       "family": "gaussian_bump",
@@ -18024,7 +18024,7 @@
       ]
     }
   ],
-  "weil_seconds": 20.13381338119507,
+  "weil_seconds": 24.931899547576904,
   "weil_sampled_example": {
     "test_function": "sampled f",
     "h_poles": 3.1990420786991622,
@@ -18032,10 +18032,11 @@
     "archimedean": -2.622787688955248,
     "arithmetic_side": 2.782223340602741e-10,
     "g_at_0": 1.3132410451531322,
-    "r_nyquist": 1570.796326794372,
+    "r_cap": 1570.796326794372,
+    "r_nyquist": 3141.592653588744,
     "zero_side_finite": 3.1051849303731676e-10,
     "n_zeros": 1131,
     "residual_no_tail": 3.229615897704268e-11
   },
-  "total_seconds": 95.66744756698608
+  "total_seconds": 32.68971538543701
 }
