@@ -10,7 +10,7 @@ This page records what is *proved*, with the sharpest known constants we are awa
 | explicit constant | $1/(5.558691\,\log t)$ for $t \ge 2$ | Mossinghoff–Trudgian–Yang 2024 (improving 5.573412 of Mossinghoff–Trudgian 2015) |
 | Vinogradov–Korobov (1958) | $c/\bigl((\log t)^{2/3}(\log\log t)^{1/3}\bigr)$ | sharpest *shape* known; explicit $c = 1/57.54$ (Ford 2002), improved to about $1/54$ (Bellotti 2024) |
 
-No zero-free region of the form $\sigma > 1-\delta$ with a *fixed* $\delta>0$ is known ("the quasi-Riemann hypothesis" is open). The Vinogradov–Korobov shape has not been improved in 65 years; it comes from bounds for exponential sums (Vinogradov's mean value theorem, now sharp via Bourgain–Demeter–Guth 2016 / Wooley) and is believed to be close to the limit of that method.
+No zero-free region of the form $\sigma > 1-\delta$ with a *fixed* $\delta>0$ is known ("the quasi-Riemann hypothesis" is open). The Vinogradov–Korobov shape has not been improved in 68 years; it comes from bounds for exponential sums (Vinogradov's mean value theorem, now sharp via Bourgain–Demeter–Guth 2016 / Wooley) and is believed to be close to the limit of that method.
 
 ## 1.2 Proportion of zeros on the line / simple
 
@@ -18,10 +18,10 @@ No zero-free region of the form $\sigma > 1-\delta$ with a *fixed* $\delta>0$ is
 |---|---|---|
 | positive proportion on the line | $>0$ | Selberg 1942 |
 | Levinson's method | $\ge 1/3$ | Levinson 1974 |
-| | $\ge 2/5$ (≈ 40.9 %) | Conrey 1989 |
+| | $\ge 0.4088$ ("more than two fifths") | Conrey 1989 |
 | | 41.05 % / 41.28 % | Bui–Conrey–Young 2011 / Feng 2012 |
 | | $> 5/12$ (≈ 41.7 %) | Pratt–Robles–Zaharescu–Zeindler 2020 |
-| simple zeros, unconditional | $\ge 40.7\%$ | via Levinson's method (Bui–Conrey–Young) |
+| simple zeros, unconditional | $\ge 40.58\%$ | Bui–Conrey–Young 2011 (Levinson's method) |
 | simple zeros assuming RH | $\ge 19/27 \approx 70.4\%$ | Bui–Heath-Brown 2013 |
 
 Levinson's method is a mollifier method; it is understood (Farmer's "$\theta=\infty$" heuristic, and the work of Conrey and of Bui–Conrey–Young) that it cannot reach 100 % without a mollifier of length beyond what any known mean-value theorem controls. The "100 %" statement (all zeros on the line) is RH itself.
@@ -39,7 +39,7 @@ Follow-up work (Tao–Trudgian–Yang 2025 and the collaborative "Analytic Numbe
 
 ## 1.4 Growth on the line (Lindelöf hypothesis)
 
-$\zeta(\tfrac12+it)\ll t^{\mu+\varepsilon}$ is known with $\mu=13/84\approx0.1548$ (Bourgain 2017), via decoupling. The Lindelöf hypothesis $\mu=0$ follows from RH and is itself open. Lindelöf would follow from the density hypothesis-type statements for all moments; the 6th and 8th moments of $\zeta$ on the line are open (Hardy–Littlewood 1918 and Ingham 1926 proved the 2nd and 4th; Keating–Snaith 2000 and Conrey–Farmer–Keating–Rubinstein–Snaith 2005 conjecture all moments; Soundararajan 2009 and Harper 2013 give sharp upper bounds under RH; Heap–Radziwiłł–Soundararajan 2019 give sharp lower bounds unconditionally).
+$\zeta(\tfrac12+it)\ll t^{\mu+\varepsilon}$ is known with $\mu=13/84\approx0.1548$ (Bourgain 2017), via decoupling. The Lindelöf hypothesis $\mu=0$ follows from RH and is itself open; it is equivalent (Hardy–Littlewood) to $\int_0^T|\zeta(\tfrac12+it)|^{2k}dt\ll_k T^{1+\varepsilon}$ for every $k$, and it implies the density hypothesis. The 6th and 8th moments of $\zeta$ on the line are open (Hardy–Littlewood 1918 and Ingham 1926 proved the 2nd and 4th; Keating–Snaith 2000 and Conrey–Farmer–Keating–Rubinstein–Snaith 2005 conjecture all moments; Soundararajan 2009 and Harper 2013 give sharp upper bounds under RH; Heap–Radziwiłł–Soundararajan 2019 give sharp lower bounds unconditionally).
 
 ## 1.5 Numerical verification
 
@@ -47,11 +47,11 @@ $\zeta(\tfrac12+it)\ll t^{\mu+\varepsilon}$ is known with $\mu=13/84\approx0.154
 |---|---|---|
 | first $1.5\times10^9$ zeros | yes (Riemann–Siegel + Turing) | van de Lune–te Riele–Winter 1986 |
 | $10^{13}$ zeros (height $2.4\times 10^{12}$) | floating point, no interval arithmetic; unpublished | Gourdon–Demichel 2004 |
-| first $3.06\times10^{10}$ zeros | yes (interval arithmetic) | Platt 2017 |
+| height $3.06\times10^{10}$ (all zeros with $0<\gamma\le30\,610\,046\,000$) | yes (interval arithmetic, windowed Booker-type FFT algorithm) | Platt 2017 |
 | **height $3.0001753\times10^{12}$, $12\,363\,153\,437\,138$ zeros** | **yes** (interval arithmetic, Turing's method) | **Platt–Trudgian 2021** (Bull. LMS) |
-| batches of $10^{8}$+ zeros near zero number $10^{20}$, $10^{21}$, $10^{22}$, $10^{23}$ | statistical (not a contiguous verification) | Odlyzko 1989–2001; Hiary; Bober–Hiary 2018 (near $10^{36}$) |
+| batches near zero number $10^{12}$ (Odlyzko 1987), $10^{20}$ ($1.75\times10^8$ neighbours, 1992), $10^{21}$, $10^{22}$ ($10^{10}$ zeros, 2001); short intervals up to the $10^{36}$-th zero (Bober–Hiary 2018, $\approx5\times10^4$ zeros in $\approx200$ intervals) | statistical / isolated (not a contiguous verification) | Odlyzko 1987–2001; Bober–Hiary 2018 |
 
-All verified zeros are simple and on the line. This repository recomputes zeros from scratch with Arb (rigorous ball arithmetic) — one million zeros plus samples at $n\approx10^{10}$ and $10^{12}$ — and independently re-implements the Riemann–Siegel/Turing machinery (`src/rh/zeta.py`, `src/rh/verify.py`).
+All verified zeros are simple and on the line. This repository recomputes zeros from scratch with Arb (rigorous ball arithmetic) — one million zeros plus a sample of 6000 zeros at $n=10^{10}$ (height $3.3\times10^9$) — and independently re-implements the Riemann–Siegel/Turing machinery (`src/rh/zeta.py`, `src/rh/verify.py`).
 
 ## 1.6 The de Bruijn–Newman constant $\Lambda$
 
@@ -61,9 +61,9 @@ $H_t(z)=\int_0^\infty e^{tu^2}\Phi(u)\cos(zu)\,du$, with $H_0(z)=\tfrac18\xi(\tf
 |---|---|
 | $\Lambda\le 1/2$ | de Bruijn 1950 |
 | $\Lambda<1/2$ | Ki–Kim–Lee 2009 |
-| $\Lambda>-50$, …, $>-4.379\times10^{-6}$ (Lehmer pairs) | Csordas–Norfolk–Varga 1988; Csordas–Odlyzko–Smith–Varga 1993 |
+| $\Lambda>-50$ (1988), …, $>-5.895\times10^{-9}$ (1993), $>-4.379\times10^{-6}$ (1994, Lehmer pairs) | Csordas–Norfolk–Varga 1988; Csordas–Odlyzko–Smith–Varga 1993; Csordas–Smith–Varga 1994 |
 | $\Lambda>-2.7\times10^{-9}$; $>-1.15\times10^{-11}$ | Odlyzko 2000; Saouter–Gourdon–Demichel 2011 |
-| **$\Lambda\ge0$** (Newman's conjecture) | **Rodgers–Tao 2018** (Acta Math. 2020); Dobner 2021 for the Selberg class |
+| **$\Lambda\ge0$** (Newman's conjecture) | **Rodgers–Tao 2018** (Forum Math. Pi 2020); Dobner 2021 for the Selberg class |
 | $\Lambda\le0.22$ | Polymath 15 (2019) |
 | **$\Lambda\le0.2$** | **Platt–Trudgian 2021** |
 
@@ -72,7 +72,7 @@ So RH is now **equivalent to $\Lambda=0$**: the zeros of $\xi$ are "at the edge"
 ## 1.7 Statistics of zeros
 
 * Montgomery (1973): pair correlation conjecture $R_2(\alpha)=1-\bigl(\frac{\sin\pi\alpha}{\pi\alpha}\bigr)^2$; proved for test functions with Fourier transform supported in $(-1,1)$ (under RH). Observed by Dyson to be the GUE kernel.
-* Odlyzko (1987, 2001): spectacular numerical agreement of spacings and pair correlation with GUE at heights $10^{20}$–$10^{22}$, with lower-order deviations explained by Bogomolny–Keating (1996), Berry–Keating, and Conrey–Snaith (2008) ("ratios conjecture").
+* Odlyzko (1987: the first $10^5$ zeros and $10^5$ zeros near zero number $10^{12}$; 1992–2001: $10^8$–$10^{10}$ zeros near zero numbers $10^{20}$–$10^{22}$, i.e. heights $\sim10^{19}$–$10^{21}$): spectacular numerical agreement of spacings and pair correlation with GUE, with lower-order deviations explained by Bogomolny–Keating (1996), Berry–Keating, and Conrey–Snaith (2008) ("ratios conjecture").
 * Hejhal (1994, triple correlation), Rudnick–Sarnak (1996, $n$-level correlations for restricted test functions), Katz–Sarnak (1999, symmetry types in function fields).
 * Everything beyond restricted test functions is conjectural. The statistics say *how* zeros are distributed along the line; they do not say *that* they are on it.
 

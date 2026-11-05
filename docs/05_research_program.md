@@ -4,7 +4,7 @@
 
 The Riemann Hypothesis will not be settled by a software project, and this repository does not claim to settle it. What a well-built computational platform *can* do:
 
-1. **Remove doubt about the easy part.** Reproduce, from scratch and with rigorous arithmetic, the facts every approach relies on (zeros to height $\sim6\times10^5$ and samples to $\sim 3\times10^{11}$; zero statistics; the elementary criteria to large bounds).
+1. **Remove doubt about the easy part.** Reproduce, from scratch and with rigorous arithmetic, the facts every approach relies on (zeros to height $\sim6\times10^5$ and a sample at height $\sim3.3\times10^{9}$; zero statistics; the elementary criteria to large bounds).
 2. **Make the equivalent criteria quantitative.** Each "RH $\iff$ $X$" turns RH into the asymptotics of an explicit sequence ($\lambda_n$, $d_N$, $c_k$, Robin ratios of colossally abundant numbers, …). Computing these sequences far enough to see their *second-order* behaviour produces conjectures sharper than RH itself, and the sharper conjectures are often where structure (and hence a possible proof) becomes visible.
 3. **Find structure in positive-definite finite-dimensional objects.** Two of the criteria (Weil positivity and Nyman–Beurling) reduce RH to positivity/asymptotics of explicit Gram-type matrices. We can compute these matrices exactly (Vasyunin sums; explicit formula terms) and study their spectra, optimal vectors and extremal test functions.
 4. **Provide a trustworthy, tested code base** so that any future idea can be tested in minutes rather than weeks.
@@ -35,7 +35,7 @@ The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every 
 
 **Q4 (Weil positivity structure).** For the Gaussian family $g_\sigma$, which $\sigma$ minimises the ratio (arithmetic side)/(archimedean side) of $W(g*\tilde g)$? How much of the prime term is cancelled by the archimedean term and how much by the pole term? The extremal test functions of the Weil form are those for which positivity is *tight*; the literature (Bombieri 2000; Connes–Consani 2021) suggests they are related to the small-support regime. Numerics can map this landscape.
 
-**Q5 (GUE deviations).** The lower-order corrections to GUE (Bogomolny–Keating; Conrey–Snaith) are arithmetic: they contain the primes. We measure the spacing-distribution deviation at heights $\sim10^5$, $\sim6\times10^5$, $\sim3\times10^9$ and $\sim3\times10^{11}$ and compare with the $1/\log T$ scaling.
+**Q5 (GUE deviations).** The lower-order corrections to GUE (Bogomolny–Keating; Conrey–Snaith) are arithmetic: they contain the primes. We measure the spacing-distribution deviation in five windows up to height $6\times10^5$ and at $\sim3.3\times10^9$ and compare with the $1/\log T$ scaling.
 
 **Q6 (Davenport–Heilbronn as a control).** Every criterion we compute for $\zeta$ can also be computed for the DH function $f$, which violates RH. Which criteria *detect* the violation at computationally accessible scale (e.g. Li-type coefficients for $f$ grow exponentially; the analogue of $d_N$ stalls)? This calibrates how sensitive each criterion is — a necessary sanity check before reading anything into numerics for $\zeta$.
 

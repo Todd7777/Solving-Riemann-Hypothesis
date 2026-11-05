@@ -25,7 +25,7 @@ The factor $\Gamma(s/2)$ forces $\zeta$ to vanish at the negative even integers 
 > **Riemann Hypothesis (RH).** Every zero of $\xi(s)$ — equivalently every nontrivial zero of $\zeta(s)$ — has real part $\tfrac12$.
 
 Equivalently: writing nontrivial zeros as $\rho=\beta+i\gamma$, RH says $\beta=\tfrac12$ for all $\rho$. The zeros are then $\rho_n=\tfrac12\pm i\gamma_n$ with
-$0<\gamma_1<\gamma_2<\cdots$ and $\gamma_1=14.134725\ldots$, $\gamma_2=21.022040\ldots$, $\gamma_3=25.010858\ldots$
+$0<\gamma_1<\gamma_2<\cdots$ and $\gamma_1=14.1347251417\ldots$, $\gamma_2=21.0220396387\ldots$, $\gamma_3=25.0108575801\ldots$
 
 A conjecture that usually travels with RH, and that most approaches would also prove, is that all zeros are **simple**.
 
@@ -35,7 +35,7 @@ On the critical line it is convenient to use the real-valued function
 
 $$Z(t)=e^{i\theta(t)}\,\zeta\!\left(\tfrac12+it\right),\qquad \theta(t)=\arg\Gamma\!\left(\tfrac14+\tfrac{it}{2}\right)-\tfrac t2\log\pi,$$
 
-(the Riemann–Siegel theta function; $\theta$ is chosen so that $Z$ is real). Zeros of $\zeta$ *on* the line are exactly the real zeros of $Z$; a sign change of $Z$ certifies a zero on the line. The Riemann–Siegel formula gives $Z(t)$ to high accuracy in $O(t^{1/2})$ operations and is the basis of all large-scale verifications.
+(the Riemann–Siegel theta function; $\theta$ is chosen so that $Z$ is real). Zeros of $\zeta$ *on* the line are exactly the real zeros of $Z$; a sign change of $Z$ certifies a zero on the line. The Riemann–Siegel formula gives $Z(t)$ to high accuracy in $O(t^{1/2})$ operations and is the classical basis of zero verifications; the recent rigorous large-scale ones (Platt 2017, Platt–Trudgian 2021) use windowed FFT-based algorithms of Booker–Platt type, and Odlyzko–Schönhage-type multi-evaluation is used for the statistical computations at great height.
 
 ### Counting zeros
 
@@ -57,13 +57,13 @@ where $S(T)=\pi^{-1}\arg\zeta(\tfrac12+iT)$ (continuous variation along the hori
 
 The same statement is conjectured for every $L$-function with an Euler product and a functional equation: Dirichlet $L(s,\chi)$ (GRH), Dedekind zeta functions of number fields, Hecke/automorphic $L$-functions, and in general all functions in the **Selberg class** $\mathcal S$ (Grand RH). Several approaches — in particular the spectral and noncommutative-geometric ones, and the Rodgers–Tao / Dobner arguments for the de Bruijn–Newman constant — are naturally formulated at this level of generality.
 
-The analogue of RH for curves over finite fields was proved by Hasse (genus 1, 1933) and Weil (1948), and for all smooth projective varieties over finite fields by Deligne (1974). Those proofs are the only places where a "Riemann hypothesis" has ever been established, and they use a structure (the Frobenius endomorphism acting on cohomology, and positivity of an intersection form) that has no known counterpart over $\mathbb Z$. See [03_approaches_survey.md](03_approaches_survey.md).
+The analogue of RH for curves over finite fields was proved by Hasse (genus 1, 1933) and Weil (1948), and for all smooth projective varieties over finite fields by Deligne (1974). Those proofs (together with the Selberg zeta functions of compact hyperbolic surfaces, whose "Riemann hypothesis" follows from the spectral theory of the Laplacian) are the only places where a "Riemann hypothesis" has ever been established, and they use a structure (the Frobenius endomorphism acting on cohomology, and positivity of an intersection form) that has no known counterpart over $\mathbb Z$. See [03_approaches_survey.md](03_approaches_survey.md).
 
 ## 0.5 What a proof has to deliver
 
 Any argument that proves RH must
 
-1. use the **Euler product** (or an equivalent arithmetic input). There exist Dirichlet series with the same functional equation as $\zeta$, the same growth and a similar zero density, that have zeros off the line (Davenport–Heilbronn 1936; see `src/rh/davenport_heilbronn.py`, which finds such zeros numerically). Functional equation plus analytic continuation is therefore not enough.
+1. use the **Euler product** (or an equivalent arithmetic input). There exist Dirichlet series with a functional equation of the same type as $\zeta$'s (with their own gamma factor and conductor), the same growth and a similar zero density, that have zeros off the line (Davenport–Heilbronn 1936; see `src/rh/davenport_heilbronn.py`, which finds such zeros numerically). Functional equation plus analytic continuation is therefore not enough.
 2. control **all** zeros, not almost all: the zero-density results (Ingham, Huxley, Guth–Maynard 2024) show that zeros with $\Re\rho\ge\sigma$ are rare, but "rare" is not "nonexistent", and the known positive proportions of zeros on the line (Selberg, Levinson, Conrey, …, currently just over 5/12 ≈ 41.7 %) are far from 100 %.
 3. do something that is **not** a finite computation: RH has been verified for the first $1.2\times10^{13}$ zeros (height $3\times10^{12}$; Platt–Trudgian 2021), and statistically to far greater heights (Odlyzko, Gourdon), but a hypothetical first counterexample could lie at heights beyond any computation (compare Skewes' number and the failure of the Mertens conjecture).
 
