@@ -1,0 +1,17 @@
+{
+  "k_range": [
+    10,
+    1000000
+  ],
+  "n_points": 382,
+  "max_abs_c_k": 0.06913906550510956,
+  "max_abs_error_explicit_formula": 1.6636103883360676e-09,
+  "max_rel_error_explicit_formula_k_ge_1e3": 1.0945939251955849e-05,
+  "max_abs_c_k_times_k34_for_k_ge_1e4": 0.00019814356051808864,
+  "predicted_asymptotic_amplitude_first_zero": 7.775062764452562e-05,
+  "ratio_max_scaled_to_amp1": 1.0501383470303578,
+  "k_where_trivial_term_equals_nontrivial": 19758,
+  "zeros_used": 8,
+  "wall_seconds": 28.156646490097046,
+  "statement": "RH <=> c_k = O(k^{-3/4+eps}); a zero with Re rho = beta < 1/2 would add a term of size k^{-(1+beta)/2} >> k^{-3/4}."
+}
