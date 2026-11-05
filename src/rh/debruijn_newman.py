@@ -10,7 +10,7 @@ so the zeros of H_0 are z = +-2 gamma_n (gamma_n the ordinates of the nontrivial
 zeros).  H_t solves the *backward* heat equation d_t H_t = -d_zz H_t.  The de
 Bruijn–Newman constant Lambda is the infimum of the t for which H_t has only real
 zeros (de Bruijn: Lambda <= 1/2; Newman: Lambda > -infinity).  RH <=> Lambda <= 0.
-Rodgers–Tao (2018, arXiv:1801.05914; Acta Math. 225 (2020)) proved Lambda >= 0, so
+Rodgers–Tao (2018, arXiv:1801.05914; Forum Math. Pi 8 (2020), e6) proved Lambda >= 0, so
 RH <=> Lambda = 0.  Polymath 15 (Res. Math. Sci. 6 (2019) 31) proved Lambda <= 0.22
 and Platt–Trudgian (Bull. LMS 53 (2021)) extended this to Lambda <= 0.2.
 

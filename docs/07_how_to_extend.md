@@ -5,7 +5,7 @@
 * **One criterion = one module** in `src/rh/`, with a module docstring that states the theorem (with reference), the formulas used, and what is rigorous versus floating point.
 * **Every module has an independent check** in `tests/`: a closed-form value, a high-precision recomputation by a different method, or a published number. Tests must run in well under a minute; heavy computations go to `scripts/run_<module>.py`.
 * **Scripts write** `results/json/<module>_summary.json` (all headline numbers, with the parameters that produced them) and `results/figures/<module>_*.png`. Add the script to `scripts/run_all.py` with a `--quick` variant.
-* **Zeros** come from `rh.data.load_zeros(n)` (Arb-certified ordinates, accuracy $\le 6\times10^{-11}$). Never hard-code zeros; never use zeros beyond the dataset's height without computing them with `rh.data.compute_zeros_arb`.
+* **Zeros** come from `rh.data.load_zeros(n)` (Arb-certified ordinates, ball radius $\le1.5\times10^{-11}$ for the first $10^5$ and $\le1.2\times10^{-10}$ for zeros up to $10^6$). Never hard-code zeros; never use zeros beyond the dataset's height without computing them with `rh.data.compute_zeros_arb`.
 * **Rigorous arithmetic** where feasible: `python-flint` (`arb`, `acb`, `arb_mat`, `arb_series` — note `acb_series.zeta(deflate=True)` for expansions at $s=1$ and `arb.zeta_nzeros(arb(T))` for the rigorous count $N(T)$) or exact integers/fractions. Floating point results must carry an error estimate in the JSON summary.
 * **Report conventions**: the experiment log (`docs/06_experiment_log.md`) records date, command, method, numbers with errors, and a one-paragraph interpretation. Say explicitly what the result does *not* show.
 

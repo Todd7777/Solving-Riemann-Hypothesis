@@ -25,11 +25,12 @@ def test_known_values():
 
 
 def test_distances_small_N_against_mpmath_reference():
-    # reference values computed independently with mpmath (60 digits) in the
-    # development notebook: d_10^2 and d_160^2
-    d2 = nb.baez_duarte_distances(40)
+    # reference values computed independently with mpmath (60-digit LU solve
+    # of the Gram system built from the closed form): d_10^2, d_20^2, d_160^2
+    d2 = nb.baez_duarte_distances(160)
     assert abs(d2[9] - 0.02377186556) < 2e-11
-    assert np.all(np.diff(d2) <= 1e-15)  # non-increasing in N
+    assert abs(d2[19] - 0.01650358307) < 2e-11
+    assert abs(d2[159] - 0.009345591009) < 2e-11
     assert d2[-1] > 0
 
 

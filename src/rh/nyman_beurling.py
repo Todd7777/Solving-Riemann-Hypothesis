@@ -44,16 +44,21 @@ coprime h, k:
 
 and G(j,k) = G(j/g, k/g)/g for g = gcd(j,k).  THIS FORMULA WAS RE-VERIFIED in
 this repository against a direct high-precision evaluation of the integral
-(moment expansion + Hurwitz zeta tail) to 37 significant digits for many pairs
-(see tests/test_nyman_beurling.py).  The right-hand side vector is
+(moment expansion + Hurwitz zeta tail): to 37 significant digits for many
+coprime pairs by `scripts/verify_vasyunin_formula.py` (mpmath, 40 digits), and
+to 1e-13 in the float64 test suite (tests/test_nyman_beurling.py).  The right-hand side vector is
 b_k = <chi_(0,1], rho_k> = int_1^inf {u/k} u^{-2} du = (1 - gamma + log k)/k,
 and ||chi||^2 = 1, so  d_N^2 = 1 - b^T G^{-1} b.
 
 Because G_n is the leading n x n block of G_N, one Cholesky factorisation
 G_N = L L^T yields d_n^2 = 1 - sum_{i<=n} y_i^2 (y = L^{-1} b) for ALL n <= N.
-The system is only polynomially ill-conditioned (cond(G_N) ~ N^2.2, measured),
-so float64 is adequate for N up to ~10^4; a rigorous ball-arithmetic (Arb)
-version is provided for moderate N and used to validate the float64 results.
+The system is only polynomially ill-conditioned (cond(G_N) ~ N^2.0, measured:
+9.4e3, 3.7e4, 1.5e5, 6.2e5, 2.4e6, 9.7e6 at N = 50, 100, ..., 1600), so float64
+is adequate for N up to ~10^4 (the float64 Vasyunin sums lose ~log10(k^2)
+digits from the rounding of pi*m/k near m = k, i.e. ~1e-9 absolute at
+k = 10^4, which enters the Gram entries multiplied by pi/(2hk)); a rigorous
+ball-arithmetic (Arb) version is provided for moderate N and agrees with the
+float64 values to ~1e-14 up to N = 800.
 """
 from __future__ import annotations
 
@@ -223,7 +228,7 @@ def gram_entry_arb(j: int, k: int, Vcache=None):
         return v
 
     pi = arb.pi()
-    A = (arb(2 * math.pi).log() - arb.const_euler()) / 2 * (arb(1) / h + arb(1) / kk)
+    A = ((2 * arb.pi()).log() - arb.const_euler()) / 2 * (arb(1) / h + arb(1) / kk)
     B = arb(kk - h) / (2 * h * kk) * (arb(h) / kk).log()
     Cc = -pi / (2 * h * kk) * (V(h, kk) + V(kk, h))
     return (A + B + Cc) / g

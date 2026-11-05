@@ -84,7 +84,7 @@ in this module.
    log[(s-1) zeta(s)].  Singularity analysis of the generating function of S_1
    (psi(1/(2(1-z)))/(2(1-z)^2) near z = 1) gives, with H_n the harmonic number,
 
-       S_1(n) = (n/2)(H_n - 1 - log 2 pi) + 1/2 + (exponentially small)
+       S_1(n) = (n/2)(H_n - 1 - log 2 pi) + 1/2 + (super-polynomially (root-exponentially) small)
               = (n/2)(log n + gamma - 1 - log 2 pi) + 3/4 - 1/(24 n) + O(n^{-3}),
 
    which this module verifies numerically to 1e-11 (see tests).  This is the
@@ -93,7 +93,7 @@ in this module.
    under RH lambda_n = (n/2) log n + (1/2)(gamma - 1 - log 2 pi) n + O(sqrt(n) log n),
    whereas a zero off the line would make lambda_n oscillate with exponentially
    growing amplitude (Voros 2004).  The remainder S_2(n) = lambda_n - S_1(n) is the
-   "oscillating part"; Bombieri-Lagarias show S_2(n) = O(sqrt(n) log n) under RH.
+   "oscillating part"; Lagarias (2007, Thm 1.1) proves S_2(n) = O(sqrt(n) log n) under RH.
 
 Nothing here proves RH: positivity of lambda_n for n <= nmax is implied by RH up
 to a height that grows roughly like T ~ n, and conversely only lambda_n > 0 for
@@ -122,7 +122,7 @@ __all__ = [
 TWO_PI = 2.0 * math.pi
 
 # Smooth part lambda_n ~ (n/2) log n + LI_C1 * n + LI_C0  (see module docstring, item 3)
-LI_C1 = 0.5 * (EULER_GAMMA - 1.0 - LOG_2PI)   # = -1.1303555...
+LI_C1 = 0.5 * (EULER_GAMMA - 1.0 - LOG_2PI)   # = -1.1303307007539...
 LI_C0 = 0.75
 
 
@@ -460,7 +460,7 @@ def li_smooth(n, form: str = "log"):
 
     form="log"      : (n/2)(log n + gamma - 1 - log 2pi) + 3/4
     form="harmonic" : (n/2)(H_n - 1 - log 2pi) + 1/2   (H_n = psi(n+1) + gamma),
-                      equal to S_1(n) up to exponentially small terms
+                      equal to S_1(n) up to super-polynomially (root-exponentially) small terms
     form="log3"     : the "log" form plus the next correction -1/(24 n)
 
     Derived from the singularity analysis of the generating function of S_1
@@ -534,8 +534,9 @@ def positivity_report(ns, lam) -> dict:
 # ---------------------------------------------------------------------------
 def zero_contribution(rho, n):
     """Contribution to lambda_n of the quadruple {rho, 1-rho, conj(rho), 1-conj(rho)}
-    (for a zero on the line the quadruple degenerates to the pair {rho, conj rho}
-    and the formula must then be halved; use zero_contribution_pair).
+    (the four points are collected in a set, so for a zero on the line the
+    quadruple collapses to the pair {rho, conj rho} and the pair contribution is
+    returned directly; no halving is needed).
     Each zero r contributes 1 - (1 - 1/r)^n; the four are summed exactly."""
     import mpmath as mp
     rho = mp.mpc(rho)
@@ -551,14 +552,19 @@ def detection_horizon(gamma: float, delta: float, safety: float = 1.0) -> float:
     off-line zero at 1/2 + delta + i gamma) would make lambda_n negative.
     The modulus |1 - 1/rho'| for rho' = 1/2 - delta + i gamma is
     sqrt(((1/2+delta)^2 + gamma^2) / ((1/2-delta)^2 + gamma^2)) ≈ 1 + delta/gamma^2,
-    so its term grows like exp(n delta/gamma^2); it overtakes the smooth part
-    (n/2) log n when  n delta/gamma^2 >~ log(n log n / 2).  Solved by iteration."""
+    so the mirror zero and its conjugate contribute -2 e^{n r} cos(n theta') with
+    r = log|1 - 1/rho'|; this overtakes the smooth part (n/2)(log n + gamma_E - 1
+    - log 2 pi) when 2 e^{n r} >~ (n/2) log n, i.e. n r >~ log((n/4) log n).
+    The horizon therefore grows like gamma^2/delta (up to logarithms), so
+    positivity of lambda_n for n <= nmax probes zeros only up to height
+    ~ sqrt(nmax delta / log nmax).  Solved by iteration (safety multiplies the
+    threshold)."""
     import math
     g2 = gamma * gamma + 0.25
     rate = 0.5 * math.log1p(2 * delta / ((0.5 - delta) ** 2 + gamma ** 2))
     n = 10.0
     for _ in range(100):
-        n_new = (math.log(max(n * math.log(max(n, 2)) / 2, 2)) + math.log(safety)) / rate
+        n_new = (math.log(max(n * math.log(max(n, 2)) / 4, 2)) + math.log(safety)) / rate
         if abs(n_new - n) < 1e-9 * max(n, 1):
             break
         n = max(n_new, 1.0)
