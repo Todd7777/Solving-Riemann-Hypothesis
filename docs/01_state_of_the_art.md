@@ -18,7 +18,7 @@ No zero-free region of the form $\sigma > 1-\delta$ with a *fixed* $\delta>0$ is
 |---|---|---|
 | positive proportion on the line | $>0$ | Selberg 1942 |
 | Levinson's method | $\ge 1/3$ | Levinson 1974 |
-| | $\ge 2/5$ (40.77 %) | Conrey 1989 |
+| | $\ge 2/5$ (≈ 40.9 %) | Conrey 1989 |
 | | 41.05 % / 41.28 % | Bui–Conrey–Young 2011 / Feng 2012 |
 | | $> 5/12$ (≈ 41.7 %) | Pratt–Robles–Zaharescu–Zeindler 2020 |
 | simple zeros, unconditional | $\ge 40.7\%$ | via Levinson's method (Bui–Conrey–Young) |
