@@ -21,7 +21,7 @@ The Riemann Hypothesis will not be settled by a software project, and this repos
 | F | Robin / Lagarias / Nicolas / CA numbers; Speiser; Davenport–Heilbronn | `arithmetic.py`, `speiser.py`, `davenport_heilbronn.py` | done |
 | G | de Bruijn–Newman dynamics and Lehmer pairs | `debruijn_newman.py` | done |
 | H | Explicit formula and Weil positivity numerics | `explicit_formula.py` | done |
-| I | Integral and sequential criteria (Balazard–Saias–Yor, Volchkov, Báez-Duarte's $c_k$) | `integral_criteria.py`, `sequential_criteria.py` | planned / partial |
+| I | Integral and sequential criteria (Balazard–Saias–Yor, Volchkov, Báez-Duarte's $c_k$) | `integral_criteria.py`, `sequential_criteria.py` | done |
 
 The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every number produced, with the command that produced it.
 

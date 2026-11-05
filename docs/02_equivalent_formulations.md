@@ -8,7 +8,7 @@ Each item below is a theorem of the form "RH $\iff$ (statement)". For each we sa
 2. **Littlewood.** RH $\iff M(x)=\sum_{n\le x}\mu(n)=O_\varepsilon(x^{1/2+\varepsilon})$ for every $\varepsilon>0$. (Equivalently, by Redheffer, $\det R_n = M(n)$ where $R_n$ is the $n\times n$ 0/1 Redheffer matrix.)
 3. **Franel–Landau (1924).** Let $r_1<\dots<r_{\Phi(n)}$ be the Farey fractions of order $n$. RH $\iff \sum_\nu |r_\nu-\nu/\Phi(n)| = O(n^{1/2+\varepsilon})$.
 4. **Riesz (1916).** RH $\iff \sum_{k\ge1}\frac{(-1)^{k+1}x^k}{(k-1)!\,\zeta(2k)}=O(x^{1/4+\varepsilon})$. (Hardy–Littlewood: similarly with $\zeta(2k+1)$ and exponent $1/4$.)
-5. **Báez-Duarte's sequential Riesz criterion (2005).** With $c_k=\sum_{j=0}^k(-1)^j\binom kj\frac1{\zeta(2j+2)}$: RH $\iff c_k=O(k^{-3/4+\varepsilon})$. *(Computable to moderate $k$ with high precision; planned in `src/rh/sequential_criteria.py`.)*
+5. **Báez-Duarte's sequential Riesz criterion (2005).** With $c_k=\sum_{j=0}^k(-1)^j\binom kj\frac1{\zeta(2j+2)}$: RH $\iff c_k=O(k^{-3/4+\varepsilon})$. *Implemented: `sequential_criteria.py` (exact values to $k=10^6$ via the Möbius form $c_k=\sum_n\mu(n)n^{-2}(1-n^{-2})^k$, and the explicit formula over zeros).*
 
 ## 2.2 Elementary arithmetic inequalities
 
@@ -26,8 +26,8 @@ $$W(g)=\sum_\rho \hat g\!\left(\tfrac{\rho-1/2}{i}\right)=\hat g(\tfrac i2)+\hat
 Then RH $\iff W(g*\tilde g)\ge0$ for all $g$. (The zero side is $\sum_\rho|\hat g(\ldots)|^2\ge0$ trivially *if* the zeros are on the line; the content is positivity of the arithmetic/archimedean right-hand side.) Li's criterion is the case of the test functions $\hat g_n(r)=1-(1-1/\rho)^n$ in a suitable sense (Bombieri–Lagarias). *Implemented (numerical evaluation of both sides, positivity of the arithmetic side for Gaussian families): `explicit_formula.py`.*
 13. **Nyman (1950)–Beurling (1955)–Báez-Duarte (2003).** With $\rho_k(x)=\{1/(kx)\}$ in $L^2(0,\infty)$ and
 $d_N^2=\inf_{c\in\mathbb R^N}\|\chi_{(0,1]}-\sum_{k\le N}c_k\rho_k\|^2=\inf_{A_N}\frac1{2\pi}\int_{\mathbb R}\frac{|1-\zeta(\tfrac12+it)A_N(\tfrac12+it)|^2}{\tfrac14+t^2}dt$ ($A_N$ Dirichlet polynomial of length $N$): RH $\iff d_N\to0$. Burnol (2002): $\liminf d_N^2\log N\ge\sum_{\rho\ \text{on the line}}\frac{m_\rho^2}{|\rho|^2}$ ($=2+\gamma_E-\log4\pi=0.0461914\ldots$ if all zeros are simple and on the line). Conjecture (BDBLS 2000): $d_N^2\sim\frac{2+\gamma_E-\log4\pi}{\log N}$. *Implemented with the verified Vasyunin closed form for the Gram matrix and both float64 and rigorous ball-arithmetic solves: `nyman_beurling.py`.*
-14. **Balazard–Saias–Yor (1999).** RH $\iff\displaystyle\int_{\Re s=1/2}\frac{\log|\zeta(s)|}{|s|^2}\,|ds|=0$. (In general the integral equals $2\pi\sum_{\Re\rho>1/2}\log\left|\frac{\rho}{1-\rho}\right|\ge0$.) *Planned: `integral_criteria.py`.*
-15. **Volchkov (1995).** RH $\iff\displaystyle\int_0^\infty\frac{1-12t^2}{(1+4t^2)^3}\int_{1/2}^\infty\log|\zeta(\sigma+it)|\,d\sigma\,dt=\pi\frac{3-\gamma_E}{32}$. *Planned: `integral_criteria.py`.*
+14. **Balazard–Saias–Yor (1999).** RH $\iff\displaystyle\int_{\Re s=1/2}\frac{\log|\zeta(s)|}{|s|^2}\,|ds|=0$. (In general the integral equals $2\pi\sum_{\Re\rho>1/2}\log\left|\frac{\rho}{1-\rho}\right|\ge0$.) *Implemented: `integral_criteria.bsy_integral`.*
+15. **Volchkov (1995).** RH $\iff\displaystyle\int_0^\infty\frac{1-12t^2}{(1+4t^2)^3}\int_{1/2}^\infty\log|\zeta(\sigma+it)|\,d\sigma\,dt=\pi\frac{3-\gamma_E}{32}$. *Implemented: `integral_criteria.volchkov_integral`.*
 16. **Lagarias' $\mathrm{Re}(\xi'/\xi)$ criterion (1999).** RH $\iff \Re\frac{\xi'}{\xi}(s)>0$ for $\Re s>\tfrac12$ (equivalently $\frac{\xi'}{\xi}$ maps the right half-plane into itself; from the Hadamard product, $\Re\frac{\xi'}{\xi}(s)=\sum_\rho\Re\frac1{s-\rho}$).
 17. **Hilbert space of Dirichlet series / Beurling's version.** RH $\iff$ the functions $\{\rho_\theta\}$ span $L^2(0,1)$; in Mellin terms, $\iff 1/\zeta$ belongs to the closure of Dirichlet polynomials in the weighted $L^2$ of item 13.
 
@@ -50,3 +50,5 @@ $d_N^2=\inf_{c\in\mathbb R^N}\|\chi_{(0,1]}-\sum_{k\le N}c_k\rho_k\|^2=\inf_{A_N
 | de Bruijn–Newman dynamics | `debruijn_newman.py` | numerical ODE |
 | Davenport–Heilbronn (RH fails without Euler product) | `davenport_heilbronn.py` | numerical, zeros certified by argument principle to residual $<10^{-12}$ |
 | GUE statistics | `statistics.py` | numerical |
+| Balazard–Saias–Yor, Volchkov integrals | `integral_criteria.py` | numerical (tanh-sinh, Arb $\zeta$), identities verified to $10^{-10}$ / $10^{-7}$ |
+| Báez-Duarte sequential $c_k$ | `sequential_criteria.py` | float64/mpmath exact sums; explicit formula over zeros |
