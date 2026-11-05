@@ -1,0 +1,44 @@
+{
+  "bsy": {
+    "T_max": 18046.464296239203,
+    "I_T": -7.212520978693637e-10,
+    "checkpoints": {
+      "10": {
+        "T": 49.7738324776723,
+        "I_T": -5.5132599227885804e-05
+      },
+      "100": {
+        "T": 236.5242296658162,
+        "I_T": 6.352883332882113e-06
+      },
+      "1000": {
+        "T": 1419.4224809459956,
+        "I_T": -3.566338661032103e-08
+      },
+      "10000": {
+        "T": 9877.7826540055,
+        "I_T": -8.229086278944943e-11
+      }
+    },
+    "expected_under_RH": 0.0,
+    "note": "truncation error is O(1/T) with fluctuating sign; sensitivity to a zero 1/2+delta+i*gamma is ~delta/(1/4+gamma^2)",
+    "seconds": 643.5641388893127
+  },
+  "volchkov": {
+    "T": 200.0,
+    "sigma_max": 30.0,
+    "nodes_t": 32,
+    "nodes_sigma": 64,
+    "value": 0.23785638119790672,
+    "target_pi_3_minus_gamma_over_32": 0.2378562958868055,
+    "abs_error": 8.53111012111274e-08,
+    "convergence": {
+      "T=60,(24,48)": 3.54e-06,
+      "T=60,(32,64)": 9.52e-08,
+      "T=200,(32,64)": 8.53111012111274e-08,
+      "T=300,(32,64)": 8.54e-08
+    },
+    "note": "inner sigma-integral with the nearest zero's log singularity subtracted analytically and the sigma-range split at the pole; residual is quadrature-order limited",
+    "seconds": 133.24586462974548
+  }
+}

@@ -20,7 +20,7 @@ for n in [10, 100, 1000, 10000, 100000, 1000000]:
     if n <= len(z):
         checkpoints[str(n)] = {"T": float(z[n - 1]), "I_T": float(partial[n - 1])}
 t1 = time.time()
-V = ic.volchkov_integral(z, T=a.volchkov_T, sigma_max=30.0, n_nodes_t=24, n_nodes_sigma=48)
+V = ic.volchkov_integral(z, T=a.volchkov_T, sigma_max=30.0, n_nodes_t=32, n_nodes_sigma=64)
 target = math.pi * (3 - EULER_GAMMA) / 32
 summary = {
     "bsy": {"T_max": T, "I_T": I, "checkpoints": checkpoints, "expected_under_RH": 0.0,

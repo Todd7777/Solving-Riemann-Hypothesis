@@ -1,0 +1,11 @@
+{
+  "first_index": 100001,
+  "count": 900000,
+  "dps": 15,
+  "max_radius": 1.2005317942022364e-10,
+  "first_gamma": 74921.9297939584,
+  "last_gamma": 600269.6770124449,
+  "method": "Arb acb_dirichlet_zeta_zeros via python-flint (rigorous isolation, Turing method)",
+  "wall_seconds": 3542.869018793106,
+  "workers": 2
+}

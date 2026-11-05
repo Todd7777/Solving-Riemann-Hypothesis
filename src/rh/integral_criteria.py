@@ -44,8 +44,9 @@ def tanh_sinh_rule(n: int = 40, h: float | None = None):
     u = k * h
     x = np.tanh(0.5 * np.pi * np.sinh(u))
     w = h * 0.5 * np.pi * np.cosh(u) / np.cosh(0.5 * np.pi * np.sinh(u)) ** 2
-    # avoid nodes rounding to exactly +-1
-    keep = np.abs(x) < 1 - 1e-16
+    # drop the extreme nodes (weights < 1e-15) whose abscissae are within a few
+    # ulps of +-1: they contribute nothing and can round onto interval endpoints
+    keep = np.abs(x) < 1 - 1e-14
     return x[keep], w[keep]
 
 
@@ -88,28 +89,68 @@ def bsy_integral(zeros, T=None, logabs_zeta=None, n_nodes=40, progress=None):
     return float(edges[-1]), total / math.pi, partial
 
 
-def volchkov_integral(zeros, T=120.0, sigma_max=30.0, n_nodes_t=24, n_nodes_sigma=48, dps=15):
+def volchkov_integral(zeros, T=120.0, sigma_max=30.0, n_nodes_t=24, n_nodes_sigma=48, dps=15,
+                      subtract_nearest_zero=True):
     """Volchkov's double integral truncated at height T and sigma_max, using Arb
-    for zeta.  The t-range is split at the zeros (log singularities of the inner
-    integral's integrand at sigma=1/2).  Expected value under RH: pi(3-gamma)/32."""
+    for zeta.  The t-range is split at the zeros.  Expected value under RH:
+    pi(3-gamma)/32 = 0.23785629588680...
+
+    Inner integral: for t near a zero rho_j = 1/2 + i gamma_j the integrand
+    log|zeta(sigma+it)| has a sharp peak at sigma -> 1/2 (a log singularity when
+    t = gamma_j).  With `subtract_nearest_zero` we write
+        log|zeta(s)| = log|s - rho_j| + log|zeta(s)/(s - rho_j)|
+    for the nearest zero and integrate the first term in closed form over
+    [1/2, sigma_max]:  with x = sigma - 1/2, e = t - gamma_j,
+        int_0^X log sqrt(x^2 + e^2) dx = X log sqrt(X^2+e^2) - X + |e| arctan(X/|e|).
+    The remaining integrand is smooth, so the tanh-sinh rule converges fast.
+    The sigma-range is split at sigma = 1 so that the pole of zeta (a log
+    singularity of the integrand for t -> 0) sits at an endpoint of a panel.
+    Truncation: the t-tail beyond T is O(T^-3) (weight ~ 12 t^2/(64 t^6)), the
+    sigma-tail beyond sigma_max is O(2^-sigma_max).
+    """
     from flint import acb, ctx
     old = ctx.dps
     ctx.dps = dps
     try:
         zeros = np.asarray(zeros, dtype=float)
-        zeros = zeros[zeros <= T]
-        edges = np.concatenate([[0.0], zeros, [T]])
+        zeros_T = zeros[zeros <= T]
+        edges = np.concatenate([[0.0], zeros_T, [T]])
         xt, wt = tanh_sinh_rule(n_nodes_t)
         xs, ws = tanh_sinh_rule(n_nodes_sigma)
-        # inner integral over sigma in [1/2, sigma_max]; split [1/2, 2] and [2, sigma_max]
+        X = sigma_max - 0.5
+
         def inner(t):
+            # nearest zero (in t) for the subtraction
+            j = int(np.searchsorted(zeros, t))
+            cands = [k for k in (j - 1, j) if 0 <= k < len(zeros)]
+            g = min(cands, key=lambda k: abs(zeros[k] - t)) if cands and subtract_nearest_zero else None
+            e = (t - zeros[g]) if g is not None else None
             tot = 0.0
-            for (a, b) in ((0.5, 2.0), (2.0, sigma_max)):
+            # split at sigma = 1 so that the pole's log singularity (t -> 0) is an endpoint
+            for (a, b) in ((0.5, 1.0), (1.0, 2.0), (2.0, sigma_max)):
                 mid, half = 0.5 * (a + b), 0.5 * (b - a)
-                s = mid + half * xs
-                vals = np.array([math.log(float(abs(acb(float(si), float(t)).zeta()))) for si in s])
+                sig = mid + half * xs
+                vals = np.empty(len(sig))
+                for i, si in enumerate(sig):
+                    z = acb(float(si), float(t)).zeta()
+                    if g is not None:
+                        d = acb(float(si) - 0.5, float(e))
+                        if abs(float(si) - 0.5) + abs(float(e)) < 1e-13:
+                            # exact coincidence with the zero: the limit is |zeta'(rho)|
+                            from flint import acb_series
+                            ser = acb_series([acb(0.5, float(zeros[g])), 1]).zeta()
+                            z = ser.coeffs()[1]
+                        else:
+                            z = z / d
+                    v = float(abs(z))
+                    vals[i] = math.log(v) if (v > 0 and math.isfinite(v)) else 0.0
                 tot += half * float(np.dot(ws, vals))
+            if g is not None:
+                ae = abs(e)
+                closed = X * math.log(math.hypot(X, ae)) - X + (ae * math.atan(X / ae) if ae > 0 else 0.0)
+                tot += closed
             return tot
+
         total = 0.0
         for j in range(len(edges) - 1):
             a, b = edges[j], edges[j + 1]

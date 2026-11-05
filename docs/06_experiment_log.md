@@ -79,11 +79,21 @@ Figures: `li_coefficients.png`, `li_oscillation.png`.
 
 ---
 
-## E5. Integral criteria (Balazard–Saias–Yor, Volchkov) — running
+## E5. Integral criteria: Balazard–Saias–Yor and Volchkov (2026-11-05)
 
-`python3 scripts/run_integral_criteria.py`
+`python3 scripts/run_integral_criteria.py --nzeros 20000` (BSY 644 s with Arb's $\zeta$ at 0.3 ms per evaluation; Volchkov 140 s). Module `integral_criteria.py` (tanh-sinh rule with 81–127 nodes per panel between consecutive zeros, robust to the logarithmic endpoint singularities).
 
-*(to be filled in)*
+**Balazard–Saias–Yor.** $I(T)=\frac1\pi\int_0^T\frac{\log|\zeta(1/2+it)|}{1/4+t^2}dt$, which equals $\sum_{\Re\rho>1/2}\log|\rho/(1-\rho)|$ in the limit, hence $0$ under RH:
+
+| $T$ (at zero no.) | 49.8 (10) | 236.5 (100) | 1419 (1000) | 9878 (10 000) | 18 046 (20 000) |
+|---|---|---|---|---|---|
+| $I(T)$ | $-5.5\times10^{-5}$ | $6.4\times10^{-6}$ | $-3.6\times10^{-8}$ | $-8.2\times10^{-11}$ | $-7.2\times10^{-10}$ |
+
+The identity holds to ten decimals; the truncation error decays much faster than the naive $O(1/T)$ because $\log|\zeta|$ has mean zero on the line (Selberg), so the tail cancels. Figure `integral_criteria_bsy.png`.
+
+**Volchkov.** $\int_0^\infty\frac{1-12t^2}{(1+4t^2)^3}\int_{1/2}^\infty\log|\zeta(\sigma+it)|\,d\sigma\,dt=\pi\frac{3-\gamma_E}{32}=0.237\,856\,295\,887$. Two numerical traps had to be removed to see the identity: the pole at $s=1$ is an interior logarithmic singularity of the inner integrand for $t\to0$ (splitting the $\sigma$-range at $\sigma=1$ removed a systematic $-2.7\times10^{-4}$), and near each zero the inner integrand peaks sharply at $\sigma\to\tfrac12$ (subtracting $\log|s-\rho_j|$ for the nearest zero analytically). Result at $T=200$, $\sigma_{\max}=30$, (32, 64) nodes: $0.237\,856\,381$, error $8.5\times10^{-8}$, independent of $T\in[60,300]$ (quadrature-order limited: $3.5\times10^{-6}$ with (24, 48) nodes).
+
+**Interpretation.** Both identities are confirmed to the accuracy of the quadrature. As calibrated in §4.4 of the barriers document, a zero $\tfrac12+\delta+i\gamma$ would change $I$ by $\approx\delta/(\tfrac14+\gamma^2)$: at $\gamma=10^4$ and $\delta=0.1$ that is $10^{-9}$ — at the level of our truncation error, and beyond that height invisible. The integral criteria are exact reformulations but numerically the least sensitive of all.
 
 ---
 
