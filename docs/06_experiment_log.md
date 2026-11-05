@@ -116,9 +116,23 @@ Figures: `li_coefficients.png`, `li_oscillation.png`.
 
 ---
 
-## E8. Zero statistics vs GUE — worker running
+## E8. Zero statistics versus GUE (2026-11-05)
 
-*(to be filled in)*
+`python3 scripts/run_statistics.py` (11 s on $10^5$ zeros; re-run on the full $10^6$ set below). Module `statistics.py` (~900 lines); 14 tests. High sample: 6000 consecutive zeros from index $10^{10}$ ($T\approx3.29\times10^9$; Arb, radius $4.9\times10^{-7}$; 556 s on 3 cores).
+
+**Reference laws.** Exact GUE spacing density $p_2(s)=\partial_s^2\det(I-K_s)$ (sine kernel on $[0,s]$) by Bornemann's Gauss–Legendre Nyström method (40–90 nodes agree to $10^{-15}$), Chebyshev-interpolated; checks: $\int p_2=1+3\times10^{-10}$, mean $1+10^{-11}$, variance $0.17999$ (Wigner surmise $0.17810$), small-$s$ series $\pi^2s^2/3-2\pi^4s^4/45+\dots$ matched to $1.6\times10^{-10}$, Jacobi-formula derivatives agree to $10^{-11}$. $\max|p_2-\text{Wigner}|=0.0052$ at $s\approx1.1$.
+
+**Spacings.** Unfolded by $\theta(\gamma)/\pi$ (long double; needed at $x\sim10^{10}$). Zeros $1..10^5$: mean spacing $1.00000$, variance $0.1607$ (GUE $0.1800$); sample at $10^{10}$: variance $0.1779$. Kolmogorov–Smirnov distance to exact GUE (noise floor $0.87/\sqrt n$ in parentheses): zeros $1..10^4$: $0.0289$ $(0.0087)$ at $\log T=5.9$; $10^4..3\times10^4$: $0.0241$ $(0.0061)$; $3\times10^4..10^5$: $0.0192$ $(0.0033)$; aggregate $1..10^5$: $0.0207$ at $s=0.646$ with the empirical CDF *below* GUE (fewer small spacings: stronger repulsion at finite height); sample at $\log T=21.9$: $0.0056$ $(0.0112)$ — indistinguishable from GUE. The three low windows plus the sample are consistent with both $c/\log T$ ($c=0.19$) and $c/(\log T)^2$ ($c=1.2$) and cannot discriminate (Bogomolny–Bohigas–Leboeuf–Monastra 2006 predict the latter via an effective CUE dimension $N_{\rm eff}\propto\log(T/2\pi)$).
+
+**Pair correlation.** First $10^5$ zeros: on $\alpha\in[0.9,1.1]$, $\max|R_2-R_2^{\rm GUE}|=0.034$; over all bins the rms deviation $0.024$ exceeds the Poisson error $0.013$ ($\chi^2/\text{bin}=5.8$): real finite-height structure — excess at $\alpha\approx0.4$, suppression below $0.2$, dip at $\alpha\approx1.3$–$1.5$, the Bogomolny–Keating pattern. The $10^{10}$ sample is consistent with GUE ($\chi^2/\text{bin}=0.59$). Montgomery's form factor $F(\alpha)$: plateau $0.999$ (first $10^5$) and $1.005$ (sample) for $\alpha>1.2$ with the diagonal normalisation; $F(0.5)=0.650$ vs the finite-height GUE expectation $0.661$.
+
+**Number variance.** With a jittered start grid (a regular grid aliases with the near-unit lattice of unfolded zeros and biases counts by 5 %): GUE-like for $L\lesssim1$, then **saturation** at $\Sigma^2_\infty=0.3592\pm0.0028$ (zeros $1..10^5$; Berry's semiclassical prediction $0.3621$) and $0.4414\pm0.0106$ (sample; Berry $0.4459$), with the prime-driven oscillations of $\Sigma^2(L)$ in phase with Berry's diagonal-approximation curve ($L=10,20,50$: $0.495/0.452/0.437$ observed vs $0.492/0.450/0.434$). GUE would give $0.813$ at $L=100$.
+
+**Lehmer pairs.** Smallest normalised spacing among the first $10^5$ zeros: $0.02186$ at $n=95248$ ($\gamma=71732.901208/71732.915909$, gap $0.0147$); Lehmer's classical pair $n=6709$ ($7005.062866/7005.100565$, normalised $0.0421$) ranks 6th; Csordas–Smith–Varga statistic $\Delta=0.0069\ll4/5$ for it, and all 10 closest pairs have $\Delta<0.014$. In the sample the smallest normalised spacing is $0.01137$ (gap $0.00356\gg$ radius).
+
+Figures: `statistics_spacing.png`, `statistics_pair_correlation.png`, `statistics_number_variance.png`, `statistics_height_dependence.png`.
+
+**Interpretation.** Everything is as the GUE model with arithmetic (prime) corrections predicts, at four heights spanning $10^2$ to $3\times10^9$ — consistent with the Hilbert–Pólya picture and with the Bogomolny–Keating/Berry semiclassics, and, as §3.3 of the survey says, silent on the *location* of the zeros.
 
 ## E9. de Bruijn–Newman flow and explicit formula / Weil positivity — worker running
 

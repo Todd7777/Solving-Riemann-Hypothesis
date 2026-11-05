@@ -13,7 +13,13 @@ from flint import arb, ctx
 import rh.zeta as zt
 from rh.data import load_zeros
 
-ctx.dps = 30
+
+
+@pytest.fixture(autouse=True)
+def _dps30():
+    # reference values from Arb in this module are computed at 30 digits
+    ctx.dps = 30
+    yield
 
 GAMMA_1 = 14.134725141734693790
 GAMMA_2 = 21.022039638771554993
