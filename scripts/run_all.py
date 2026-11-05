@@ -15,8 +15,8 @@ ROOT = os.path.dirname(HERE)
 
 EXPERIMENTS = [
     ("run_verify.py", [], ["--T", "5000"]),
-    ("run_arithmetic.py", [], ["--quick"]),
-    ("run_statistics.py", [], ["--quick"]),
+    ("run_arithmetic.py", [], ["--robin-N", "1000000", "--nicolas-K", "1000", "--ca-K", "50", "--speiser-T", "300", "--dh-T", "150"]),
+    ("run_statistics.py", [], ["--n-windows", "20000"]),
     ("run_li.py", [], ["--nmax", "2000", "--hp-max", "300"]),
     ("run_nyman_beurling.py", ["--N", "10000", "--arb", "800", "--tag", "_N10000"], ["--N", "1000", "--arb", "200", "--tag", "_quick"]),
     ("analyze_nb_structure.py", ["--tag", "_N10000"], ["--tag", "_quick"]),

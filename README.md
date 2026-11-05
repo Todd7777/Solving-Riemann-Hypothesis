@@ -20,15 +20,17 @@ Start with [`docs/00_problem_statement.md`](docs/00_problem_statement.md) and [`
 
 ## Highlights of the experiments
 
-See `docs/06_experiment_log.md` for all numbers with error estimates. In brief:
+All numbers come with method and error estimates in [`docs/06_experiment_log.md`](docs/06_experiment_log.md). In brief:
 
-* **Zeros.** One million zeros recomputed with ball arithmetic; an independent Riemann–Siegel + Turing implementation certifies $N(T)$ and the location of all zeros on the line up to the height of the dataset; agreement with Arb to $\sim10^{-9}$.
-* **Nyman–Beurling.** Using the Vasyunin closed form (re-verified to 37 digits) for the Gram matrix of $\{1/(kx)\}$, the Báez-Duarte distances are computed to $N=10^4$ (rigorous enclosures to $N=800$). $d_N^2\log N$ oscillates around Burnol's constant $C=2+\gamma-\log4\pi=0.04619\ldots$ (the conjectured limit), within a few percent, dipping below it; the optimal coefficients have the sign of $-\mu(k)$ for every squarefree $k$.
-* **Li coefficients.** $\lambda_n$ to $n=10^4$ from the zeros, cross-checked against an independent high-precision power-series computation; all positive; the oscillatory part is far below the scale that any off-line zero would produce.
-* **Báez-Duarte sequential criterion.** $c_k=\sum_j(-1)^j\binom kj/\zeta(2j+2)$ is computed to $k=10^6$ and reproduced to $10^{-16}$ by an explicit formula over the first few zeros, exhibiting the $k^{-3/4}$ decay (and a $k^{-2}$ trivial-zero term that dominates below $k\approx10^5$).
-* **Arithmetic criteria.** Robin, Lagarias, Nicolas verified to large bounds; colossally abundant numbers' Robin ratios approach $1$ from below.
-* **Statistics.** Spacings and pair correlation versus GUE at four heights, with the $1/\log T$ approach to GUE.
-* **Control.** The Davenport–Heilbronn function (functional equation, no Euler product) is shown to have zeros off the line — the reason every proof must use multiplicativity.
+* **Zeros.** One million zeros recomputed with Arb's rigorous isolation (ball radius $\le6\times10^{-11}$), plus 6000 zeros at height $3.3\times10^9$. An independent float64 Riemann–Siegel implementation with Turing's method **certifies** $N(74920.9)=100\,000$ (all of the first $10^5$ zeros simple and on the line) in 9 s, agreeing with Arb's ordinates to $5.8\times10^{-10}$.
+* **Nyman–Beurling.** With the Vasyunin closed form for the Gram matrix of $\{1/(kx)\}$ (re-verified to 37 digits against direct integration), the Báez-Duarte distances $d_N^2$ are computed to $N=10^4$ (rigorous enclosures to several hundred). $d_N^2\log N$ oscillates around Burnol's constant $C=2+\gamma-\log4\pi=0.04619$ within a few percent, dipping below it; a one-parameter fit gives $0.0461$. The drops of $d_N^2$ happen at the primes; the optimal coefficients have sign $-\mu(k)$ for every squarefree $k$ with a taper close to $(1-\log k/\log N)^{1/2}$, shallower than the $1-\log k/\log N$ mollifier.
+* **Li coefficients.** $\lambda_n>0$ for $n\le10^4$, rigorously (Arb enclosures from the power series of $\log\xi$) for $n\le5000$; zero-sum and series methods agree to $3.6\times10^{-12}$; the asymptotic constant $\tfrac12(\gamma-1-\log2\pi)$ is recovered to 5 digits and the constant term of the archimedean part is shown to be $3/4$. A *detection-horizon* calculation shows that $\lambda_n$ to $n=10^4$ is blind to any off-line zero above height $\approx30$.
+* **Báez-Duarte sequential criterion.** $c_k=\sum_j(-1)^j\binom kj/\zeta(2j+2)$ to $k=10^6$ is reproduced to $10^{-9}$ by an explicit formula over 8 nontrivial and 12 trivial zeros; after removing the (dominant!) trivial-zero term, $k^{3/4}c_k$ is a pure sinusoid in $\log k$ with the frequency $\gamma_1/2$ of the first zero.
+* **Arithmetic criteria.** Robin's inequality to $10^7$ (exactly the 27 known exceptions), Lagarias' to $10^7$, Nicolas' for $10^4$ primorials (ratio strictly decreasing, $r_k-1\approx2.1/(\sqrt{p_k}\log p_k)$), 200 colossally abundant numbers (Robin's ratio $<1$ with $1-\text{ratio}\approx0.13/\sqrt{\log n}$).
+* **Speiser.** 1298 zeros of $\zeta'$ up to height 2000, each certified by Krawczyk's test to lie right of the critical line (minimum $\Re s=0.5034$).
+* **Statistics.** Spacings, pair correlation, Montgomery's form factor and the number variance versus GUE at heights $10^2$–$3\times10^9$: KS distance to the exact GUE law falls from $0.029$ to $0.006$; number variance saturates at Berry's semiclassical value ($0.359$ vs $0.362$; $0.441$ vs $0.446$).
+* **Integral criteria.** The Balazard–Saias–Yor integral is $\approx10^{-8}$ at $T=6000$ and Volchkov's identity holds to the truncation error — and both are shown to be numerically blind to off-line zeros at height.
+* **Control.** The Davenport–Heilbronn function (functional equation, no Euler product) has 5 certified zeros off the line below height 300 — the reason every proof must use multiplicativity.
 
 ## Reproduce
 
