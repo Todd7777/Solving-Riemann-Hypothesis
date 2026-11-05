@@ -46,7 +46,7 @@ For each approach: the idea, what it has achieved, and precisely where it is stu
 
 **Idea.** RH $\iff$ the indicator function $\chi_{(0,1]}$ can be approximated in $L^2$ by combinations of $\{1/(kx)\}$, equivalently $1/\zeta$ by Dirichlet polynomials in a weighted $L^2$ on the critical line. This turns RH into a question in approximation theory / linear algebra: does $d_N\to0$?
 
-**Status.** The theorem is exact; Burnol's lower bound $d_N^2\gtrsim C/\log N$ is sharp conjecturally; Bettin–Conrey–Farmer showed under RH plus a hypothesis that the Möbius mollifier achieves it. Numerics (Landreau–Richard 2002; this repository up to $N=10^4$ with rigorous enclosures to several hundred) show $d_N^2\log N$ decreasing towards $C\approx0.0462$.
+**Status.** The theorem is exact; Burnol's lower bound $d_N^2\gtrsim C/\log N$ is sharp conjecturally; Bettin–Conrey–Farmer showed under RH plus a hypothesis that the Möbius mollifier achieves it. Numerics (Landreau–Richard 2002; this repository up to $N=10^4$ with rigorous enclosures to $N=800$) show $d_N^2\log N$ oscillating around $C\approx0.0462$ and sitting about $2\%$ *below* it at $N=10^4$ — allowed by the liminf statement, but a warning that the limit is approached slowly and non-monotonically.
 
 **Obstruction.** Showing $d_N\to0$ amounts to constructing good Dirichlet-polynomial approximations to $1/\zeta$ on the critical line *with control near the zeros*; the natural candidates (Möbius mollifiers) are controlled only under RH. The Gram matrix is explicit (Vasyunin sums), but there is no structural reason known for $b^TG_N^{-1}b\to1$.
 
