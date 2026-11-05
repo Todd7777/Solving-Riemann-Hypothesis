@@ -77,7 +77,7 @@ if G is not None:
     def U(al):
         cc = -mu * np.clip(1 - x, 0, None) ** al
         return float(1 - 2 * b @ cc + cc @ G @ cc)
-    lo, hi = 0.5, 12.0
+    lo, hi = 0.05, 12.0
     for _ in range(40):
         m1 = lo + (hi - lo) * 0.382; m2 = lo + (hi - lo) * 0.618
         if U(m1) < U(m2): hi = m2

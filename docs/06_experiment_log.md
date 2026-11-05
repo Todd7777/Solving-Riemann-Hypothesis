@@ -55,7 +55,18 @@ Figures: `nyman_beurling_dN_logN_N2000.png`, `nyman_beurling_dN_N2000.png`, `nym
 * **The sequence sits below Burnol's constant.** Over $1000\le N\le10^4$, $d_N^2\log N\in[0.04450,0.04667]$, and for $N\ge2500$ it is *below* $C=0.046191$ throughout, ending at $0.04512$ — $2.3\%$ below $C$. Burnol's theorem is a $\liminf$ statement, so finite-$N$ values below $C$ are allowed, but it forces the sequence to rise again: the convergence $d_N^2\log N\to C$ (if the conjecture holds) is slow and non-monotone, with a relative deficit of $\approx2\%$ still present at $\log N=9.2$. A naive one-parameter fit $C_0+a/\log N$ over $N\ge1000$ now returns $C_0=0.0436<C$ — a fit that Burnol's theorem says cannot be the truth; the lesson is that the fluctuations (whose amplitude is not visibly decaying between $N=10^3$ and $10^4$) dominate any extrapolation at these sizes. Landreau–Richard (2002) reached similar conclusions at smaller $N$.
 * The Möbius mollifier $a_k=\mu(k)(1-\log k/\log N)$ gives $0.04688$ at $N=10^4$, versus $d_{10^4}^2=0.004899$: a factor $9.6$; the sign agreement of the optimal $c_k$ with $-\mu(k)$ on squarefree $k$ is $99.92\%$; mean $|c_k|$: $0.255$ (squarefree), $0.065$ (non-squarefree).
 
-Figures: `nyman_beurling_dN_logN_N10000.png`, `nyman_beurling_dN_N10000.png`, `nyman_beurling_coefficients_N10000.png`, `nyman_beurling_structure_N10000.png` (when the structure analysis completes).
+Figures: `nyman_beurling_dN_logN_N10000.png`, `nyman_beurling_dN_N10000.png`, `nyman_beurling_coefficients_N10000.png`.
+
+### E2c. Second-order structure (2026-11-05)
+
+`python3 scripts/analyze_nb_structure.py --tag _N2000` (2 min, rebuilds $G_{2000}$) and `--tag _N10000 --rebuild-gram` (≈1 h).
+
+* **Where the decrease comes from.** Over $10\le N\le10^4$, the $1229$ primes (12 % of the integers) account for $39.5\%$ of the total decrease of $d_N^2$; mean relative drop at a prime $2.1\times10^{-3}$ versus $1.7\times10^{-4}$ at $N=pq$ and $2.0\times10^{-4}$ at non-squarefree $N$ (at $N\le2000$: $42\%$, $8.4\times10^{-3}$ vs $7\times10^{-4}$). The sawtooth of $d_N^2\log N$ is the competition between these prime-driven drops and the growth of $\log N$.
+* **Spectrum of the oscillation.** The power spectrum of $d_N^2\log N-C$ in $u=\log N$ ($50\le N\le10^4$, Hann window) peaks at $\omega\approx1.2$ (period $5.3$ in $\log N$, i.e. the slow swing visible in the figure), then $4.7$, $7.1$, $11.9$, $16.6$. The peak at $7.1$ coincides with $\gamma_1/2=7.07$, but the frequency resolution ($2\pi/5.3\approx1.2$) is too coarse to claim that the zeros are visible in $d_N^2$; the question needs $N\gg10^4$ and is left open.
+* **Taper of the optimal coefficients.** With $x=\log k/\log N$, the binned medians of $-c_k/\mu(k)$ over squarefree $k$ follow $(1-x)^{0.48}$ at $N=10^4$ ($(1-x)^{0.45}$ at $N=2000$): shallower than $1-x$, with the coefficients at $k\approx N$ still $\approx0.2$ rather than $0$.
+* **Explicit mollifiers as upper bounds.** For $c_k=-\mu(k)(1-x)^\alpha$ the norm $U_N^2=1-2b\cdot c+c^TGc$ is an explicit upper bound for $d_N^2$. At $N=2000$ the best exponent is $\alpha\approx0.30$, giving $U^2=0.0180=2.95\,d_{2000}^2$ (the Bettin–Conrey–Farmer $\alpha=1$ gives $0.0674=11\,d_{2000}^2$); at $N=10^4$, $\alpha=\tfrac12$ gives $U^2=0.0172=3.5\,d_{10^4}^2$ versus $0.0469=9.6\,d_{10^4}^2$ for $\alpha=1$ (the search for the optimal $\alpha$ at $N=10^4$ with a wider bracket is recorded in `nyman_beurling_structure_N10000.json`). So the optimiser beats the best *pure* Möbius power taper by a factor $\approx3$, through the non-squarefree coefficients (mean $|c_k|=0.065$) and $k$-by-$k$ fluctuations around the taper. A mollifier family that captures this factor would be a concrete, provable improvement over $1-x$ in the Nyman–Beurling bound.
+
+Figures: `nyman_beurling_structure_N2000.png`, `nyman_beurling_structure_N10000.png`.
 
 ---
 
