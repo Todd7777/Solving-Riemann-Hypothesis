@@ -39,7 +39,7 @@
       "rel_diff": 1.0532044125435166e-34
     }
   ],
-  "H0_checks_seconds": 1.1352927684783936,
+  "H0_checks_seconds": 1.3928966522216797,
   "velocity_field": {
     "n_explicit": 20000,
     "median_first_half": -0.7925874010485213,
@@ -52,7 +52,7 @@
       -0.9554211638983443,
       -0.46544535675142734
     ],
-    "seconds": 5.797471761703491
+    "seconds": 5.9952170848846436
   },
   "lehmer_pairs_closest": [
     {
@@ -304,7 +304,7 @@
     "Rodgers-Tao_2018": 0.0,
     "note": "values quoted from memory; Rodgers\u2013Tao proved Lambda >= 0"
   },
-  "lehmer_seconds": 9.33010196685791,
+  "lehmer_seconds": 10.843730449676514,
   "flow_first_zeros": {
     "n_active": 33,
     "n_frozen": 5000,
@@ -316,7 +316,7 @@
     "min_spacing_t_0": 2.4385803754508686,
     "min_spacing_t_plus_0.5": 2.9190944300995056,
     "mean_displacement_t_plus_0.5": -0.36636585343351985,
-    "seconds": 0.08884286880493164
+    "seconds": 0.09109830856323242
   },
   "spacing_rigidity_t0.2": {
     "times": [
@@ -384,7 +384,7 @@
       1.18771748376912
     ],
     "n_rhs": 122,
-    "seconds": 21.06695008277893
+    "seconds": 20.65691590309143
   },
-  "total_seconds": 38.47859168052673
+  "total_seconds": 40.12784242630005
 }

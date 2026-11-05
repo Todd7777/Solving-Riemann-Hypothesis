@@ -148,6 +148,33 @@ Figures: `statistics_spacing.png`, `statistics_pair_correlation.png`, `statistic
 
 **Interpretation.** Everything is as the GUE model with arithmetic (prime) corrections predicts, at four heights spanning $10^2$ to $3\times10^9$ — consistent with the Hilbert–Pólya picture and with the Bogomolny–Keating/Berry semiclassics, and, as §3.3 of the survey says, silent on the *location* of the zeros.
 
-## E9. de Bruijn–Newman flow and explicit formula / Weil positivity — worker running
+## E9. de Bruijn–Newman heat flow and the explicit formula / Weil positivity (2026-11-05)
 
-*(to be filled in)*
+`python3 scripts/run_debruijn_newman.py` (40 s), `python3 scripts/run_explicit_formula.py` (30–95 s). Modules `debruijn_newman.py`, `explicit_formula.py`; 19 tests.
+
+**de Bruijn–Newman.** $H_0(z)=\xi(\tfrac12+\tfrac{iz}2)/8$ verified by direct quadrature of $\int_0^\infty\Phi(u)\cos(zu)\,du$ to $10^{-34}$ relative at $z=0,10,30,57,90$ ($H_0(0)=0.0621400972735392637$; $H_0(2\gamma_1)/H_0(0)=2.6\times10^{-18}$). The zero dynamics $\dot x_j=\sum_{k\ne j}2/(x_j-x_k)$ is integrated with explicit zeros plus an analytic tail field for the zeros beyond the dataset (closed form in terms of Legendre's $\chi_2$, verified against quadrature to $10^{-12}$; its analytic Jacobian verified by finite differences to $10^{-9}$). The median drift of the zeros is $-0.7857$, matching the derived $-\pi/4$.
+* *Lehmer's pair* $n=6709/6710$ ($\gamma=7005.06286617/7005.10056467$): $\Delta x=0.075397$, Csordas–Smith–Varga $\Delta^2g_k=0.00693<4/5$. Backward-flow **collision time $t^*=-7.11205\times10^{-4}$** from the ODE, in agreement with the two-body estimate $-\Delta^2/8=-7.10588\times10^{-4}$ and with a frozen-background closed form $\log(1-\Delta^2S/2)/(4S)=-7.11205\times10^{-4}$ (agreement to $10^{-11}$).
+* *Closest pair in the first $10^5$ zeros*, $n=95248/95249$ ($\gamma=71732.90121/71732.91591$, $\Delta x=0.029403$, $\Delta^2g=0.00201$): $t^*=-1.08094\times10^{-4}$. Since real simple zeros for $t>\Lambda$ imply $\Lambda\ge t^*$ under the (heuristic, float64) model, the dataset gives the **lower-bound estimate $\Lambda\gtrsim-1.1\times10^{-4}$**; the published rigorous bounds ($-4.4\times10^{-6}$ CSV 1994, $-2.7\times10^{-9}$ Odlyzko 2000, $-1.15\times10^{-11}$ Saouter–Gourdon–Demichel 2011) come from much closer pairs at far greater heights, and Rodgers–Tao's $\Lambda\ge0$ supersedes all of them. The 12 closest pairs are tabulated in the JSON; all are Lehmer pairs in the CSV sense.
+* *Forward flow to $t=0.2$* (the Platt–Trudgian upper bound) for the first 2000 zeros: the spacing distribution rigidifies — standard deviation of the normalised spacings drops to $0.738$ of its $t=0$ value, the minimum normalised spacing rises from $0.089$ to $0.468$ — the "crystallisation" that Rodgers–Tao's argument exploits in the other direction.
+
+Figures: `debruijn_newman_flow.png`, `debruijn_newman_spacings.png`.
+
+**Explicit formula.** For $g$ even with $\hat g=h$: $\sum_\rho h(\gamma_\rho)=h(\tfrac i2)+h(-\tfrac i2)-2\sum_n\frac{\Lambda(n)}{\sqrt n}g(\log n)+\frac1{2\pi}\int h(r)\bigl(\Re\psi(\tfrac14+\tfrac{ir}2)-\log\pi\bigr)dr$, with the archimedean term also evaluated in $u$-space (agreement $10^{-16}$), $10^5$ zeros plus a Riemann–von Mangoldt density tail, primes to $10^6$ ($10^7$ for wide $g$).
+* Gaussians $g=e^{-u^2/2\sigma^2}$, $\sigma\in\{1.5,1,0.5,\dots,0.0005\}$: **residual $\le2.7\times10^{-15}$**; $\sigma=2$: $2.9\times10^{-8}$ with primes to $10^6$ (prime truncation, as predicted) and $1.4\times10^{-11}$ with primes to $10^7$. (For a plain Gaussian either the primes or the zeros contribute, not both — the uncertainty principle: the zeros start at $14.13$.)
+* Modulated Gaussians $e^{-u^2/2\sigma^2}\cos(\omega u)$, where both sides are $O(1)$: residuals $4\times10^{-15}$ ($\omega=50$), $7.6\times10^{-14}$ ($500$), $5\times10^{-12}$ ($2\times10^4$), $1.6\times10^{-11}$ ($7\times10^4$, limited by the zero accuracy times $h'$).
+* Convergence: with the density tail, $\sigma=0.003$ gives residual $2.6\times10^{-7}$ with 1000 zeros and $1.8\times10^{-15}$ with 3000; in primes ($\omega=100$): $0.1$ ($n\le10$), $4.5\times10^{-5}$ ($10^2$), $1.2\times10^{-11}$ ($10^3$), $2\times10^{-15}$ ($10^4$).
+
+**Weil positivity** (arithmetic side $W(f*\tilde f)$ computed *without* the zeros; must be $\ge0$ under RH):
+* Gaussian bumps, $\sigma\in[0.02,0.4]$: $W$ from $0.043$ ($\sigma=0.05$) down to $2.6\times10^{-14}$ ($\sigma=0.4$), all $\ge0$; zero-side cross-check residual $\le4.6\times10^{-16}$.
+* Two bumps at $\pm a$ ($\sigma=0.2$, $a\in[0.05,5]$): $W$ oscillates in $[1.76\times10^{-8},6.8\times10^{-4}]$ like $1+\cos(2a\gamma_1)$ — **the prime side reproduces the first zero** — minimum $1.763\times10^{-8}$ at $a=1$, all positive; residual $\le5\times10^{-14}$.
+* Box $f=\mathbf 1_{[-a,a]}$, $a\in[0.1,7]$: $W\in[0.0585,0.19]$, minimum at $a=6$ (residual vs zero side $\le2.5\times10^{-7}$ because of the slow $1/r^2$ decay).
+
+Figures: `explicit_formula_residual.png`, `explicit_formula_weil_positivity.png`.
+
+**Interpretation.** The explicit formula is verified to machine precision with freshly computed zeros and primes — a strong end-to-end check of the whole pipeline (zeros, $\theta$, $\Lambda(n)$ sieve, archimedean term). Weil's form is positive on every family tried, as RH requires; the near-zero values ($10^{-8}$ for the two-bump family) show how *tight* positivity is for test functions that resonate with the first zero. As §3.2 of the survey explains, a proof would have to establish this positivity for *all* $f$ without knowing the zeros; the numerics locate where it is tightest (short bumps correlating at separation $a\approx\pi k/\gamma_1$), which is the regime the Connes–Consani small-support theorems address.
+
+---
+
+## Summary of the state of the evidence after all experiments
+
+Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated — and found to be essentially nil at the heights that matter.

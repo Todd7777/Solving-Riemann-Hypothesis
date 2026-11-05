@@ -596,48 +596,67 @@ def flow_spacing_rigidity(gammas, n_active=2500, n_frozen=2500, n_stat=2000, t_f
 # ----------------------------------------------------------------------------
 # 8. Figures
 # ----------------------------------------------------------------------------
-def plot_flow(flow30, collision, path, n_show=30):
-    """Two panels: trajectories x_j(t) of zeros 1..n_show for t in flow30.t, and the
-    Lehmer pair of `collision` (a CollisionResult) with its neighbours from t* to 0."""
+def plot_flow(flow30, collision, path, n_show=30, magnify=10.0):
+    """Three panels: (a) trajectories x_j(t)/2 of zeros 1..n_show with the
+    displacement from t=0 magnified by `magnify` (the true motion over |t| <= 0.5
+    is only a few tenths of a unit); (b) the true displacements; (c) the Lehmer
+    pair of `collision` (a CollisionResult) from its collision time t* to 0."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 5.2))
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(17, 5.4))
     n_show = min(n_show, flow30.x.shape[1])
+    i0 = int(np.argmin(np.abs(flow30.t)))
     cmap = plt.get_cmap("viridis")
     for j in range(n_show):
-        ax1.plot(flow30.t, flow30.x[:, j] / 2.0, color=cmap(j / max(n_show - 1, 1)), lw=1.2)
-    ax1.axvline(0.0, color="0.5", lw=0.8, ls="--")
-    ax1.set_xlabel("t")
+        col = cmap(j / max(n_show - 1, 1))
+        disp = (flow30.x[:, j] - flow30.x[i0, j]) / 2.0
+        ax1.plot(flow30.t, flow30.x[i0, j] / 2.0 + magnify * disp, color=col, lw=1.2)
+        ax2.plot(flow30.t, disp, color=col, lw=1.2)
+    for ax in (ax1, ax2):
+        ax.axvline(0.0, color="0.5", lw=0.8, ls="--")
+        ax.set_xlabel("t")
+        ax.grid(alpha=0.3)
     ax1.set_ylabel(r"$x_j(t)/2$   (zeros of $H_t$ in units of $\gamma$)")
-    ax1.set_title(f"Heat-flow trajectories of zeros 1..{n_show}\n"
+    ax1.set_title(f"Zeros 1..{n_show} under the heat flow (displacement magnified x{magnify:g})\n"
                   r"$\dot x_j = \sum_{k\neq j} 2/(x_j-x_k)$: repulsion for $t>0$, attraction for $t<0$",
                   fontsize=10)
-    ax1.grid(alpha=0.3)
+    ax2.set_ylabel(r"$(x_j(t) - x_j(0))/2$")
+    ax2.set_title("True displacements: common drift $-\\pi t/8$ (in $\\gamma$ units)\n"
+                  "plus repulsion of close pairs (e.g. $\\gamma_{27},\\gamma_{28}$ diverge for $t>0$)", fontsize=10)
+    ax2.plot(flow30.t, -np.pi / 8 * flow30.t, "k:", lw=1.2, label=r"$-\pi t/8$")
+    ax2.legend(fontsize=8, loc="upper right")
 
     lo = collision.window[0]
     k0 = collision.k - 1 - lo           # index of lower pair member inside the window
-    for j in range(max(0, k0 - 2), min(collision.x_window.shape[1], k0 + 4)):
-        is_pair = j in (k0, k0 + 1)
-        ax2.plot(collision.t, collision.x_window[:, j] / 2.0, lw=2.0 if is_pair else 1.0,
-                 color="C3" if is_pair else "0.4", label=f"$\\gamma_{{{lo + j + 1}}}$" if is_pair else None)
+    c_gamma = 0.5 * (collision.gamma_pair[0] + collision.gamma_pair[1])
+    for j in (k0, k0 + 1):
+        ax3.plot(collision.t, collision.x_window[:, j] / 2.0, lw=2.0, color="C3",
+                 label=f"$\\gamma_{{{lo + j + 1}}}(t)$")
+    ax3.plot(collision.t, 0.5 * (collision.x_pair[:, 0] + collision.x_pair[:, 1]) / 2.0, "k--", lw=0.8,
+             label="centre of the pair")
     if collision.t_star is not None:
-        ax2.axvline(collision.t_star, color="C3", ls=":", lw=1)
-        ax2.annotate(f"collision $t^*\\approx{collision.t_star:.3e}$",
-                     xy=(collision.t_star, collision.x_pair[-1, 0] / 2.0), xytext=(10, 25),
+        ax3.axvline(collision.t_star, color="C3", ls=":", lw=1)
+        ax3.annotate(f"collision $t^*\\approx{collision.t_star:.4e}$\n(two-body $-\\Delta^2/8$ = {collision.t_two_body:.4e})",
+                     xy=(collision.t_star, c_gamma), xytext=(25, 40),
                      textcoords="offset points", fontsize=9,
                      arrowprops=dict(arrowstyle="->", color="C3"))
-    ax2.set_xlabel("t  (backward heat flow, t < 0)")
-    ax2.set_ylabel(r"$x_j(t)/2$")
-    ax2.set_title(f"Lehmer pair $\\gamma_{{{collision.k}}}, \\gamma_{{{collision.k + 1}}}$ "
-                  f"= {collision.gamma_pair[0]:.4f}, {collision.gamma_pair[1]:.4f}\n"
+    ax3.set_xlabel("t  (backward heat flow, t < 0)")
+    ax3.set_ylabel(r"$x_j(t)/2$")
+    d_next = (collision.x_window[0, k0 + 2] - collision.x_window[0, k0 + 1]) / 2.0 if k0 + 2 < collision.x_window.shape[1] else float("nan")
+    d_prev = (collision.x_window[0, k0] - collision.x_window[0, k0 - 1]) / 2.0 if k0 >= 1 else float("nan")
+    ax3.set_title(f"Lehmer pair $\\gamma_{{{collision.k}}}, \\gamma_{{{collision.k + 1}}}$ = "
+                  f"{collision.gamma_pair[0]:.4f}, {collision.gamma_pair[1]:.4f}\n"
                   f"$\\Delta_x$ = {collision.Delta0:.5f}, $\\Delta^2 g_k$ = {collision.Delta2_g:.4f} "
-                  f"(Lehmer pair: {collision.is_lehmer_pair}),  $-\\Delta^2/8$ = {collision.t_two_body:.3e}",
+                  f"(Lehmer pair: {collision.is_lehmer_pair}); neighbours at $-${d_prev:.2f}, +{d_next:.2f}",
                   fontsize=9.5)
-    ax2.legend(loc="upper left", fontsize=9)
-    ax2.grid(alpha=0.3)
-    ax2.set_ylim(collision.gamma_pair[0] - 1.1, collision.gamma_pair[1] + 1.1)
+    ax3.legend(loc="upper left", fontsize=8)
+    ax3.grid(alpha=0.3)
+    half = 0.75 * collision.Delta0 / 2.0
+    ax3.set_ylim(c_gamma - half, c_gamma + half)
+    if collision.t_star is not None:
+        ax3.set_xlim(1.08 * collision.t_star, -0.02 * collision.t_star)
     fig.tight_layout()
     fig.savefig(path, dpi=140)
     plt.close(fig)

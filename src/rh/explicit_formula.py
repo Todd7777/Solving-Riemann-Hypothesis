@@ -158,7 +158,9 @@ def modulated_gaussian(sigma: float, omega: float) -> TestFunction:
 
 def weil_gaussian_bump(sigma: float) -> TestFunction:
     """f(u) = exp(-u^2/(2 sigma^2)):  g = f*f = sigma sqrt(pi) exp(-u^2/(4 sigma^2)),
-    h = |f^|^2 = 2 pi sigma^2 exp(-sigma^2 r^2)."""
+    h = |f^|^2 = 2 pi sigma^2 exp(-sigma^2 r^2).
+    Note g(log n) ~ e^{-(log n)^2/(4 sigma^2)}: with primes to 10^6 the prime sum
+    converges only for sigma <~ 1.1 (10^7: sigma <~ 1.3)."""
     s = float(sigma)
     return TestFunction(
         name=f"weil_gaussian_bump(sigma={s:g})",
@@ -315,3 +317,259 @@ def zero_sum(tf_or_h, zeros: np.ndarray, n_used: int | None = None, tail: bool =
         if T < R and T < windows[-1][1]:
             pass  # the windows already covered [T, R] with the exact h
     return finite, float(2.0 * val)
+
+
+# ----------------------------------------------------------------------------
+# 4. The explicit formula check
+# ----------------------------------------------------------------------------
+def explicit_formula_check(g, h=None, zeros=None, nmax=10 ** 6, n_zeros=None, tail=True,
+                           arch_method="auto", r_windows=None, u_max=None):
+    """Evaluate both sides of (EF) and return a dict with every term.
+
+    `g` may be a TestFunction (then h etc. are taken from it) or a callable, in
+    which case `h` (complex-capable), `r_windows` and `u_max` describe it.
+    zero side  = 2 sum_{n <= n_zeros} h(gamma_n) [+ density tail]
+    arithmetic = h(i/2) + h(-i/2) - 2 sum_{n <= nmax} Lambda(n) n^{-1/2} g(log n) + archimedean
+    residual   = zero side - arithmetic side.
+    """
+    if isinstance(g, TestFunction):
+        tf = g
+    else:
+        if h is None:
+            raise ValueError("h is required when g is a plain callable")
+        tf = TestFunction(name="custom", g=g, h=h, r_windows=r_windows or ((0.0, 50.0),), u_max=u_max or 40.0)
+    if zeros is None:
+        from rh.data import load_zeros
+        zeros = load_zeros(100000)
+    zeros = np.asarray(zeros, dtype=float)
+    n_used = zeros.size if n_zeros is None else min(int(n_zeros), zeros.size)
+    finite, tail_val = zero_sum(tf, zeros, n_used, tail)
+    poles = tf.h_poles()
+    primes = prime_sum(tf.g, nmax)
+    arch = archimedean_term(tf, arch_method)
+    arith = poles - primes + arch
+    return {"test_function": tf.name, "params": dict(tf.params), "n_zeros": int(n_used), "nmax": int(nmax),
+            "zero_sum_finite": finite, "zero_tail": tail_val, "zero_side": finite + tail_val,
+            "h_poles": poles, "prime_sum": primes, "archimedean": arch, "arithmetic_side": arith,
+            "residual": finite + tail_val - arith, "residual_no_tail": finite - arith}
+
+
+def convergence_in_zeros(tf: TestFunction, zeros, n_list, nmax=10 ** 6):
+    """Residual of (EF) as a function of the number of zeros used (with and without
+    the density tail); the arithmetic side is computed once."""
+    zeros = np.asarray(zeros, dtype=float)
+    arith = tf.h_poles() - prime_sum(tf.g, nmax) + archimedean_term(tf)
+    rows = []
+    for n in n_list:
+        n = int(min(n, zeros.size))
+        finite, tail_val = zero_sum(tf, zeros, n, True)
+        rows.append({"n_zeros": n, "residual": finite + tail_val - arith, "residual_no_tail": finite - arith,
+                     "tail": tail_val})
+    return {"test_function": tf.name, "arithmetic_side": arith, "rows": rows}
+
+
+def convergence_in_primes(tf: TestFunction, zeros, nmax_list):
+    """Residual of (EF) as a function of the prime cutoff nmax (zero side fixed)."""
+    zeros = np.asarray(zeros, dtype=float)
+    finite, tail_val = zero_sum(tf, zeros, None, True)
+    base = tf.h_poles() + archimedean_term(tf)
+    rows = []
+    for nm in nmax_list:
+        rows.append({"nmax": int(nm), "residual": finite + tail_val - (base - prime_sum(tf.g, int(nm)))})
+    return {"test_function": tf.name, "zero_side": finite + tail_val, "rows": rows}
+
+
+# ----------------------------------------------------------------------------
+# 5. Weil's functional
+# ----------------------------------------------------------------------------
+def weil_functional(tf: TestFunction, nmax=10 ** 6, zeros=None, arch_method="auto"):
+    """Arithmetic side of (EF) for g = f * f~ (the Weil functional W(f*f~)), computed
+    without zeros: h(i/2)+h(-i/2) + archimedean - 2 sum Lambda(n) n^{-1/2} g(log n).
+    Weil's criterion: RH <=> this is >= 0 for all f.  If `zeros` is given the
+    zero side sum_rho |f^(r_rho)|^2 (+ tail) is returned as well for comparison."""
+    poles = tf.h_poles()
+    primes = prime_sum(tf.g, nmax)
+    arch = archimedean_term(tf, arch_method)
+    out = {"test_function": tf.name, "params": dict(tf.params), "h_poles": poles, "prime_sum": primes,
+           "archimedean": arch, "arithmetic_side": poles - primes + arch}
+    if zeros is not None:
+        finite, tail_val = zero_sum(tf, np.asarray(zeros, dtype=float), None, True)
+        out["zero_side"] = finite + tail_val
+        out["zero_tail"] = tail_val
+        out["residual"] = finite + tail_val - out["arithmetic_side"]
+    return out
+
+
+def weil_functional_from_samples(u, f, nmax=10 ** 6, zeros=None, n_zeros=None):
+    """Weil functional for a *sampled* real f on a uniform grid u (f must be
+    negligible at both ends).  g = f * f~ is formed by discrete convolution
+    (f~(u) = f(-u)), the prime sum by cubic interpolation of g at log n, the pole
+    term as 2 int g(u) cosh(u/2) du and the archimedean term in u-space.  If zeros
+    are given, h(gamma) = |f^(gamma)|^2 is evaluated by the trapezoidal rule.
+    Accuracy is limited by the grid (O(du^2)); meant for exploring test functions
+    that have no closed-form transform."""
+    from scipy.interpolate import CubicSpline
+    u = np.asarray(u, dtype=float)
+    f = np.asarray(f, dtype=float)
+    du = u[1] - u[0]
+    if not np.allclose(np.diff(u), du):
+        raise ValueError("u must be uniform")
+    ft = f[::-1]                                  # f~(u) = f(-u) on the grid mirrored about 0
+    gfull = np.convolve(f, ft) * du               # support: u[0]+(-u[-1]) ... u[-1]-u[0]
+    ug = np.arange(gfull.size) * du + (u[0] - u[-1])
+    g_spl = CubicSpline(ug, gfull, extrapolate=False)
+
+    def g(x):
+        x = np.asarray(x, dtype=float)
+        out = g_spl(np.abs(x))
+        return np.where(np.isnan(out), 0.0, out)
+
+    umax = float(ug[-1])
+    poles = float(2.0 * np.trapezoid(gfull * np.cosh(ug / 2), ug))
+    primes = prime_sum(g, nmax)
+    arch = archimedean_term_u(g, umax)
+    out = {"test_function": "sampled f", "h_poles": poles, "prime_sum": primes, "archimedean": arch,
+           "arithmetic_side": poles - primes + arch, "g_at_0": float(g(0.0))}
+    if zeros is not None:
+        zeros = np.asarray(zeros, dtype=float)
+        n = zeros.size if n_zeros is None else int(n_zeros)
+        # the trapezoidal Fourier transform is spectrally accurate only below the
+        # Nyquist frequency pi/du; beyond it the sampled e^{iru} aliases to a low
+        # frequency and |f^|^2 is grossly overestimated, so cap the zeros used
+        r_nyquist = 0.5 * math.pi / du
+        n = int(min(n, np.searchsorted(zeros, r_nyquist)))
+        out["r_nyquist"] = r_nyquist
+        zs = zeros[:n]
+        # f^(r) = int f(u) e^{iru} du by trapezoid, in chunks of zeros
+        total = 0.0
+        w = np.full(u.size, du)
+        w[0] = w[-1] = du / 2
+        fw = f * w
+        for i0 in range(0, n, 2000):
+            r = zs[i0:i0 + 2000]
+            fh = np.exp(1j * np.outer(r, u)) @ fw
+            total += float(np.sum(np.abs(fh) ** 2))
+        out["zero_side_finite"] = 2.0 * total
+        out["n_zeros"] = n
+        out["residual_no_tail"] = 2.0 * total - out["arithmetic_side"]
+    return out
+
+
+def weil_positivity_scan(family: str, grid: Sequence[float], nmax=10 ** 6, zeros=None, **kw):
+    """Evaluate the Weil functional on a one-parameter family:
+    'gaussian_bump' (sigma in grid), 'two_bumps' (a in grid, sigma=kw['sigma']),
+    'box' (a in grid).  Returns a list of `weil_functional` dicts plus the minimum."""
+    rows = []
+    for p in grid:
+        if family == "gaussian_bump":
+            tf = weil_gaussian_bump(p)
+        elif family == "two_bumps":
+            tf = weil_two_bumps(kw.get("sigma", 0.2), p)
+        elif family == "box":
+            tf = weil_box(p)
+        else:
+            raise ValueError(family)
+        r = weil_functional(tf, nmax, zeros)
+        r["parameter"] = float(p)
+        rows.append(r)
+    vals = np.array([r["arithmetic_side"] for r in rows])
+    # the arithmetic side is a cancellation of O(1) terms; values below the
+    # float64 rounding level of those terms (e.g. -3e-15 where the true value is
+    # e^{-200}) are not evidence against positivity, so compare with a tolerance
+    tol = np.array([1e-13 * (abs(r["h_poles"]) + abs(r["prime_sum"]) + abs(r["archimedean"])) for r in rows])
+    for r, t in zip(rows, tol):
+        r["rounding_tolerance"] = float(t)
+    return {"family": family, "kw": kw, "rows": rows, "min_arithmetic_side": float(vals.min()),
+            "argmin_parameter": float(rows[int(vals.argmin())]["parameter"]),
+            "all_nonnegative": bool(np.all(vals >= -tol)),
+            "n_negative_beyond_rounding": int(np.sum(vals < -tol)),
+            "min_arithmetic_side_in_units_of_tolerance": float(np.min(vals / tol))}
+
+
+# ----------------------------------------------------------------------------
+# 6. Figures
+# ----------------------------------------------------------------------------
+def plot_residual_convergence(conv_zeros: list, conv_primes: list, path):
+    """Left: |residual| vs number of zeros (with/without density tail) for several
+    test functions.  Right: |residual| vs prime cutoff nmax."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 5.0))
+    for i, c in enumerate(conv_zeros):
+        n = [r["n_zeros"] for r in c["rows"]]
+        res = np.abs([r["residual"] for r in c["rows"]])
+        res0 = np.abs([r["residual_no_tail"] for r in c["rows"]])
+        lab = c["test_function"].replace("gaussian", "Gaussian")
+        ax1.loglog(n, np.maximum(res0, 1e-17), "o--", color=f"C{i}", ms=4, lw=1, label=f"{lab}: truncated sum")
+        ax1.loglog(n, np.maximum(res, 1e-17), "s-", color=f"C{i}", ms=4, lw=1.5, label=f"{lab}: + density tail")
+    ax1.set_xlabel("number of zeros used (both signs)")
+    ax1.set_ylabel("|zero side - arithmetic side|")
+    ax1.set_title("Explicit formula: convergence in the zeros (primes to $10^6$)", fontsize=10)
+    ax1.grid(alpha=0.3, which="both")
+    ax1.legend(fontsize=7.5)
+    for i, c in enumerate(conv_primes):
+        nm = [r["nmax"] for r in c["rows"]]
+        res = np.abs([r["residual"] for r in c["rows"]])
+        ax2.loglog(nm, np.maximum(res, 1e-17), "o-", color=f"C{i}", ms=4, lw=1.5, label=c["test_function"])
+    ax2.set_xlabel(r"prime-power cutoff $n_{\max}$")
+    ax2.set_ylabel("|residual|")
+    ax2.set_title("Convergence in the primes ($10^5$ zeros + density tail)", fontsize=10)
+    ax2.grid(alpha=0.3, which="both")
+    ax2.legend(fontsize=7.5)
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+    return path
+
+
+def plot_weil_positivity(scans: list, path):
+    """Arithmetic side of W(f*f~) along one-parameter families (must be >= 0 under RH),
+    with the zero side dashed where available and prime powers marked for the
+    two-bump family (its side lobes sit at u = 2a = log n)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, len(scans), figsize=(4.4 * len(scans) + 0.5, 4.6))
+    axes = np.atleast_1d(axes)
+    for ax, sc in zip(axes, scans):
+        p = np.array([r["parameter"] for r in sc["rows"]])
+        A = np.array([r["arithmetic_side"] for r in sc["rows"]])
+        ax.plot(p, A, color="C3", lw=1.6, label="arithmetic side (no zeros used)")
+        if "zero_side" in sc["rows"][0]:
+            Z = np.array([r["zero_side"] for r in sc["rows"]])
+            ax.plot(p, Z, "k--", lw=1.0, label=r"zero side $\sum_\rho |\hat f(r_\rho)|^2$")
+        ax.axhline(0, color="0.5", lw=0.8)
+        if "rounding_tolerance" in sc["rows"][0] and sc["family"] == "gaussian_bump":
+            tol = np.array([r["rounding_tolerance"] for r in sc["rows"]])
+            ax.plot(p, tol, color="0.4", ls=":", lw=1.0, label="float64 rounding level of the cancelled terms")
+        if sc["family"] == "two_bumps":
+            n, _ = vonmangoldt_table(100)
+            pk = 0.5 * np.log(n[n >= 2])
+            pk = pk[pk <= p.max()]
+            y0, y1 = ax.get_ylim()
+            ax.vlines(pk, y0, y0 + 0.06 * (y1 - y0), color="C0", lw=1.0, label=r"$2a=\log p^k$, $p^k\leq 100$")
+            ax.set_ylim(y0, y1)
+            ax.set_xlabel(r"$a$   (side lobes of $g$ at $u=\pm 2a$ weight the prime powers near $e^{2a}$)")
+            ax.set_title(f"two Gaussian bumps at $\\pm a$, $\\sigma$={sc['kw'].get('sigma', 0.2)}", fontsize=10)
+        elif sc["family"] == "box":
+            ax.set_xlabel(r"$a$   ($f=1_{[-a,a]}$, $g=(2a-|u|)_+$, $h=4\sin^2(ar)/r^2$)")
+            ax.set_title("box test functions", fontsize=10)
+            ax.set_yscale("log")
+        else:
+            ax.set_xlabel(r"$\sigma$   ($f=e^{-u^2/2\sigma^2}$)")
+            ax.set_title("Gaussian bump", fontsize=10)
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+        ax.set_ylabel(r"$W(f*\tilde f)$")
+        ax.grid(alpha=0.3)
+        ax.legend(fontsize=8)
+    fig.suptitle("Weil positivity: the arithmetic side of the explicit formula is nonnegative on "
+                 "$g=f*\\tilde f$ (min over the scans: %.3e)" % min(s["min_arithmetic_side"] for s in scans),
+                 fontsize=10)
+    fig.tight_layout()
+    fig.savefig(path, dpi=140)
+    plt.close(fig)
+    return path
