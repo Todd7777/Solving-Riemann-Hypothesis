@@ -26,11 +26,13 @@ and shifting the contour to the right across the poles at s = 1 - rho/2
 
 where the second sum comes from the TRIVIAL zeros rho = -2m (poles at s = 1+m);
 zeta'(-2m) = (-1)^m (2m)! zeta(2m+1) / (2 (2pi)^{2m}).  The m = 1 term equals
--1/(2 zeta'(-2) (k+1)(k+2)) ~ 16.4/k^2: formally smaller than k^{-3/4} but with a
-constant that is ~10^5 times larger than the exponentially small
-|Gamma(3/4 - i gamma_1/2)| of the leading nontrivial-zero term, so it dominates
-c_k for k up to ~10^5 and must be included (as the numerics in this repository
-showed: without it the prediction is off by a factor ~10 at k = 2·10^4).  Since B(1-rho/2, k+1) ~ Gamma(1-rho/2) k^{-(1-rho/2)}
+1/(2 zeta'(-2) (k+1)(k+2)) ~ -16.42/k^2 (zeta'(-2) = -zeta(3)/(4 pi^2) < 0):
+formally smaller than k^{-3/4} but with a constant ~10^5 times larger than the
+exponentially small |Gamma(3/4 - i gamma_1/2)| = 6.2e-5 of the leading
+nontrivial-zero term, so it dominates c_k for k up to ~2·10^4 (the computed
+crossover is k = 19758) and must be included (as the numerics in this
+repository showed: without it the prediction is off by a factor ~10 at
+k = 2·10^4).  Since B(1-rho/2, k+1) ~ Gamma(1-rho/2) k^{-(1-rho/2)}
 and |Gamma(3/4 - i gamma/2)| decays like exp(-pi gamma/4), the sum is dominated
 by the FIRST zero: under RH,
 

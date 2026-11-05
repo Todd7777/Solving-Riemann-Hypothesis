@@ -18,8 +18,9 @@ Numerical remarks (important).  Both are *exact identities* under RH, so they
 can be checked numerically only up to truncation (the BSY integrand has log
 singularities at every zero and a 1/t^2 tail; the truncation at height T
 leaves an error of order 1/T).  A hypothetical zero rho = 1/2 + delta + i gamma
-would change I by about delta/(1/4+gamma^2): the criteria are extremely
-insensitive at large height.  We implement them as calibration of that
+(together with its conjugate, which also has real part > 1/2) would change I by
+about 2 delta/(1/4+gamma^2): the criteria are extremely insensitive at large
+height.  We implement them as calibration of that
 insensitivity and as a check of the identities.
 
 Implementation.  The integrand log|zeta(1/2+it)| = log|Z(t)| is integrated on

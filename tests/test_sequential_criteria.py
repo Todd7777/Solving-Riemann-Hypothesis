@@ -24,5 +24,7 @@ def test_explicit_formula_dominant_zero():
     for k in (2000, 20000):
         exact = float(sc.c_k_exact(k, dps=30))
         pred = float(sc.c_k_explicit(k, rho))
-        # relative agreement limited by the O(k^-3/2) remainder relative to k^-3/4
-        assert abs(exact - pred) < 5 * k ** -1.5 + 1e-12
+        # with 5 nontrivial + 12 trivial zeros the agreement is ~1e-15 at k=2000
+        # and ~1e-16 at k=20000; dropping or mis-signing the trivial-zero term
+        # would give errors of 4e-6 / 8e-6, so the tolerance must be tight
+        assert abs(exact - pred) < 1e-12
