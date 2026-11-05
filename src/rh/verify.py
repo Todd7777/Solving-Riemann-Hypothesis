@@ -276,6 +276,7 @@ class TuringCertificate:
     n_brackets_failed: int = 0
     n_fallback_mp: int = 0
     T_ambiguous: bool = False
+    T_certified: float | None = None  # = T, or the left end of the bracket containing T
     message: str = ""
     tried: list = field(default_factory=list)
 
@@ -322,6 +323,13 @@ def count_zeros_rigorously(T, search: ZeroSearch | None = None, constants: str =
     base = dict(T=T, constants=constants, n_brackets_certified=int(cert.ok.sum()),
                 n_brackets_failed=cert.n_failed, n_fallback_mp=cert.n_fallback_mp)
     T_ambiguous = bool(np.any((a < T) & (T < b)))
+    # If T lies strictly inside a certified sign-change bracket (a_i, b_i), the
+    # bracket's zero may be on either side of T, so only N(T) in {N, N+1} would
+    # follow.  We then certify the count at T' = a_i < T instead (N(T') is
+    # unambiguous: the brackets below a_i are exactly those with b_j <= a_i).
+    T_cert = float(T)
+    if T_ambiguous:
+        T_cert = float(a[(a < T) & (T < b)][0])
     tried = []
     for m in range(m0, m0 + m_search + 1):
         g_m = float(gram_point(m))
@@ -341,19 +349,22 @@ def count_zeros_rigorously(T, search: ZeroSearch | None = None, constants: str =
                 break
             g_m, g_mk, L, B, F, q = turing_quotient(m, k, a, b, constants)
             if q < 1.0:
-                N_T = int(np.sum(b <= T))
+                N_T = int(np.sum(b <= T_cert))
+                note = ("" if not T_ambiguous else
+                        f" [T = {T:g} lies inside a sign-change bracket; the count is certified at "
+                        f"T' = {T_cert:.6f} < T, and N(T) is {N_T} or {N_T + 1}]")
                 return TuringCertificate(
                     certified=True, N_T=N_T, m=m, g_m=g_m, k=k, g_mk=g_mk, L=L, B=B, F=F,
                     quotient=q, sign_changes_up_to_g_m=count,
                     sign_changes_in_block=int(np.sum((a >= g_m) & (b <= g_mk))),
-                    T_ambiguous=T_ambiguous, tried=tried,
+                    T_ambiguous=T_ambiguous, T_certified=T_cert, tried=tried,
                     message=(f"N(g_{m}) = {m + 1} certified with k = {k} Gram intervals "
                              f"({constants} constants): (B - F)/L = ({B:.4f} - {F:.4f})/{L:.4f} "
-                             f"= {q:.4f} < 1; N({T:g}) = {N_T}"), **base)
+                             f"= {q:.4f} < 1; N({T_cert:g}) = {N_T}{note}"), **base)
         else:
             tried.append((m, f"Turing criterion not met for k <= {k_max}"))
-    return TuringCertificate(certified=False, N_T=None, T_ambiguous=T_ambiguous, tried=tried,
-                             message="no Gram point could be certified; see `tried`", **base)
+    return TuringCertificate(certified=False, N_T=None, T_ambiguous=T_ambiguous, T_certified=T_cert,
+                             tried=tried, message="no Gram point could be certified; see `tried`", **base)
 
 
 # --------------------------------------------------------------------------
@@ -458,7 +469,8 @@ def verify_rh_up_to(T, constants: str = "lehman", pts_per_spacing: int = 8,
     timings["turing"] = time.time() - t0
     if verbose:
         print(cert.message, f"[{timings['turing']:.1f}s]", flush=True)
-    zeros_T = search.zeros[search.zeros <= T]
+    T_cnt = cert.T_certified if cert.T_certified is not None else T
+    zeros_T = search.zeros[search.zeros <= T_cnt]
     res = VerificationResult(
         T=T, certified=cert.certified, N_T=cert.N_T, certified_height=cert.g_m,
         n_zeros_found=int(zeros_T.size), n_zeros_total=len(search), zeros=zeros_T,
@@ -469,7 +481,7 @@ def verify_rh_up_to(T, constants: str = "lehman", pts_per_spacing: int = 8,
                           n_gram_blocks=len(search.gram_blocks)))
     if cross_check:
         t0 = time.time()
-        res.arb_N_T = N_arb(T)
+        res.arb_N_T = N_arb(T_cnt)
         res.arb_agrees = (res.arb_N_T == cert.N_T) if cert.N_T is not None else None
         if arb_zeros is None:
             from .data import available_datasets, compute_zeros_arb, load_zeros

@@ -114,3 +114,19 @@ def test_search_must_start_at_zero():
     s = zt.find_zeros(500.0, 1200.0, details=True)
     with pytest.raises(ValueError):
         rv.count_zeros_rigorously(1000.0, search=s)
+
+
+def test_T_inside_a_bracket_is_certified_at_the_bracket_start():
+    """If T lies strictly inside a certified sign-change bracket, N(T) is only
+    determined up to +1; the certificate must then certify the count at the
+    bracket's left end T' < T and say so (review finding)."""
+    import rh.verify as rv
+    from rh.data import load_zeros
+    z = load_zeros(400)
+    T = float(z[300])  # the float64 ordinate of the 301st zero lies inside its bracket
+    r = rv.verify_rh_up_to(T, cross_check=True, verbose=False)
+    c = r.certificate
+    assert c.certified and c.T_ambiguous
+    assert c.T_certified is not None and c.T_certified < T
+    assert r.N_T == 300 and r.arb_N_T == 300 and r.arb_agrees
+    assert "inside a sign-change bracket" in c.message
