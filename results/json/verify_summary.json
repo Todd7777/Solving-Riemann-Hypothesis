@@ -1,0 +1,81 @@
+{
+  "T": 74920.9,
+  "certified": true,
+  "N_T": 100000,
+  "certified_height": 74921.225731908,
+  "n_zeros_found": 100000,
+  "n_zeros_total": 100082,
+  "certificate": {
+    "certified": true,
+    "T": 74920.9,
+    "N_T": 100000,
+    "constants": "lehman",
+    "m": 99999,
+    "g_m": 74921.225731908,
+    "k": 7,
+    "g_mk": 74925.91150566605,
+    "L": 4.685773758057621,
+    "B": 3.5014563828833243,
+    "F": -0.8524121375982752,
+    "quotient": 0.9291674641770145,
+    "sign_changes_up_to_g_m": 100000,
+    "sign_changes_in_block": 8,
+    "n_brackets_certified": 100082,
+    "n_brackets_failed": 0,
+    "n_fallback_mp": 0,
+    "T_ambiguous": false,
+    "message": "N(g_99999) = 100000 certified with k = 7 Gram intervals (lehman constants): (B - F)/L = (3.5015 - -0.8524)/4.6858 = 0.9292 < 1; N(74920.9) = 100000",
+    "tried": []
+  },
+  "arb_N_T": 100000,
+  "arb_agrees": true,
+  "max_abs_diff_vs_arb": 5.820766091346741e-10,
+  "n_compared_vs_arb": 100000,
+  "timings": {
+    "find_zeros": 6.551450252532959,
+    "turing": 2.01985502243042,
+    "cross_check": 0.0392458438873291,
+    "total": 8.625893354415894
+  },
+  "search_stats": {
+    "t_max": 74976.4449192507,
+    "n_grid": 800681,
+    "pts_per_spacing": 8,
+    "refine": "illinois",
+    "refined_blocks": 34,
+    "unresolved_blocks": [],
+    "n_gram_blocks": 89007
+  },
+  "limitations": [
+    "float64 rounding in Z, theta, Gram points and the quadrature is estimated heuristically, not bounded rigorously",
+    "truncation of the Riemann\u2013Siegel formula is bounded by Gabcke's theorem (t >= 200) and of Euler\u2013Maclaurin by the classical remainder bound",
+    "Turing's theorem is used with the constants of Turing/Lehman (default) or Trudgian 2011",
+    "bracket ends with |Z| below the error budget are decided with mpmath at 30 digits (heuristic error control)",
+    "Rosser's rule is used only as a heuristic to trigger local grid refinement, never as an assumption in the count"
+  ],
+  "script": "scripts/run_verify.py",
+  "arguments": {
+    "T": 74920.9,
+    "time_budget": 600.0,
+    "refine": "illinois",
+    "constants": "lehman",
+    "pts": 8,
+    "no_arb": false,
+    "out": "/home/user/Solving-Riemann-Hypothesis/results/json/verify_summary.json"
+  },
+  "calibration": {
+    "T": 10000.0,
+    "seconds": 1.1317977905273438,
+    "zeros": 10226,
+    "projected_seconds": 39.38272703132742
+  },
+  "environment": {
+    "python": "3.13.18",
+    "numpy": "2.5.3",
+    "platform": "Linux-6.18.44-fc-v236-x86_64-with-glibc2.39",
+    "flint": "0.9.0",
+    "mpmath": "1.3.0",
+    "scipy": "1.18.1"
+  },
+  "method": "Riemann\u2013Siegel formula (C_0..C_4, Gabcke remainder bound) / Euler\u2013Maclaurin below t=500, float64; zeros by sign changes on a Gram-coordinate grid with Gram-block refinement; Turing's method with lehman constants; cross-checked against Arb"
+}

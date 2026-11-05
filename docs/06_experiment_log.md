@@ -87,6 +87,39 @@ Figures: `li_coefficients.png`, `li_oscillation.png`.
 
 ---
 
-## E6–E9. Zeta/Turing verification, arithmetic criteria, statistics, de Bruijn–Newman, explicit formula — workers running
+## E6. Independent Riemann–Siegel implementation and Turing verification (2026-11-05)
+
+`python3 scripts/run_verify.py` (8.6 s). Modules `zeta.py` (839 lines), `verify.py`; 68 tests.
+
+* **Riemann–Siegel** $Z(t)$ with correction terms $C_0..C_4$ (coefficient series generated at import from exact power-series division of $\Psi(p)$, reproducing Haselgrove's tables to 20 digits) and Gabcke's remainder bounds; Euler–Maclaurin with explicit remainder below $t=500$. $\theta(t)$ from the Bernoulli-number expansion through $t^{-13}$ (mpmath below $t=12$). Gram points by Newton; zero search on a grid uniform in the Gram coordinate $\theta/\pi$ with Rosser-rule block refinement (this catches the Lehmer pair $7005.0629/7005.1006$).
+* **Turing's method** with Lehman's constants ($|S_1(t_2)-S_1(t_1)|\le2.30+0.128\log(t_2/2\pi)$ for $168\pi<t_1<t_2$; Trudgian's smaller constants are available but flagged as quoted from memory): certify $N(g_m)=m+1$ from $m+1$ sign changes below $g_m$ and the integrated inequality over $k$ Gram intervals above.
+* **Result.** $N(74920.9)=100\,000$ **certified** (7 Gram intervals, quotient $(B-F)/L=0.929<1$): all 100 000 zeros below $g_{99999}=74921.2257$ are simple and on the critical line. 100 082 zeros found on $[0,74976]$; 34 Gram blocks needed refinement, none unresolved; all brackets certified without mpmath fallback. Cross-check: Arb's rigorous count agrees, and $\max|\gamma_{\rm found}-\gamma_{\rm Arb}|=5.8\times10^{-10}$ over all $10^5$ zeros (float64 error; the Arb radius is $1.5\times10^{-11}$).
+* **Rigour boundary** (stated in the JSON): the theorem and the truncation bounds are rigorous; float64 rounding in $Z$, $\theta$, Gram points and the quadrature is estimated (10–100× conservatively) but not bounded — a fully rigorous version is exactly what Arb does, which we keep as the independent reference.
+
+---
+
+## E7. Arithmetic criteria, Speiser's criterion, Davenport–Heilbronn control (2026-11-05)
+
+`python3 scripts/run_arithmetic.py --workers 3` (259 s). Modules `arithmetic.py`, `speiser.py`, `davenport_heilbronn.py`; 23 tests.
+
+**Robin** ($N=10^7$, exact integer sieve): the violators of $\sigma(n)<e^{\gamma_E}n\log\log n$ for $n\ge2$ are exactly the 27 known values $\{2,3,4,\dots,2520,5040\}$. Beyond 5040 the maximum of $\sigma(n)/(e^{\gamma_E}n\log\log n)$ is $0.98582$ at $n=10080$ (then 55440: 0.98325; 27720: 0.97836).
+
+**Lagarias** ($N=10^7$): no violators; equality only at $n=1$; minimum slack $0.3172$ at $n=2$; maximum of $\sigma(n)/(H_n+e^{H_n}\log H_n)$ is $0.98864$ at $n=12$.
+
+**Nicolas** ($K=10^4$ primorials, 50 digits): $r_k=\frac{N_k/\varphi(N_k)}{e^{\gamma_E}\log\log N_k}$ is $>1$ and **strictly decreasing for all $k\ge2$**, from $2.888$ to $1.000\,564$ at $k=10^4$ ($p_k=104\,729$); empirically $(r_k-1)\sqrt{p_k}\log p_k\approx2.1$ (stable from $k=2000$ to $10^4$), i.e. $r_k-1\approx2.1/(\sqrt{p_k}\log p_k)$ — the rate predicted by the prime number theorem with square-root error.
+
+**Colossally abundant numbers** (first 200, exact exponent vectors via the critical-$\varepsilon$ chain, each re-derived from the closed-form exponents; the first 21 match OEIS A004490; brute force agrees for the first 10): the 200th has 433 digits and 165 prime factors. Robin's ratio is $<1$ for every CA number $>5040$ and increases (with 12 small dips among 191 steps) from $0.98325$ (55440) to $0.995794$ (#200); **$(1-\text{ratio})\sqrt{\log n}\approx0.13$ is stable for $150\le\log n\le995$**, i.e. $1-\text{ratio}\approx0.13/\sqrt{\log n}$ (Robin's inequality is approached but with margin $\asymp(\log n)^{-1/2}$, as expected from $\sigma(n)/n=e^{\gamma_E}\log\log n-c/\sqrt{\log n}+\ldots$ for CA numbers under RH). Lagarias holds for all 200 with log-slack decreasing to $0.0043$. Gronwall: $\sigma(n)/(n\log\log n)=1.77358$ at #200 vs $e^{\gamma_E}=1.78107$.
+
+**Speiser** ($T=2000$, rectangle $-1\le\sigma\le4$, $0.25\le t\le2000$; the double pole at $s=1$ gives winding $-2$ on a small box): **1298 zeros of $\zeta'$, all certified by Krawczyk's test with rigorous bounds, all with $\Re s>\tfrac12$**; minimum $\Re s=0.503428$ at $t=1977.2224$ (zeros of $\zeta'$ approach the line from the right exactly where $\zeta$'s zeros are closest — cf. Levinson–Montgomery); maximum $\Re s=2.658$. Counts agree with the independent whole-rectangle winding number and with Berndt's main term $N(T)-\frac T{2\pi}\log2$ ($1296.4$ vs $1298$). First zero $2.46316187+23.29832049i$ (Spira).
+
+**Davenport–Heilbronn control** ($0<t<300$): $\kappa=0.2840790438404123$ (closed form $\tan(\arg\varepsilon/2)$ with the root number $\varepsilon=\tau(\chi)/(i\sqrt5)$, verified to $10^{-40}$); functional equation residual $<2\times10^{-37}$. **204 zeros on the line and 5 certified off-line zeros** (10 with their mirrors), total winding $214=204+2\cdot5$: $0.808517182457+85.699348485378i$, $0.650830080610+114.163342730757i$, $0.574356050451+166.479305913168i$, $0.724257694627+176.702461242856i$, $0.869530579641+240.404672351441i$ (the first two agree with Spira 1994 / Balanzario–Sánchez-Ortiz 2007 to their printed precision). Minimum distance of an off-line zero from the line: $0.0744$. Figure `davenport_heilbronn_zeros.png`. This is the control for every criterion in this repository: a Dirichlet series with real coefficients, entire continuation and a $\zeta$-type functional equation for which RH is false. Its only missing property is the Euler product.
+
+---
+
+## E8. Zero statistics vs GUE — worker running
+
+*(to be filled in)*
+
+## E9. de Bruijn–Newman flow and explicit formula / Weil positivity — worker running
 
 *(to be filled in)*
