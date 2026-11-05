@@ -41,7 +41,21 @@ Burnol's constant $C=2+\gamma_E-\log4\pi=0.046191$. Over $200\le N\le2000$: $\mi
 
 **Optimal coefficients.** At $N=2000$, $\operatorname{sign}(c_k)=-\mu(k)$ for **100 %** of squarefree $k$; mean $|c_k|$ is $0.286$ on squarefree and $0.066$ on non-squarefree $k$. Writing $c_k\approx-\mu(k)f(x)$, $x=\log k/\log N$, the empirical taper is *shallower* than the Bettin–Conrey–Farmer choice $1-x$: the binned medians of $-c_k/\mu(k)$ are $0.98,0.86,0.64,0.43,0.18$ at $x=0.03,0.25,0.5,0.75,0.98$, well fitted by $(1-x)^{0.45}$. Restricting to coefficients of the form $-\mu(k)(1-x)^\alpha$ (an explicit mollifier, hence an *upper bound* for $d_N^2$), the best exponent is $\alpha\approx0.50$ giving $U_N^2=0.0241$ at $N=2000$ versus $\alpha=1$: $0.0674$, and the true optimum $d_{2000}^2=0.00611$. So at this size the optimiser gains a factor 4 over the best Möbius power taper, largely through the non-squarefree coefficients and $k$-by-$k$ fluctuations (`scripts/analyze_nb_structure.py`; figures `nyman_beurling_coefficients_N2000.png`, `nyman_beurling_structure_N2000.png`).
 
-Figures: `nyman_beurling_dN_logN_N2000.png`, `nyman_beurling_dN_N2000.png`, `nyman_beurling_coefficients_N2000.png`. *(N = 10 000 results: see E2b below when complete.)*
+Figures: `nyman_beurling_dN_logN_N2000.png`, `nyman_beurling_dN_N2000.png`, `nyman_beurling_coefficients_N2000.png`.
+
+### E2b. $N=10\,000$ (2026-11-05)
+
+`python3 scripts/run_nyman_beurling.py --N 10000 --arb 800 --tag _N10000` (3865 s: Vasyunin table $\approx3400$ s for the $3.04\times10^7$ coprime pairs, Gram assembly, one Cholesky of the $10^4\times10^4$ matrix, and rigorous Arb solves at $N=50,100,200,400,800$).
+
+| $N$ | 500 | 1000 | 2000 | 3000 | 5000 | 8000 | 10 000 |
+|---|---|---|---|---|---|---|---|
+| $d_N^2\log N$ | 0.04611 | 0.04529 | 0.04647 | 0.04494 | 0.04517 | 0.04556 | **0.04512** |
+
+* Rigorous enclosures (50 digits; radius $\le5\times10^{-41}$) at $N=50,100,200,400,800$ agree with the float64 Cholesky values to $\le8\times10^{-15}$ ($d_{400}^2=0.0077077737536834$, $d_{800}^2$ enclosed at $N=800$ in 228 s); the float64 results for larger $N$ are backed by the measured condition number ($1.5\times10^7$ at $N=2000$, $\sim N^{2.2}$), i.e. $\lesssim10^{-9}$ absolute error at $N=10^4$.
+* **The sequence sits below Burnol's constant.** Over $1000\le N\le10^4$, $d_N^2\log N\in[0.04450,0.04667]$, and for $N\ge2500$ it is *below* $C=0.046191$ throughout, ending at $0.04512$ — $2.3\%$ below $C$. Burnol's theorem is a $\liminf$ statement, so finite-$N$ values below $C$ are allowed, but it forces the sequence to rise again: the convergence $d_N^2\log N\to C$ (if the conjecture holds) is slow and non-monotone, with a relative deficit of $\approx2\%$ still present at $\log N=9.2$. A naive one-parameter fit $C_0+a/\log N$ over $N\ge1000$ now returns $C_0=0.0436<C$ — a fit that Burnol's theorem says cannot be the truth; the lesson is that the fluctuations (whose amplitude is not visibly decaying between $N=10^3$ and $10^4$) dominate any extrapolation at these sizes. Landreau–Richard (2002) reached similar conclusions at smaller $N$.
+* The Möbius mollifier $a_k=\mu(k)(1-\log k/\log N)$ gives $0.04688$ at $N=10^4$, versus $d_{10^4}^2=0.004899$: a factor $9.6$; the sign agreement of the optimal $c_k$ with $-\mu(k)$ on squarefree $k$ is $99.92\%$; mean $|c_k|$: $0.255$ (squarefree), $0.065$ (non-squarefree).
+
+Figures: `nyman_beurling_dN_logN_N10000.png`, `nyman_beurling_dN_N10000.png`, `nyman_beurling_coefficients_N10000.png`, `nyman_beurling_structure_N10000.png` (when the structure analysis completes).
 
 ---
 
