@@ -238,7 +238,9 @@ def archimedean_term_u(g: Callable, u_cut: float, u_points=(), epsabs=1e-14, eps
 
     def f(u):
         if u < 1e-9:
-            return float(-1.5 * g0)  # limit: [g0(1-2u) - (1-u/2)(g0 + O(u^2))]/(2u) -> -3 g0/2 (g'(0)=0)
+            # limit u -> 0 for even g (g'(0) = 0): numerator g0(1-2u) - g0(1-u/2) + O(u^2)
+            # = -(3/2) g0 u, denominator 1 - e^{-2u} ~ 2u, so the integrand -> -3 g0 / 4
+            return float(-0.75 * g0)
         return float((g0 * math.exp(-2 * u) - g(u) * math.exp(-u / 2)) / (1.0 - math.exp(-2 * u)))
 
     pts = sorted(set(float(p) for p in u_points if 0 < p < u_cut))
@@ -280,7 +282,16 @@ def tail_start(zeros: np.ndarray, n_used: int | None = None) -> float:
         return float(0.5 * (zeros[n - 1] + zeros[n]))
     from scipy.optimize import brentq
     T0 = float(zeros[n - 1])
-    return float(brentq(lambda T: smooth_zero_count(T) - (n + 0.5), T0, T0 + 20.0 * TWO_PI))
+    f = lambda T: smooth_zero_count(T) - (n + 0.5)
+    # N_smooth is increasing; bracket a sign change around gamma_n.  Because S(T)
+    # can be < -1 (13 of the first 1e5 zeros have N_smooth(gamma_n) > n + 1/2),
+    # the lower end may have to move below gamma_n.
+    lo, hi = T0 - TWO_PI, T0 + 20.0 * TWO_PI
+    while f(lo) > 0 and lo > 1.0:
+        lo -= 20.0 * TWO_PI
+    while f(hi) < 0:
+        hi += 20.0 * TWO_PI
+    return float(brentq(f, max(lo, 1.0), hi))
 
 
 def zero_sum(tf_or_h, zeros: np.ndarray, n_used: int | None = None, tail: bool = True):
@@ -434,11 +445,13 @@ def weil_functional_from_samples(u, f, nmax=10 ** 6, zeros=None, n_zeros=None):
         zeros = np.asarray(zeros, dtype=float)
         n = zeros.size if n_zeros is None else int(n_zeros)
         # the trapezoidal Fourier transform is spectrally accurate only below the
-        # Nyquist frequency pi/du; beyond it the sampled e^{iru} aliases to a low
-        # frequency and |f^|^2 is grossly overestimated, so cap the zeros used
-        r_nyquist = 0.5 * math.pi / du
-        n = int(min(n, np.searchsorted(zeros, r_nyquist)))
-        out["r_nyquist"] = r_nyquist
+        # Nyquist angular frequency pi/du; beyond it the sampled e^{iru} aliases to
+        # a low frequency and |f^|^2 is grossly overestimated.  Cap the zeros used
+        # conservatively at HALF the Nyquist frequency.
+        r_cap = 0.5 * math.pi / du
+        n = int(min(n, np.searchsorted(zeros, r_cap)))
+        out["r_cap"] = r_cap
+        out["r_nyquist"] = math.pi / du
         zs = zeros[:n]
         # f^(r) = int f(u) e^{iru} du by trapezoid, in chunks of zeros
         total = 0.0
