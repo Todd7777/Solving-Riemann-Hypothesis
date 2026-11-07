@@ -16,7 +16,7 @@ The Riemann Hypothesis (RH): every nontrivial zero of $\zeta(s)$ has real part $
 | `results/` | JSON summaries and figures produced by the scripts |
 | `tests/` | pytest suite (every module is tested against independent references) |
 
-Start with [`docs/00_problem_statement.md`](docs/00_problem_statement.md) and [`docs/06_experiment_log.md`](docs/06_experiment_log.md).
+Start with [`docs/08_findings_and_outlook.md`](docs/08_findings_and_outlook.md) (what the experiments established and what would count as progress), then [`docs/00_problem_statement.md`](docs/00_problem_statement.md) and [`docs/06_experiment_log.md`](docs/06_experiment_log.md).
 
 ## Highlights of the experiments
 
