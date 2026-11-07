@@ -245,6 +245,22 @@ def hardy_z_crosscheck(ts=(0.5, 6.6, 17.0, 99.9, 500.25, 999.0), dps: int = 30) 
         ctx.dps = old
 
 
+def reality_check_high_precision(ts=(0.7, 6.648, 33.3, 123.456, 456.7, 777.7, 999.99), dps: int = 50) -> dict:
+    """At dps digits: the Im Z_chi ball contains 0 and max |Im Z|/|Z| (upper bound) is ~10^-dps."""
+    from flint import ctx
+    old = ctx.dps
+    ctx.dps = dps
+    try:
+        rel, ok = 0.0, True
+        for t in ts:
+            z = Z_chi(t)
+            ok = ok and bool(z.imag.contains(0))
+            rel = max(rel, float((abs(z.imag) / abs(z)).upper()))
+        return {"dps": dps, "points": list(ts), "Im_contains_0": ok, "max_rel_Im_upper": rel}
+    finally:
+        ctx.dps = old
+
+
 def certified_sign(z) -> int:
     """+1 / -1 if the real ball z excludes 0, else 0."""
     if z > 0:
@@ -673,11 +689,18 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
                        "agree": bool(nsc == Bc["N"] == A["N_minus_N1"])})
     # independent mpmath check on a sample
     sample = sorted(set([0, 1, 2, 3, 4, len(gam) // 4, len(gam) // 2, 3 * len(gam) // 4, len(gam) - 2, len(gam) - 1]))
+    import mpmath as mp
     mpc = []
     for i in sample:
         r = mpmath_zero(float(gam[i]))
-        mpc.append({"index": i + 1, "stored": float(gam[i]), "mpmath": str(r), "abs_diff": float(abs(r - gam[i]))})
-    log(f"[{time.time() - t_start:7.1f}s] mpmath check: max |diff| {max(d['abs_diff'] for d in mpc):.2e}")
+        with mp.workdps(30):
+            d_hp = abs(r - mp.mpf(ref[i][0]))
+        mpc.append({"index": i + 1, "stored": float(gam[i]), "arb_25_digits": ref[i][0], "mpmath": mp.nstr(r, 25),
+                    "abs_diff_stored": float(abs(r - gam[i])), "abs_diff_25_digits": float(d_hp)})
+    log(f"[{time.time() - t_start:7.1f}s] mpmath check: max |mpmath - stored| "
+        f"{max(d['abs_diff_stored'] for d in mpc):.2e}, max |mpmath - Arb 25 digits| "
+        f"{max(d['abs_diff_25_digits'] for d in mpc):.2e}")
+    reality_hp = reality_check_high_precision()
     gaps = np.diff(gam)
     res = {
         "gam": gam, "eps": eps, "tstar": [r[0] for r in ref],
@@ -716,11 +739,15 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
                            "with box remainder, values in a convex set avoiding 0"),
             },
             "reality_check": {"max_abs_Im_Z_upper_on_grid": im_max,
-                              "note": "Im Z_chi ball contains 0 at every grid point (else the run aborts)"},
+                              "grid_dps": GRID_DPS,
+                              "note": "the Im Z_chi ball contains 0 at every grid point (else the run aborts)",
+                              "high_precision": reality_hp},
             "root_number": info["root_number"],
             "functional_equation_check": info["functional_equation"],
             "hardy_z_crosscheck": info["hardy_z_crosscheck"],
-            "independent_mpmath_check": {"max_abs_diff": max(d["abs_diff"] for d in mpc), "zeros": mpc,
+            "independent_mpmath_check": {"max_abs_diff_stored": max(d["abs_diff_stored"] for d in mpc),
+                                         "max_abs_diff_25_digits": max(d["abs_diff_25_digits"] for d in mpc),
+                                         "zeros": mpc,
                                          "method": "mpmath.findroot on Re[exp(i theta) mpmath.dirichlet(1/2+it, chi)] at 30 digits"},
             "min_gap": float(np.min(gaps)), "min_gap_at": float(gam[int(np.argmin(gaps))]),
             "dps": {"grid": GRID_DPS, "segments": SEG_DPS, "refine": REFINE_DPS},
