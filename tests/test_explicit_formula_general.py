@@ -241,6 +241,46 @@ def test_dh_wide_test_functions_where_the_a_n_matter(dh_zeros):
         assert r["relative_residual_without_off_line"] > 0.5
 
 
+def test_bump_test_function_consistency():
+    """g = f*f for f = e^{-1/(1-(u/a)^2)} cos(w u): g(0) = int f^2 = (1/2pi) int h, h = f^2-hat,
+    quadrature converged (halving the step changes nothing at 1e-13)."""
+    import mpmath as mp
+    a, w = 1.0, 85.7
+    tf = G.bump_test_function(a, w)
+    fine = G.bump_test_function(a, w, hx=0.0007)
+    zs = np.array([0.0, 5.3, 85.7, 88.8, complex(85.699, -0.3085)])
+    assert np.max(np.abs(tf.h(zs) - fine.h(zs))) < 1e-13
+    assert max(abs(tf.g(u) - fine.g(u)) for u in (0.0, 0.3, 1.7, 1.99)) < 1e-13
+    with mp.workdps(20):
+        f = lambda u: mp.exp(-1 / (1 - (u / a) ** 2)) * mp.cos(w * u) if abs(u) < a else mp.mpf(0)
+        g0 = mp.quad(lambda u: f(u) ** 2, mp.linspace(-a, a, 40))
+    assert abs(tf.g(0.0) - float(g0)) < 1e-13
+    assert tf.g(2.0) == 0.0 and tf.g(-2.5) == 0.0 and tf.u_support == 2.0
+
+
+@pytest.mark.parametrize("a,w", [(1.0, 0.0), (1.0, 85.7), (1.0, 114.2), (2.0, 114.2)])
+def test_dh_compactly_supported_g_finite_prime_sum(dh_zeros, a, w):
+    """g supported in [-2a, 2a]: the prime-type sum is FINITE (n <= e^{2a}: 7 or 54 terms),
+    yet (EF) holds -- provided the off-line quadruples are included."""
+    r = G.explicit_formula_check(DH, G.bump_test_function(a, w), dh_zeros["on_line"], dh_zeros["off_line"],
+                                 arch="both")
+    assert r["arithmetic"]["N"] == int(math.floor(math.exp(2 * a)))
+    assert r["relative_residual"] < 1e-10 and abs(r["residual"]) < 1e-12
+    assert abs(r["arithmetic"]["archimedean_u_minus_r"]) < 1e-12
+    if w:
+        assert r["off_line_contribution"] > 0.19 and r["relative_residual_without_off_line"] > 0.5
+
+
+def test_dh_needs_the_non_prime_power_terms(dh_zeros):
+    """Keeping only prime powers n (as an Euler product would give) breaks (EF) by ~0.08."""
+    tf = G.bump_test_function(2.0, 114.2)
+    r = G.explicit_formula_check(DH, tf, dh_zeros["on_line"], dh_zeros["off_line"])
+    a = G.log_derivative_coefficients(DH, 54)
+    npp = 2 * math.fsum(a[n] / math.sqrt(n) * tf.g(math.log(n)) for n in range(2, 55)
+                        if len(sp.factorint(n)) > 1)
+    assert abs(npp) > 0.05 and abs(r["residual"]) < 1e-11
+
+
 def test_dh_density_tail_reduces_the_residual(dh_zeros):
     # s = 0.012: h is still 2e-3 of its peak at r = 300; the density tail removes 99% of the gap
     tf = ef.gaussian(0.012)

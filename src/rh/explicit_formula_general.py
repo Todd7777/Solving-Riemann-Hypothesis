@@ -49,8 +49,8 @@ rho = beta + i gamma with beta > 1/2 brings the quadruple rho, 1 - rho,
 conj(rho), 1 - conj(rho) with tau = gamma - i (beta - 1/2), -tau, conj(tau),
 -conj(tau), contributing h(tau) + h(-tau) + h(conj tau) + h(-conj tau)
 = 4 Re h(tau) for h even and real on R (`zero_side` adds the mirrors and
-conjugates).  This is the orchestrator's tentative formula; no sign or
-normalisation had to be changed.
+conjugates).  Every sign and normalisation here is derived below and checked
+numerically (relative residuals 1e-16 .. 1e-11) for zeta, L(s,(n/5)) and DH.
 
 Derivation
 ----------
@@ -80,17 +80,23 @@ Derivation
 
 Why no Euler product is needed.  DH has none: (c_n) is not multiplicative,
 a_n is not supported on prime powers (a_6 = (1 + kappa^2) log 6 != 0), and the
-Dirichlet series of -F'/F is only known to converge absolutely for
-Re s > 1.395 (it diverges somewhere in Re s > 1, because DH has zeros with
-Re s > 1).  The proof uses that series on ONE line Re s = c > sigma_0 only,
-where it converges absolutely; each term contributes n^{-1/2} g(log n), so for
-g supported in [-U, U] the "prime" side is a FINITE sum over all n <= e^U.
-Nothing is assumed about -F'/F inside the strip: instead the contour shift
-from Re s = c to Re s = 1 - c must pick up EVERY zero of Lambda in
-1 - c < Re s < c -- on-line, off-line, and (for DH, at larger heights) those
-with 1 < Re s < sigma_0 together with their mirrors in Re s < 0.  Dropping
-the off-line quadruples breaks (EF) by exactly their contribution (measured:
-0.75 for g = e^{-u^2/(2 0.15^2)} cos(85.7 u)).
+Dirichlet series of -F'/F, absolutely convergent for Re s > 1.3951, has its
+abscissa of convergence in (1, 1.3951]: a Dirichlet series is holomorphic
+where it converges, while -F'/F has poles at the zeros of F with Re s > 1 that
+DH is known to have (Davenport–Heilbronn 1936; none below height 300).  The
+proof uses that series on ONE line Re s = c > sigma_0 only, where it converges
+absolutely; each term contributes n^{-1/2} g(log n), so for g supported in
+[-U, U] the "prime" side is a FINITE sum over all n <= e^U.  Nothing is assumed
+about -F'/F inside the strip: instead the contour shift from Re s = c to
+Re s = 1 - c must pick up EVERY zero of Lambda in 1 - c < Re s < c -- on-line,
+off-line, and (for DH, at larger heights) those with 1 < Re s < sigma_0
+together with their mirrors in Re s < 0.  Measured (see the tests): dropping
+the off-line quadruples breaks (EF) by exactly their contribution, 0.753 for
+g = e^{-u^2/(2 0.15^2)} cos(85.7 u) and 0.200 for the compactly supported
+g = f*f, f = e^{-1/(1-u^2)} cos(85.7 u) on (-1, 1) (`bump_test_function`,
+prime-type sum over n <= e^2 only); dropping the n that are not prime powers
+breaks it by 0.084 for `bump_test_function(2, 114.2)` (n <= 54), against
+residuals ~1e-13.
 
 Conditions on g (sufficient): g even, real, C^2, and g, g', g'' times
 e^{(c - 1/2)|u|} integrable for some c > sigma_0 (c > 1 for zeta).  Gaussians
@@ -100,7 +106,9 @@ qualify; continuous piecewise-C^2 g of compact support (h = O(r^-2)) also work.
 Zero density.  For entire Lambda, N(T) := #{rho : 0 < Im rho <= T} =
 theta(T)/pi + S(T) with theta(T) = (T/2) log(q/pi) + Im log Gamma((1/2+e+iT)/2)
 and S(T) = arg F(1/2 + iT)/pi (continuous variation from Re s = c)
-(`zero_count`; zeta: + 1).  Hence dN/dT ~ (1/2pi)[log(q/pi) + Re psi(alpha + iT/2)]
+(`zero_count`; zeta: + 1; the sum is an integer automatically because
+Lambda(1/2 + iT) is real, so the information is in the continuous tracking of
+the argument).  Hence dN/dT ~ (1/2pi)[log(q/pi) + Re psi(alpha + iT/2)]
 = (1/2pi) log(qT/(2pi)) + O(T^-2): the archimedean integrand is the smooth
 zero density.  `zero_side` can add the tail 2 int_T^inf h(r) dN(r).
 
@@ -112,8 +120,10 @@ Numerics and rigour
   (`log_derivative_coefficients_exact`; for DH b_{n,p} in Z[kappa], kappa a
   root of x^4 + 2x^3 - 6x^2 - 2x + 1).
 * `arithmetic_side` (float64, scipy quad) evaluates (EF) for any even g given as
-  an `rh.explicit_formula.TestFunction`; u-space and r-space archimedean terms
-  agree to ~1e-14.
+  an `rh.explicit_formula.TestFunction` (Gaussians, modulated Gaussians, boxes,
+  `bump_test_function`); u-space and r-space archimedean terms agree to ~1e-14
+  (3e-13 when g oscillates like cos(240 u), where the u-quadrature is the
+  weaker one; 'auto' uses r-space for non-compact g).
 * `arithmetic_side_arb` evaluates (EF) for the Gaussian family
   g = e^{-u^2/(2 s^2)} cos(w u) in Arb ball arithmetic with every truncation
   bounded (prime-type tail via |a_n| <= n^sigma L/(1-B); r-integral by
@@ -147,7 +157,7 @@ __all__ = [
     "on_line_zeros", "zero_count", "certify_on_line_zeros",
     "log_derivative_coefficients", "log_derivative_coefficients_arb", "log_derivative_coefficients_exact",
     "exact_coefficient", "zero_free_abscissa", "coefficient_norm_bound",
-    "prime_type_sum", "archimedean_term_u", "archimedean_term_r", "arithmetic_side",
+    "prime_type_sum", "archimedean_term_u", "archimedean_term_r", "arithmetic_side", "bump_test_function",
     "zero_density", "zero_side", "explicit_formula_check",
     "gaussian_family_arb", "arithmetic_side_arb", "zero_side_arb", "load_dh_zeros",
 ]
@@ -266,7 +276,6 @@ def _dh_arb_coeffs():
 def _dh_sympy():
     import sympy as sp
     K = sp.Symbol("kappa")
-    x = sp.Symbol("x")
     radical = (sp.sqrt(10 - 2 * sp.sqrt(5)) - 2) / (sp.sqrt(5) - 1)
     return K, radical, (K, K ** 4 + 2 * K ** 3 - 6 * K ** 2 - 2 * K + 1)
 
@@ -315,7 +324,7 @@ def series_value(series: SelfDualSeries, s, dps: Optional[int] = None):
 
 def completed_value(series: SelfDualSeries, s, dps: Optional[int] = None, e: Optional[int] = None):
     """Lambda(s) = (q/pi)^{s/2} Gamma((s+e)/2) F(s) (Arb); `e` overrides the parity."""
-    from flint import acb, arb
+    from flint import arb
     with _flint_dps(dps):
         s = _acb(s)
         ee = series.e if e is None else int(e)
@@ -628,8 +637,9 @@ def archimedean_term_u(series: SelfDualSeries, g: Callable, u_cut: float, u_poin
     g0 = float(g(0.0))
 
     def f(u):
-        if u < 1e-9:      # removable singularity: limit (alpha - 1) g(0), next term O(u)
-            return (al - 1.0) * g0
+        # removable singularity at u = 0 (limit (alpha - 1) g(0) for smooth g; different if
+        # g has a kink at 0, e.g. a triangle): use the one-sided value at 1e-12 below that
+        u = max(u, 1e-12)
         return float((g0 * math.exp(-2 * u) - float(g(u)) * math.exp(-2 * al * u)) / (-math.expm1(-2 * u)))
 
     pts = sorted(set(float(p) for p in u_points if 0 < p < u_cut))
@@ -693,6 +703,71 @@ def arithmetic_side(series: SelfDualSeries, tf: TestFunction, N: Optional[int] =
             out["prime_sum_truncation_estimate"] = prime_type_sum(series, tf.g, N2, a2, n_min=N + 1)
             out["N_check"] = N2
     return out
+
+
+def bump_test_function(a: float, w: float = 0.0, hx: Optional[float] = None, X: float = 4.0) -> TestFunction:
+    """Compactly supported C^infinity Weil test function g = f * f~ (f~(u) = f(-u)), with
+
+        f(u) = exp(-1/(1 - (u/a)^2)) cos(w u)   on (-a, a),   0 outside,
+
+    so g is even, supported in [-2a, 2a] (prime-type sum over n <= e^{2a} only) and
+    h = |f^|^2 >= 0 on R (h(z) = f^(z)^2 for complex z, f being even).  f^ and g are
+    computed by the trapezoidal rule after u = a tanh(x) (resp. v = c + d tanh(x)),
+    which turns the endpoint behaviour exp(-1/(1-x^2)) into a double-exponential
+    decay, so the rule converges geometrically in 1/hx (default hx resolves the
+    oscillation of e^{i z u} up to |z| a = 1500).  |f^(r)| decays like exp(-sqrt(2 a r)),
+    so for a >= 1 h is below 1e-18 of its peak beyond |r - w| ~ 400/a."""
+    a, w = float(a), float(w)
+    if hx is None:
+        hx = min(0.004, 0.6 / (a * (abs(w) + 300.0) + 20.0))
+    x = np.arange(0.0, X + hx / 2, hx)
+    wt = np.full(x.size, hx)
+    wt[0] = hx / 2
+    th = np.tanh(x)
+    sech2 = 1.0 / np.cosh(x) ** 2
+    bvals = np.exp(-np.cosh(x) ** 2)                    # b(a tanh x) = exp(-1/(1 - tanh^2 x))
+    base = 2.0 * a * wt * bvals * sech2                 # b^(z) = 2a int_0^X b(a tanh x) cos(z a tanh x) sech^2 x dx
+
+    def bhat(z):
+        z = np.asarray(z)
+        flat = np.atleast_1d(z).astype(complex if np.iscomplexobj(z) else float).ravel()
+        out = np.cos(np.outer(flat, a * th)) @ base
+        return out.reshape(z.shape) if z.shape else out[0]
+
+    def fhat(z):
+        return 0.5 * (bhat(np.asarray(z) - w) + bhat(np.asarray(z) + w))
+
+    def h(z):
+        fz = fhat(z)
+        return fz * fz
+
+    xs = np.arange(-X, X + hx / 2, hx)
+    ts = np.tanh(xs)
+    one_m = 2.0 / (1.0 + np.exp(2 * xs))                 # 1 - tanh x, stably
+    one_p = 2.0 / (1.0 + np.exp(-2 * xs))                # 1 + tanh x
+    sech2s = 1.0 / np.cosh(xs) ** 2
+
+    def g_scalar(u):
+        u = abs(float(u))
+        if u >= 2 * a:
+            return 0.0
+        c, d = u / 2, a - u / 2                           # v = c + d t runs over [u - a, a]
+        v = c + d * ts
+        # b(v) b(v - u) with a - v = d(1 - t), a + (v - u) = d(1 + t) computed stably
+        e1 = (a * a) / (d * one_m * (a + v))
+        e2 = (a * a) / ((a + u / 2 - d * ts) * d * one_p)
+        integrand = np.exp(-(e1 + e2)) * np.cos(w * v) * np.cos(w * (v - u)) * sech2s
+        return float(d * hx * np.sum(integrand))
+
+    def g(u):
+        u = np.asarray(u, dtype=float)
+        if u.shape == ():
+            return g_scalar(u)
+        return np.array([g_scalar(t) for t in u.ravel()]).reshape(u.shape)
+
+    rmax = abs(w) + 400.0 / min(a, 1.0) + 50.0
+    return TestFunction(name=f"bump_autocorrelation(a={a:g}, w={w:g})", g=g, h=h, params={"a": a, "w": w},
+                        r_windows=((0.0, rmax),), u_support=2 * a, weil=True)
 
 
 # ----------------------------------------------------------------------------
