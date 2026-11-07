@@ -179,9 +179,15 @@ def test_sign_change_certificates_sample(lz, zeros, manifest):
     from flint import arb, ctx
     ctx.dps = 30
     eps = manifest["eps"]
+    r_hp = arb(manifest["hp_radius"])
     for i in [0, 1, 2, 100, 451, 700, len(zeros) - 2, len(zeros) - 1]:
         x, e = float(zeros[i]), eps[i]
         s_lo, _ = lz.Z_sign(arb(x) - arb(e), (30, 60))
         s_hi, _ = lz.Z_sign(arb(x) + arb(e), (30, 60))
         assert s_lo != 0 and s_hi == -s_lo, (i, x, e)
         assert e <= 1e-12
+        # the printed high-precision ordinate: |gamma - s| < hp_radius (1e-20)
+        s = arb(manifest["ordinates_hp"][i])
+        h_lo, _ = lz.Z_sign(s - r_hp, (30, 60))
+        h_hi, _ = lz.Z_sign(s + r_hp, (30, 60))
+        assert h_lo == s_lo and h_hi == s_hi, (i, manifest["ordinates_hp"][i])

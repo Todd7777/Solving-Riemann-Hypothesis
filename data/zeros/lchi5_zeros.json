@@ -283,20 +283,20 @@
    }
   ],
   "facts_used": [
-   "L(s,chi) != 0 for Re s > 1 (Euler product)",
+   "L(s,chi) != 0 for Re s > 1 (Euler product); hence (functional equation) the non-trivial zeros have 0 <= Re s <= 1, inside the rectangles of (A)",
    "Lambda(s) = eps Lambda(1-s) with eps = +-1 for real primitive chi; the ball enclosure of tau(chi)/sqrt5 excludes -1, so eps = 1 (used by Z real and by (B) only)",
    "zeros with Re s < 0 are the trivial ones 0, -2, -4, ... (from the functional equation)",
-   "Arb/python-flint enclosures are correct (acb_dirichlet_l, its power series, lgamma, arg)"
+   "Arb/python-flint enclosures are correct (acb_dirichlet_l on Re s >= 1/2, acb_dirichlet_l_jet via Hurwitz zeta, lgamma, exp, arg)"
   ],
   "grid_step": "1/16",
   "local_refinements": [],
   "full_rectangle": {
    "rectangle": "[-2.5, 3.5] x [1.0, T]",
    "segments": 5209,
-   "seconds": 13.271552324295044
+   "seconds": 14.022956132888794
   },
   "certificate_intervals_disjoint": true,
-  "method": "sign changes of Z_chi in Arb ball arithmetic (python-flint acb.dirichlet_l) on a grid; counts by the argument principle in ball arithmetic: (A) winding number of L around [1/2-3, 1/2+3] x [1, T] (no functional equation) plus [-2.5,3.5]x[-1,1] (= 2 trivial zeros); (B) N(T) = theta_chi(T)/pi + S(T) with S(T) from the certified arg of L on 7/2+iT -> 1/2+iT (functional equation, root number 1); segment test: order-6 Taylor model with box remainder, values in a convex set avoiding 0"
+  "method": "sign changes of Z_chi in Arb ball arithmetic (python-flint acb.dirichlet_l) on a grid; counts by the argument principle in ball arithmetic: (A) winding number of L around [1/2-3, 1/2+3] x [1, T] plus [-2.5,3.5]x[-1,1] (= 2 trivial zeros), with every value and Taylor coefficient of L from acb_dirichlet_l_jet (Hurwitz zeta, Euler-Maclaurin; no functional equation); (B) N(T) = theta_chi(T)/pi + S(T) with S(T) from the certified arg of L on 7/2+iT -> 1/2+iT (functional equation, root number 1); segment test: order-6 Taylor model with box remainder, values in a convex set avoiding 0"
  },
  "reality_check": {
   "max_abs_Im_Z_upper_on_grid": 2.4123465461806034e-11,
@@ -329,7 +329,7 @@
     0.3,
     10.0
    ],
-   "rel_diff_upper": 3.0182636100607035e-39,
+   "rel_diff_upper": 3.0189943707883825e-39,
    "overlap": true
   },
   {
@@ -337,7 +337,7 @@
     2.0,
     50.0
    ],
-   "rel_diff_upper": 1.1166037417380687e-38,
+   "rel_diff_upper": 6.184828136428165e-39,
    "overlap": true
   },
   {
@@ -345,15 +345,27 @@
     -1.5,
     300.0
    ],
-   "rel_diff_upper": 6.460830307959547e-38,
-   "overlap": true
+   "rel_diff_upper": 3.2594867940756376e-38,
+   "overlap": true,
+   "arb_default_vs_hurwitz_overlap": true,
+   "arb_default_vs_hurwitz_rel_upper": 3.685509356142072e-38
+  },
+  {
+   "s": [
+    -2.5,
+    777.0
+   ],
+   "rel_diff_upper": 7.791206639765034e-38,
+   "overlap": true,
+   "arb_default_vs_hurwitz_overlap": true,
+   "arb_default_vs_hurwitz_rel_upper": 8.383373895889736e-38
   },
   {
    "s": [
     0.8,
     999.5
    ],
-   "rel_diff_upper": 1.0816997728494931e-37,
+   "rel_diff_upper": 1.0820279902306765e-37,
    "overlap": true
   }
  ],
@@ -463,7 +475,7 @@
   "segments": 20,
   "refine": 30
  },
- "wall_seconds": 31.60626530647278,
+ "wall_seconds": 32.456844329833984,
  "workers": 3,
  "script": "scripts/compute_lchi5_zeros.py",
  "ordinates_hp": [
