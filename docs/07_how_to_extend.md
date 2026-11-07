@@ -27,11 +27,13 @@
 | Möbius sieve, $\sigma(n)$ sieve, colossally abundant numbers | `rh.sequential_criteria.mobius_array`, `rh.arithmetic` |
 | GUE spacing density / pair correlation | `rh.statistics` |
 | explicit formula with Gaussian test functions | `rh.explicit_formula` |
+| Weil quadratic form on $[-a,a]$ in ball arithmetic, minimiser zeros | `rh.weil_form` |
+| Nyman–Beurling distances for periodic-coefficient Dirichlet series | `rh.nyman_beurling_periodic` |
 | zero dynamics under the heat flow | `rh.debruijn_newman` |
 
 ## Ideas not yet implemented
 
-* Weil positivity extremal test functions (optimise over a finite-dimensional family; the arithmetic side as a quadratic form; its smallest eigenvalue as a function of support length).
+* Weil form: rigorous version of E10 (Arb `acb.integral` for the archimedean term, ball Cholesky for positive-definiteness), larger bases or prolate-type bases to approach the true infimum, and the same analysis for Dirichlet $L$-functions.
 * Nyman–Beurling with the Mellin-side weight modified (Báez-Duarte's and Burnol's generalisations with $|s|^{-2}$ replaced by other weights; the constant in the lower bound changes to $\sum_\rho w(\rho)$).
 * Li coefficients and $c_k$ for Dirichlet $L$-functions (python-flint has `acb.dirichlet_l` and `dirichlet_char`); GRH versions of every experiment.
 * Higher moments of $\zeta$ on the line against the CFKRS conjecture, using the zero dataset for the comparison of $S(T)$ statistics.

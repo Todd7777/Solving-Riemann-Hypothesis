@@ -200,6 +200,49 @@ Figures: `explicit_formula_residual.png`, `explicit_formula_weil_positivity.png`
 
 ---
 
+## E10. Spectral analysis of Weil's quadratic form on test functions of bounded support (2026-11-07)
+
+`python3 scripts/run_weil_form.py` (224 s). Module `weil_form.py`; 5 tests.
+
+**Setup.** For a real test function $f$ supported in $[-a,a]$ (additive variable $u=\log x$) put $g=f*\tilde f$, so $\hat g=|\hat f|^2$. The arithmetic side of the explicit formula,
+$$Q_a(f)=2F(\tfrac12)F(-\tfrac12)-2\sum_{n\le e^{2a}}\frac{\Lambda(n)}{\sqrt n}\,g(\log n)-(\gamma_E+\log\pi)\,g(0)+2\int_0^\infty\frac{g(0)e^{-2u}-g(u)e^{-u/2}}{1-e^{-2u}}\,du,$$
+($F(s)=\int f e^{su}du$) uses only the prime powers up to $e^{2a}$ and the Gamma factor; under RH it equals $2\sum_{\gamma>0}|\hat f(\gamma)|^2$, and Weil's criterion says RH $\iff Q_a\ge0$ for every $a$. We restrict $Q_a$ to polynomials of degree $<J$ on $[-a,a]$ (Legendre basis), which splits into even and odd sectors, and compute the smallest generalised eigenvalue $\lambda_{\min}(a,J)=\min Q_a(f)/\|f\|_2^2$ on that subspace. This is a Rayleigh–Ritz *upper* bound for the infimum over all $f$ supported in $[-a,a]$. All matrices are assembled in Arb ball arithmetic at 60–150 digits, because the pole, prime and archimedean terms cancel to dozens of digits; float64 would give nonsense here, as Zhu (2026) also warns. The correlations $\int\phi_i(v)\phi_j(v-u)dv$ are integrated exactly by Gauss–Legendre quadrature. The archimedean integral uses a Gauss–Legendre rule whose node count is scaled to the precision, and its error is estimated by comparing two node counts.
+
+**Validation.** For random test functions the arithmetic side (no zeros used) equals the zero side computed from our $10^6$ zeros plus an asymptotic tail to **$3.1\times10^{-9}$ relative**.
+
+**Positivity.** All 100 smallest eigenvalues in the scan ($J=32,48$; $a=0.1,0.2,\dots,2.5$; both sectors) are positive, and each exceeds a Weyl-type perturbation bound (Frobenius norm of the ball radii plus the estimated quadrature error). This is a numerical certificate for these finite-dimensional subspaces, not a rigorous one: the quadrature error is estimated. For $a<(\log 2)/2$ no prime enters, and positivity is a theorem there (Yoshida 1992; Connes–Consani 2021).
+
+| $a$ | prime powers used | $\lambda_{\min}$ even ($J=48$) | $\lambda_{\min}$ odd ($J=48$) |
+|---|---|---|---|
+| 0.1 | none | 0.457 | 1.33 |
+| 0.5 | 2 | $9.4\times10^{-7}$ | $1.9\times10^{-4}$ |
+| 1.0 | 2, 3, 4, 5, 7 | $2.0\times10^{-25}$ | $4.6\times10^{-23}$ |
+| 1.5 | $n\le20$ (12) | $1.2\times10^{-34}$ | $1.1\times10^{-31}$ |
+| 2.0 | $n\le54$ (24) | $9.3\times10^{-42}$ | $1.5\times10^{-39}$ |
+| 2.5 | $n\le148$ (47) | $1.2\times10^{-46}$ | $3.5\times10^{-43}$ |
+
+**Basis size.** At $a=1$ the even-sector value falls with $J=16,32,48,64,80$ as $9.8\times10^{-13}$, $1.6\times10^{-20}$, $2.0\times10^{-25}$, $2.5\times10^{-28}$, $7.8\times10^{-30}$, and is visibly slowing. At $a=2$ it falls as $9.0\times10^{-17}$, $2.5\times10^{-31}$, $9.3\times10^{-42}$, $1.7\times10^{-52}$, $1.2\times10^{-61}$, with no sign of saturation. So the true infimum at $a=2$ is below $1.2\times10^{-61}$. That is consistent with the certified upper bound $\approx3\times10^{-283}$ reported by Zhu (arXiv:2608.24827, read via a search summary only).
+
+**Zeros from primes.** Let $r_k$ be the real zero of the minimiser's Fourier transform $\hat f_{\min}$ nearest to $\gamma_k$, with $\gamma_k$ computed independently by mpmath to 80 digits.
+
+| $a$ (prime powers $n\le e^{2a}$) | $J$ | sector | $\lvert r_1-\gamma_1\rvert$ | $\lvert r_2-\gamma_2\rvert$ | $\lvert r_3-\gamma_3\rvert$ | $\lvert r_5-\gamma_5\rvert$ | $\lvert r_8-\gamma_8\rvert$ | zeros matched to $10^{-3}$ |
+|---|---|---|---|---|---|---|---|---|
+| 0.5 ($n=2$ only) | 48 | even | $5.6\times10^{-4}$ | 0.033 | 0.19 | – | – | 1 |
+| 1.0 ($n\le7$) | 48 | even | $1.3\times10^{-21}$ | $2.4\times10^{-18}$ | $2.7\times10^{-16}$ | $2.5\times10^{-11}$ | $1.1\times10^{-5}$ | 8 |
+| 1.0 ($n\le7$) | 48 | odd | $1.7\times10^{-20}$ | $9.9\times10^{-18}$ | $5.6\times10^{-16}$ | $9.6\times10^{-12}$ | $1.1\times10^{-6}$ | 9 |
+| 1.5 ($n\le20$) | 48 | even | $1.1\times10^{-28}$ | $2.7\times10^{-22}$ | $7.6\times10^{-18}$ | $1.9\times10^{-11}$ | $5.3\times10^{-6}$ | 9 |
+| 2.0 ($n\le54$) | 64 | even | $\mathbf{4.1\times10^{-45}}$ | $2.6\times10^{-35}$ | $5.2\times10^{-30}$ | $1.3\times10^{-21}$ | $1.7\times10^{-12}$ | **14** |
+| 2.0 ($n\le54$) | 64 | odd | $4.1\times10^{-43}$ | $3.4\times10^{-34}$ | $3.0\times10^{-29}$ | $6.0\times10^{-23}$ | $4.9\times10^{-12}$ | 12 |
+
+Both the eigenvalue and the distances are unchanged to all printed digits when the working precision goes from 130 to 200 digits (case $a=2$, $J=64$). Figures: `weil_form_lambda_min.png`, `weil_form_zero_match.png`, `weil_form_minimiser_fourier.png`. The last one shows $|\hat f_{\min}|$ for $a=1$ dipping at every zero of ζ up to $r=60$.
+
+**Interpretation.**
+* *The primes pin down the low zeros.* A $32\times32$ eigenproblem built from the 24 prime powers $n\le54$ and the Gamma factor produces a function whose Fourier transform vanishes within $4\times10^{-45}$ of $\gamma_1=14.1347\ldots$. Logically this is the explicit formula plus RH for the low zeros: a test function with tiny $Q_a$ must have $\hat f$ nearly vanishing at every $\gamma_n$. It is nonetheless a striking quantitative picture of how rigidly a few primes determine the bottom of the spectrum. It independently reproduces observations of Connes–Consani (arXiv:2106.01715), Connes–Consani–Moscovici (arXiv:2310.18423, 2511.22755) and arXiv:2610.32704; we read those only through search summaries, since arxiv.org is not reachable from this environment.
+* *Weil positivity is extremely tight.* The positivity margin of the arithmetic side collapses super-exponentially in the support length: below $10^{-61}$ at $a=2$ (and $\approx10^{-283}$ per Zhu). Any proof of RH through positivity of the arithmetic side for supports of length $a$ must control quantities of that size. That is why the positivity theorems (Yoshida; Connes–Consani; Zhu's certified $a=0.8$) reach only small supports. It also quantifies barrier §4.2.
+* *What this does not show.* Positivity for all $f$ supported in $[-a,a]$: only polynomial subspaces are examined. Anything rigorous: the quadrature error is estimated, not bounded. Anything about zeros above the heights the minimiser resolves.
+
+---
+
 ## Summary of the state of the evidence after all experiments
 
-Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated — and found to be essentially nil at the heights that matter.
+Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated — and found to be essentially nil at the heights that matter.

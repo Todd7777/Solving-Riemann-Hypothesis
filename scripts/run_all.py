@@ -24,6 +24,7 @@ EXPERIMENTS = [
     ("run_sequential_criteria.py", [], []),
     ("run_integral_criteria.py", ["--nzeros", "20000"], ["--nzeros", "2000", "--volchkov_T", "60"]),
     ("run_debruijn_newman.py", [], ["--quick"]),
+    ("run_weil_form.py", [], ["--quick"]),
     ("run_explicit_formula.py", [], ["--quick"]),
 ]
 

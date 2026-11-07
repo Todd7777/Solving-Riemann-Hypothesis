@@ -22,6 +22,8 @@ The Riemann Hypothesis will not be settled by a software project, and this repos
 | G | de Bruijn–Newman dynamics and Lehmer pairs | `debruijn_newman.py` | done |
 | H | Explicit formula and Weil positivity numerics | `explicit_formula.py` | done |
 | I | Integral and sequential criteria (Balazard–Saias–Yor, Volchkov, Báez-Duarte's $c_k$) | `integral_criteria.py`, `sequential_criteria.py` | done |
+| J | Spectral analysis of Weil's quadratic form on bounded supports | `weil_form.py` | done (E10) |
+| K | Sensitivity of Nyman–Beurling to off-line zeros; Davenport–Heilbronn and $L(s,(\cdot/5))$ controls | `nyman_beurling_periodic.py` | E11 |
 
 The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every number produced, with the command that produced it.
 
@@ -33,7 +35,7 @@ The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every 
 
 **Q3 (Li coefficients fluctuation).** Under RH, $\lambda_n=\frac n2\log n+c_1n+O(\sqrt n\log n)$ with explicit $c_1$. The fluctuating part is a trigonometric sum over zeros, $-2\sum_\gamma\cos(n\theta_\gamma)$ with $\theta_\gamma=2\arctan(1/2\gamma)$; its size for $n\le10^4$ tests the GUE-based prediction of the variance (Lagarias; Coffey). A failure of RH would appear as *exponential* growth of a single mode; we quantify how far from that the data are.
 
-**Q4 (Weil positivity structure).** For the Gaussian family $g_\sigma$, which $\sigma$ minimises the ratio (arithmetic side)/(archimedean side) of $W(g*\tilde g)$? How much of the prime term is cancelled by the archimedean term and how much by the pole term? The extremal test functions of the Weil form are those for which positivity is *tight*; the literature (Bombieri 2000; Connes–Consani 2021) suggests they are related to the small-support regime. Numerics can map this landscape.
+**Q4 (Weil positivity structure).** *Partly answered by E10:* on polynomial test functions supported in $[-a,a]$, the smallest eigenvalue of the arithmetic side is positive for every $a\le2.5$ tried, collapses super-exponentially (below $10^{-61}$ at $a=2$), and its eigenvector's Fourier transform vanishes at the low zeros of ζ ($\gamma_1$ to 44 digits from the prime powers $n\le54$). The original question follows. For the Gaussian family $g_\sigma$, which $\sigma$ minimises the ratio (arithmetic side)/(archimedean side) of $W(g*\tilde g)$? How much of the prime term is cancelled by the archimedean term and how much by the pole term? The extremal test functions of the Weil form are those for which positivity is *tight*; the literature (Bombieri 2000; Connes–Consani 2021) suggests they are related to the small-support regime. Numerics can map this landscape.
 
 **Q5 (GUE deviations).** The lower-order corrections to GUE (Bogomolny–Keating; Conrey–Snaith) are arithmetic: they contain the primes. We measure the spacing-distribution deviation in five windows up to height $6\times10^5$ and at $\sim3.3\times10^9$ and compare with the $1/\log T$ scaling.
 

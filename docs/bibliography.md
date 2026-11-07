@@ -55,6 +55,16 @@ Primary sources for the statements in these notes. (Items marked † are quoted 
 - M. V. Berry, *Semiclassical formula for the number variance of the Riemann zeros*, Nonlinearity 1 (1988) 399–407. E. B. Bogomolny, J. P. Keating, *Gutzwiller's trace formula and spectral statistics: beyond the diagonal approximation*, Phys. Rev. Lett. 77 (1996) 1472. M. V. Berry, J. P. Keating, *The Riemann zeros and eigenvalue asymptotics*, SIAM Review 41 (1999) 236–266; *H = xp and the Riemann zeros* (1999). J. P. Keating, N. C. Snaith, *Random matrix theory and ζ(1/2+it)*, Comm. Math. Phys. 214 (2000) 57–89. J. B. Conrey, D. W. Farmer, J. P. Keating, M. O. Rubinstein, N. C. Snaith, *Integral moments of L-functions*, Proc. LMS 91 (2005) 33–104. J. B. Conrey, N. C. Snaith, *Applications of the L-functions ratios conjectures*, Proc. LMS 94 (2007) 594–646.
 - A. Connes, *Trace formula in noncommutative geometry and the zeros of the Riemann zeta function*, Selecta Math. 5 (1999) 29–106. A. Connes, C. Consani, *Weil positivity and trace formula, the archimedean place*, Selecta Math. 27 (2021); *Spectral triples and ζ-cycles*, Enseign. Math. (2023); † further papers 2022–2024. C. Deninger, *Some analogies between number theory and dynamical systems on foliated spaces*, Doc. Math. ICM 1998, 163–186. C. M. Bender, D. C. Brody, M. P. Müller, *Hamiltonian for the zeros of the Riemann zeta function*, Phys. Rev. Lett. 118 (2017) 130201. E. Bombieri, P. Garrett, † *Designed pseudo-Laplacians* (2011, preprint). J. B. Conrey, X.-J. Li, *A note on some positivity conditions related to zeta and L-functions*, IMRN 2000, 929–940.
 
+## Weil quadratic form on bounded supports (2021–2026)
+- A. Connes, C. Consani, *Spectral triples and ζ-cycles*, arXiv:2106.01715 (Enseign. Math. 2023).
+- A. Connes, C. Consani, H. Moscovici, *Zeta zeros and prolate wave operators*, arXiv:2310.18423 (2023/24).
+- † A. Connes, C. Consani, H. Moscovici, *Zeta spectral triples*, arXiv:2511.22755 (2025).
+- † X. Zhu, *Weil positivity in compact windows: a finite reduction, certified two-sided bounds, and a Landau–Widom decay law*, arXiv:2608.24827 (2026).
+- † *A finite Guinand–Weil dictionary and archimedean tail order for the truncated Weil quadratic form*, arXiv:2607.02828 (2026).
+- † *Spectral convergence associated with Weil's quadratic form*, arXiv:2610.32704 (2026).
+
+(† here: known to us only through search-engine summaries; arxiv.org is not reachable from the environment in which this repository was built.)
+
 ## Function fields and counterexamples
 - A. Weil, *Sur les courbes algébriques et les variétés qui s'en déduisent*, Hermann 1948. P. Deligne, *La conjecture de Weil I*, Publ. Math. IHÉS 43 (1974) 273–307.
 - H. Davenport, H. Heilbronn, *On the zeros of certain Dirichlet series I, II*, J. LMS 11 (1936) 181–185, 307–312. R. Spira, *Some zeros of the Titchmarsh counterexample*, Math. Comp. 63 (1994) 747–748. E. P. Balanzario, J. Sánchez-Ortiz, *Zeros of the Davenport–Heilbronn counterexample*, Math. Comp. 76 (2007) 2045–2049.
