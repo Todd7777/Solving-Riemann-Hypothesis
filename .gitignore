@@ -6,3 +6,7 @@ build/
 dist/
 .ipynb_checkpoints/
 results/tmp/
+
+# run logs (cluster jobs write to logs/; ad-hoc pilot logs at the root)
+logs/
+/*.log
