@@ -20,7 +20,7 @@ positive ordinate is 2.46316... + 23.29832... i (Spira 1965).
 Zero-free regions used to bound the search rectangle
 -----------------------------------------------------
 * sigma >= 4:  |zeta'(s) + 2^{-s} log 2| <= sum_{n>=3} (log n) n^{-4}
-  = -zeta'(4) - (log 2)/16 = 0.02565 < (log 2)/16 = 0.04332, and the ratio of
+  = -zeta'(4) - (log 2)/16 = 0.02559 < (log 2)/16 = 0.04332, and the ratio of
   the two sides decreases with sigma, so zeta'(s) != 0 for sigma >= 4.
   (Titchmarsh, Thm 11.5(C), gives a sharper region.)
 * Real axis: zeta is strictly decreasing on (-2.717.., 1) and on (1, oo), so

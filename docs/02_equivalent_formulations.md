@@ -43,12 +43,12 @@ $d_N^2=\inf_{c\in\mathbb R^N}\|\chi_{(0,1]}-\sum_{k\le N}c_k\rho_k\|^2=\inf_{A_N
 |---|---|---|
 | zeros on the line, $N(T)$ | `zeta.py`, `verify.py` (independent Riemann–Siegel + Turing), `data.py` (Arb) | Arb zeros: yes; Turing in float64: certified modulo float rounding |
 | Li $\lambda_n>0$ | `li.py` | high-precision series for small $n$ (yes); zero-sum with tail for large $n$ (error estimated) |
-| Robin / Lagarias / Nicolas / CA numbers | `arithmetic.py` | $\sigma(n)$ exact (integer sieve); the inequalities are decided in float64/long double, with margins $\gg$ rounding; CA numbers exact, their ratios at 60 digits |
+| Robin / Lagarias / Nicolas / CA numbers | `arithmetic.py` | $\sigma(n)$ exact (integer sieve); the inequalities are decided in float64/long double; the smallest relative margins up to $10^7$ are $8.7\times10^{-4}$ (Robin, $n=720$) and $1.1\times10^{-2}$ (Lagarias, $n=12$), against rounding $\lesssim10^{-15}$, and any decision within $10^{-10}$ is re-decided in Arb; CA numbers exact, their ratios at 60 digits |
 | Speiser | `speiser.py` | numerical root finding + argument principle |
 | Nyman–Beurling $d_N$ | `nyman_beurling.py` | Arb ball enclosures for $N\le$ several hundred; float64 to $N\sim10^4$ with condition-number error bound |
 | Weil explicit formula / positivity | `explicit_formula.py` | numerical (truncation errors estimated) |
 | de Bruijn–Newman dynamics | `debruijn_newman.py` | numerical ODE |
-| Davenport–Heilbronn (RH fails without Euler product) | `davenport_heilbronn.py` | numerical, zeros certified by argument principle to residual $<10^{-12}$ |
+| Davenport–Heilbronn (RH fails without Euler product) | `davenport_heilbronn.py` | off-line zeros certified by the Krawczyk test (rigorous $\Re s>\tfrac12$, pairwise distinct); on-line zeros by sign changes of the real Hardy-type function; total count by the argument principle |
 | GUE statistics | `statistics.py` | numerical |
 | Balazard–Saias–Yor, Volchkov integrals | `integral_criteria.py` | numerical (tanh-sinh, Arb $\zeta$), identities verified to $\sim10^{-9}$ / $10^{-7}$ |
 | Báez-Duarte sequential $c_k$ | `sequential_criteria.py` | float64/mpmath exact sums; explicit formula over zeros |

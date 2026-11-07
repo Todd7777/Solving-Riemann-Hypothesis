@@ -81,7 +81,8 @@ def analyse_dataset(name, g, start_index, L_grid, n_windows, bins, pc_bins, timi
     """All statistics for one contiguous block of zeros; returns a dict."""
     out = {"name": name, "start_index": int(start_index), "n_zeros": int(g.size),
            "T_min": float(g[0]), "T_max": float(g[-1]),
-           "logT_mid": math.log(math.sqrt(float(g[0]) * float(g[-1])))}
+           "logT_mid": float(np.mean(np.log(g))),          # mean of log t over the zeros
+           "logT_endpoints": math.log(math.sqrt(float(g[0]) * float(g[-1])))}
     T_ref = float(g[len(g) // 2])            # median height, used for Berry's scale
     out["T_ref"] = T_ref
 

@@ -26,13 +26,21 @@ from rh import davenport_heilbronn as D             # noqa: E402
 from rh import speiser as S                         # noqa: E402
 
 
+def _shown(path: Path) -> str:
+    """Path relative to the repository when inside it, absolute otherwise."""
+    try:
+        return str(Path(path).resolve().relative_to(ROOT))
+    except ValueError:
+        return str(Path(path).resolve())
+
+
 def _dump(obj, name, out_json: Path, t0: float, **meta):
     obj = dict(obj)
     obj["_meta"] = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                     "wall_seconds": round(time.time() - t0, 2), **meta}
     path = out_json / name
     path.write_text(json.dumps(obj, indent=1, default=float))
-    print(f"  wrote {path.relative_to(ROOT)} ({path.stat().st_size // 1024} kB)")
+    print(f"  wrote {_shown(path)} ({path.stat().st_size // 1024} kB)")
 
 
 def run_robin_lagarias(N: int, out_json: Path):
@@ -107,7 +115,7 @@ def run_dh(T: float, out_json: Path, out_fig: Path):
     _dump(r.to_dict(), "davenport_heilbronn_zeros.json", out_json, t0, T=T)
     fig = out_fig / "davenport_heilbronn_zeros.png"
     D.plot_zeros(r, str(fig))
-    print(f"  wrote {fig.relative_to(ROOT)}")
+    print(f"  wrote {_shown(fig)}")
 
 
 def main():
