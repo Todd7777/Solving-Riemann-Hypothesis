@@ -45,6 +45,8 @@ python3 scripts/run_all.py --quick # all experiments at reduced size (~10 min)
 python3 scripts/run_all.py         # full experiments (hours; zeros to 10^6 already in data/)
 ```
 
+Heavy runs (larger Weil-form bases, zeros to $10^7$) are packaged as Slurm jobs for a cluster: see [`scripts/slurm/README.md`](scripts/slurm/README.md).
+
 `python3 scripts/compute_zeros.py --start 1 --count 100000 --out data/zeros/zeros_1_100000` regenerates the zero dataset with Arb; `python3 scripts/verify_vasyunin_formula.py` re-checks the Gram-matrix closed form to 37 digits.
 
 ## Honesty statement

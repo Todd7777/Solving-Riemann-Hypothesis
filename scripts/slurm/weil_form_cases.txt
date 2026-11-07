@@ -1,0 +1,15 @@
+# a    J     extra-flags            (one case per line; the array task index selects the line)
+0.8   192
+1.0   256
+1.25  160
+1.25  192
+1.25  256
+1.5   128
+1.5   192
+1.5   256
+1.5   320    --no-quad-check
+2.0   128
+2.0   192
+2.0   256    --no-quad-check
+2.0   320    --no-quad-check
+2.0   384    --no-quad-check
