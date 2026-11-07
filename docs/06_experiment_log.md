@@ -261,6 +261,14 @@ Both the eigenvalue and the distances are unchanged to all printed digits when t
   | 1.25 | 76.5 | 20 | 9 / 9 | 14 / 14 | 21 / 21 | **29 / 31** |
 
   The count passes the predicted cap and keeps growing with the basis, while the smallest eigenvalue nearly converges (at $a=1$: $2.5\times10^{-28}$, then $6.3\times10^{-30}$). The precision also improves at every zero: at $a=1.25$, $J=128$, $\gamma_1$ is matched to 46 digits, $\gamma_{10}$ to 27 and $\gamma_{29}$ to 3. **The heuristic is wrong.** Real-zero density $a/\pi$ holds only on average; locally an entire function of exponential type can vanish at many more points, paying in norm. The minimiser appears to track every zero, with precision degrading smoothly with height. The same flawed argument underlies the pre-registered E12 prediction $a^*\approx\tfrac12\log(\gamma_0/2\pi)$, which should therefore be read as an upper estimate of the detection threshold, not a sharp one.
+* *Converged positivity margins (addendum, 2026-11-07).* `python3 scripts/run_weil_form_convergence.py` (results in `weil_form_convergence.json`) pushes the basis to $J=128$ at $a=0.8$ and to $J=192$ at $a=1$, at up to 297 digits. The Rayleigh–Ritz values decrease monotonically toward the true infimum:
+
+  | $a$ | even sector, $J=48,64,96,128$ (and 160, 192) | extrapolated $\lambda^*(a)$ | odd sector $\lambda^*(a)$ |
+  |---|---|---|---|
+  | 0.8 | $1.746,\ 1.703,\ 1.656,\ 1.648\ (\times10^{-17})$ | $\approx1.64\times10^{-17}$ | $\approx1.55\times10^{-14}$ |
+  | 1.0 | $J=96..192$: $6.28,\ 5.90,\ 5.83,\ 5.80\ (\times10^{-30})$ | $\approx5.7\times10^{-30}$ | $\approx1.44\times10^{-26}$ |
+
+  The last digits converge algebraically, roughly like $J^{-2}$. That points to an endpoint singularity of the true minimiser, so a basis with built-in endpoint behaviour would converge faster. Practical meaning: Zhu's certified window $[-0.8,0.8]$ had to resolve a margin of about $1.6\times10^{-17}$; extending certification to $[-1,1]$ means resolving about $6\times10^{-30}$, 13 orders smaller. The even sector always carries the smallest eigenvalue, 3–4 orders of magnitude below the odd sector.
 * *What this does not show.* Positivity for all $f$ supported in $[-a,a]$: only polynomial subspaces are examined. Anything rigorous: the quadrature error is estimated, not bounded. Anything about zeros above the heights the minimiser resolves.
 
 ---

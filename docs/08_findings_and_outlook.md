@@ -36,7 +36,7 @@ The Davenport–Heilbronn function, a genuine RH violation at height 86, confirm
 
 Real progress on RH has always come from new structure, not from more verification. Measured against that, the honest options for a computational program are:
 
-* **A new theorem-level computer-assisted result inside a live program.** The prime candidate is *certified* Weil positivity on a window larger than the current record ($a=0.8$, Zhu 2026). This is a real (small) step in the Connes–Consani program, but the margin at $a=1$ is $10^{-25}$ or smaller, so it needs a finite reduction with error control far below that.
+* **A new theorem-level computer-assisted result inside a live program.** The prime candidate is *certified* Weil positivity on a window larger than the current record ($a=0.8$, Zhu 2026). This is a real (small) step in the Connes–Consani program. We measured the true margins: $\lambda^*(0.8)\approx1.64\times10^{-17}$ and $\lambda^*(1)\approx5.7\times10^{-30}$ (E10 addendum). Going from $0.8$ to $1$ therefore needs a finite reduction with error control 13 orders of magnitude finer, and a basis that handles the minimiser's endpoint singularity.
 * **A sharpened conjecture with strong numerical support**, for example the second-order term of $d_N^2\log N$, or the law governing $\lambda_{\min}(a)$ and the number of zeta zeros the Weil minimiser captures. Such statements can guide theory.
 * **Negative results that close routes**, like the Laguerre–Pólya finding in E10 and the blindness results in E11. These save effort and are publishable when sharp.
 
