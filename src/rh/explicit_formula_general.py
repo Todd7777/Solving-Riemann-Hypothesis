@@ -642,7 +642,7 @@ def archimedean_term_u(series: SelfDualSeries, g: Callable, u_cut: float, u_poin
 
 
 def archimedean_term_r(series: SelfDualSeries, h: Callable, r_windows=((0.0, 50.0),),
-                       epsabs: float = 1e-14, epsrel: float = 1e-13) -> float:
+                       epsabs: float = 1e-14, epsrel: float = 1e-12) -> float:
     """(1/2pi) int_R h(r) [log(q/pi) + Re psi(alpha + i r/2)] dr = (1/pi) int_0^inf (h even),
     integrated over the windows of r >= 0 where h is not negligible."""
     al, L = series.alpha, series.log_conductor_term
@@ -755,9 +755,11 @@ def zero_side(h: Callable, on_line: Sequence[float] = (), off_line: Sequence = (
         Tt = float(T if T is not None else (on.max() if on.size else 0.0))
         wins = r_windows if r_windows is not None else ((Tt, Tt + 200.0),)
         if tail_h is not None:
-            wins = ()
-            tail_val = quad(lambda r: float(np.real(tail_h(r)) * zero_density(series, r, density)), Tt, np.inf,
-                            limit=400, epsabs=1e-16, epsrel=1e-12)[0]
+            wins = ()                       # r = T e^y maps [T, inf) to [0, inf), dr = r dy
+            fy = lambda y: float(np.real(tail_h(Tt * math.exp(y))) * zero_density(series, Tt * math.exp(y), density)
+                                 * Tt * math.exp(y))
+            tail_val = sum(quad(fy, lo, hi, limit=400, epsabs=1e-17, epsrel=1e-13)[0]
+                           for lo, hi in ((0.0, 1.0), (1.0, 5.0), (5.0, 20.0), (20.0, 80.0)))
         for lo, hi in wins:
             a, b = max(lo, Tt), hi
             if b <= a:
@@ -842,17 +844,18 @@ def arithmetic_side_arb(series: SelfDualSeries, s: float, w: float = 0.0, dps: i
             x = (arb(Nv).log() - b * S * S) / (S * arb(2).sqrt())
             return A * (b * b * S * S / 2).exp() * S * (pi / 2).sqrt() * x.erfc()
 
-        if math.log(2.0) <= (sigma - 0.5) * s * s:
-            raise ValueError("s too large for the monotone tail bound at small n")
+        def admissible(Nv):        # terms decrease beyond N, and the bound is small enough
+            return math.log(Nv) >= (sigma - 0.5) * float(s) ** 2 and bool(2 * tail_P(Nv) < tol_ / 4)
+
         Nv = 4
-        while not (2 * tail_P(Nv) < tol_ / 4):
+        while not admissible(Nv):
             Nv *= 2
             if Nv > N_max:
                 raise ValueError(f"N would exceed N_max = {N_max}; raise tol or N_max")
         lo, hi = Nv // 2, Nv                      # bisect for the smallest admissible N
         while hi - lo > 1:
             mid = (lo + hi) // 2
-            if 2 * tail_P(mid) < tol_ / 4:
+            if admissible(mid):
                 hi = mid
             else:
                 lo = mid

@@ -13,7 +13,9 @@ Functional equation, Z-function and the counting function
 Lambda(s) = (5/pi)^{s/2} Gamma(s/2) L(s, chi) is entire and satisfies
 Lambda(s) = eps Lambda(1 - s) with root number eps = tau(chi)/sqrt 5, where
 tau(chi) = sum_a chi(a) e^{2 pi i a/5} = 2cos(2pi/5) - 2cos(4pi/5) = sqrt 5, so
-eps = 1 (checked in ball arithmetic by ``root_number``).  As chi is real,
+eps = 1.  (For a real primitive character tau(chi)^2 = chi(-1) q, so eps = +-1;
+the ball enclosure of tau(chi)/sqrt 5 computed by ``root_number`` excludes -1,
+which proves eps = 1.)  As chi is real,
 Lambda(conj s) = conj Lambda(s); hence Lambda(1/2 + it) = Lambda(1/2 - it) =
 conj Lambda(1/2 + it) is real.  Writing
 (5/pi)^{s/2} Gamma(s/2) = (5/pi)^{1/4} |Gamma(1/4 + it/2)| e^{i theta(t)} at s = 1/2 + it,
@@ -51,9 +53,15 @@ where on Re s = 7/2 the continuous argument is the principal one because
 
 Rigorous counts (two independent ways)
 --------------------------------------
-(A) Full rectangle, no functional equation: the winding number of L itself
+(A) Full rectangle, no functional equation in any evaluation (it enters only
+    through the classical fact that the non-trivial zeros have 0 < Re s < 1,
+    so that the rectangle contains all of them): the winding number of L itself
     (entire; no zeros or poles of Gamma(s/2) in Im s > 0) around
-    [1/2 - 3, 1/2 + 3] x [1, T] counts the zeros with 1 < Im s < T; the
+    [1/2 - 3, 1/2 + 3] x [1, T] counts the zeros with 1 < Im s < T.  Every
+    value and Taylor coefficient of L used here comes from Arb's
+    acb_dirichlet_l_jet, i.e. 5^{-s} sum_a chi(a) zeta(s, a/5) with Hurwitz zeta
+    by Euler-Maclaurin summation (Arb's default acb_dirichlet_l switches to the
+    functional equation for Re s < -1/2, which (A) must not use).  The
     rectangle [-5/2, 7/2] x [-1, 1] must have winding number 2 (the simple
     trivial zeros s = 0 and s = -2) -- this also proves that L has no zero
     in 0 < sigma < 1 and none with 0 < |Im s| <= 1.  Edges are shared between
@@ -84,7 +92,9 @@ lies on the critical line and is the unique zero in its bracket; a mismatch
 triggers a finer local grid.  Each zero is refined by the Illinois method at
 30 digits and certified: with x the float64 nearest the refined ordinate and
 eps = ulp(x)/2 + 1e-15, Z_chi(x - eps) and Z_chi(x + eps) have opposite
-certified signs, so |gamma - x| < eps (rigorous, <= 5.8e-14 below t = 1024).
+certified signs, so |gamma - x| < eps (rigorous, <= 5.8e-14 below t = 1024);
+the same test at 30 digits certifies the printed 27-digit ordinate to 1e-20.
+The ordinates are also recomputed independently with mpmath for a sample.
 
 Usage
 -----
@@ -94,11 +104,12 @@ Usage
 The output ``lchi5_zeros.npy`` is not named ``zeros_<a>_<b>.npy`` and so is
 not picked up by ``rh.data.load_zeros`` (which serves zeta zeros).
 
-References: H. Davenport, Multiplicative Number Theory, ch. 9, 15-16;
-R. Rumely, Numerical computations concerning the ERH, Math. Comp. 61 (1993)
-415-440 (zeros of L(s, chi) for small conductors); D. Platt, Isolating some
-non-trivial zeros of zeta, Math. Comp. 86 (2017) (ball-arithmetic methods);
-F. Johansson, Arb (acb_dirichlet module).
+References: H. Davenport, Multiplicative Number Theory, ch. 9 (functional
+equation) and ch. 16 (the number N(T, chi)); R. Rumely, Numerical computations
+concerning the ERH, Math. Comp. 61 (1993) (zeros of L(s, chi) for small
+conductors, Turing-type counting); D. Platt, Numerical computations concerning
+the GRH, Math. Comp. 85 (2016); F. Johansson, Arb: efficient arbitrary-precision
+midpoint-radius interval arithmetic, IEEE Trans. Comput. 66 (2017).
 """
 from __future__ import annotations
 
@@ -171,25 +182,38 @@ def n_smooth_asymptotic(T: float) -> float:
 
 
 def L_value(s):
-    """L(s, chi) as an acb ball (s: acb or (x, y) pair of floats)."""
+    """L(s, chi) as an acb ball by Arb's default acb_dirichlet_l (s: acb or (x, y) pair of floats).
+
+    For Re s < -1/2 Arb evaluates this through the functional equation."""
     from flint import acb
     if not isinstance(s, acb):
         s = acb(s[0], s[1])
-    return _chi().l(s)
+    return acb.dirichlet_l(s, _chi())
+
+
+def L_hurwitz(s):
+    """L(s, chi) as an acb ball through acb_dirichlet_l_jet, i.e. 5^{-s} sum_a chi(a) zeta(s, a/5)
+    with the Hurwitz zeta function by Euler-Maclaurin summation -- never the functional equation."""
+    from flint import acb
+    if not isinstance(s, acb):
+        s = acb(s[0], s[1])
+    return _taylor(s, 2)[0]
 
 
 def Z_chi(t):
     """Z_chi(t) = e^{i theta_chi(t)} L(1/2 + it, chi) as an acb ball (imaginary part encloses 0)."""
     from flint import acb, arb
     t = t if isinstance(t, arb) else arb(t)
-    return (acb(0, 1) * theta_chi(t)).exp() * _chi().l(acb(arb(1) / 2, t))
+    return (acb(0, 1) * theta_chi(t)).exp() * acb.dirichlet_l(acb(arb(1) / 2, t), _chi())
 
 
 def Lambda(s):
-    """Completed L-function (5/pi)^{s/2} Gamma(s/2) L(s, chi) (acb ball; s away from 0, -2, ...)."""
+    """Completed L-function (5/pi)^{s/2} Gamma(s/2) L(s, chi) (acb ball; s away from 0, -2, ...),
+    with L from the Hurwitz-zeta route (so that comparing Lambda(s), Lambda(1-s) tests the
+    functional equation instead of using it)."""
     from flint import acb, arb
     s = s if isinstance(s, acb) else acb(s.real, s.imag)
-    return (arb(5) / arb.pi()) ** (s / 2) * (s / 2).gamma() * _chi().l(s)
+    return (arb(5) / arb.pi()) ** (s / 2) * (s / 2).gamma() * L_hurwitz(s)
 
 
 def root_number(dps: int = 40) -> dict:
@@ -209,8 +233,11 @@ def root_number(dps: int = 40) -> dict:
         ctx.dps = old
 
 
-def functional_equation_check(points=((0.3, 10.0), (2.0, 50.0), (-1.5, 300.0), (0.8, 999.5)), dps: int = 40) -> list:
-    """|Lambda(s) - Lambda(1 - s)| / |Lambda(s)| upper bounds at a few points (balls must overlap)."""
+def functional_equation_check(points=((0.3, 10.0), (2.0, 50.0), (-1.5, 300.0), (-2.5, 777.0), (0.8, 999.5)),
+                              dps: int = 40) -> list:
+    """|Lambda(s) - Lambda(1 - s)| / |Lambda(s)| upper bounds at a few points (balls must overlap);
+    both sides use the Hurwitz-zeta evaluation of L.  Also compares, for Re s < -1/2, Arb's default
+    L (computed there by the functional equation, with Arb's root number) with the Hurwitz value."""
     from flint import acb, ctx
     old = ctx.dps
     ctx.dps = dps
@@ -220,8 +247,14 @@ def functional_equation_check(points=((0.3, 10.0), (2.0, 50.0), (-1.5, 300.0), (
             s = acb(x, y)
             a, b = Lambda(s), Lambda(1 - s)
             d = a - b
-            out.append({"s": [x, y], "rel_diff_upper": float((abs(d) / abs(a)).upper()),
-                        "overlap": bool(d.real.contains(0) and d.imag.contains(0))})
+            rec = {"s": [x, y], "rel_diff_upper": float((abs(d) / abs(a)).upper()),
+                   "overlap": bool(d.real.contains(0) and d.imag.contains(0))}
+            if x < -0.5:
+                u, v = L_value(s), L_hurwitz(s)
+                rec["arb_default_vs_hurwitz_overlap"] = bool((u - v).real.contains(0) and (u - v).imag.contains(0))
+                rec["arb_default_vs_hurwitz_rel_upper"] = float((abs(u - v) / abs(v)).upper())
+                rec["overlap"] = rec["overlap"] and rec["arb_default_vs_hurwitz_overlap"]
+            out.append(rec)
         return out
     finally:
         ctx.dps = old
@@ -374,7 +407,7 @@ def edge_arg(z0, z1, h0: float, K: int = TAYLOR_K, stats=None):
     for p, q in zip(pts, pts[1:]):
         if (q[0] - p[0]) * n != (z1[0] - z0[0]) or (q[1] - p[1]) * n != (z1[1] - z0[1]):
             raise ArgumentPrincipleError(f"edge {z0}->{z1} cannot be cut exactly into {n} pieces")
-    vals = [L_value(p) for p in pts]
+    vals = [L_hurwitz(p) for p in pts]          # Hurwitz route, as the Taylor models: no functional equation
     for v in vals:
         if v.real.contains(0) and v.imag.contains(0):
             raise ArgumentPrincipleError("L vanishes (or nearly) at a contour vertex")
@@ -745,18 +778,22 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
                 "counts": counts,
                 "block_heights_backlund": {str(k): v["N"] for k, v in bcount.items()},
                 "blocks": blocks,
-                "facts_used": ["L(s,chi) != 0 for Re s > 1 (Euler product)",
+                "facts_used": ["L(s,chi) != 0 for Re s > 1 (Euler product); hence (functional equation) the "
+                               "non-trivial zeros have 0 <= Re s <= 1, inside the rectangles of (A)",
                                "Lambda(s) = eps Lambda(1-s) with eps = +-1 for real primitive chi; the ball "
                                "enclosure of tau(chi)/sqrt5 excludes -1, so eps = 1 (used by Z real and by (B) only)",
                                "zeros with Re s < 0 are the trivial ones 0, -2, -4, ... (from the functional equation)",
-                               "Arb/python-flint enclosures are correct (acb_dirichlet_l, its power series, lgamma, arg)"],
+                               "Arb/python-flint enclosures are correct (acb_dirichlet_l on Re s >= 1/2, "
+                               "acb_dirichlet_l_jet via Hurwitz zeta, lgamma, exp, arg)"],
                 "grid_step": f"1/{den}",
                 "local_refinements": refinements,
                 "full_rectangle": {k: v for k, v in fr.items() if k != "counts"},
                 "certificate_intervals_disjoint": disjoint,
                 "method": ("sign changes of Z_chi in Arb ball arithmetic (python-flint acb.dirichlet_l) on a grid; "
                            "counts by the argument principle in ball arithmetic: (A) winding number of L around "
-                           "[1/2-3, 1/2+3] x [1, T] (no functional equation) plus [-2.5,3.5]x[-1,1] (= 2 trivial zeros); "
+                           "[1/2-3, 1/2+3] x [1, T] plus [-2.5,3.5]x[-1,1] (= 2 trivial zeros), with every value and "
+                           "Taylor coefficient of L from acb_dirichlet_l_jet (Hurwitz zeta, Euler-Maclaurin; no "
+                           "functional equation); "
                            "(B) N(T) = theta_chi(T)/pi + S(T) with S(T) from the certified arg of L on "
                            "7/2+iT -> 1/2+iT (functional equation, root number 1); segment test: order-6 Taylor model "
                            "with box remainder, values in a convex set avoiding 0"),
