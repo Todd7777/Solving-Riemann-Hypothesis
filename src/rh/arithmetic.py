@@ -65,6 +65,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import mpmath as mp
 import numpy as np
 import sympy
+from flint import arb, ctx as _flint_ctx
 
 from .constants import EULER_GAMMA
 
@@ -114,13 +115,79 @@ def sigma_sieve(N: int) -> np.ndarray:
 def harmonic_numbers(N: int) -> np.ndarray:
     """Return a longdouble array ``H`` with ``H[n] = H_n`` (``H[0] = 0``), 1 <= n <= N.
 
-    Plain cumulative summation in 80-bit extended precision; the accumulated
-    rounding error for N = 10^7 is below 1e-12 absolute, far smaller than any
-    slack encountered in Lagarias' inequality.
+    Plain cumulative summation in ``np.longdouble``.  On x86-64 Linux that is
+    80-bit extended precision (unit roundoff 5.4e-20) and the measured error
+    against mpmath is 4.4e-16 absolute at N = 10^7 (a priori worst case
+    N H_N u = 9e-12).  On platforms where longdouble is plain double the worst
+    case is N H_N 1.1e-16 (2e-8 at N = 10^7); ``lagarias_check`` widens its
+    exact re-check band accordingly (``_harmonic_error_bound``).
     """
     H = np.zeros(N + 1, dtype=np.longdouble)
     H[1:] = np.cumsum(1.0 / np.arange(1, N + 1, dtype=np.longdouble))
     return H
+
+
+def _harmonic_error_bound(N: int) -> float:
+    """A priori bound N * H_N * u_longdouble on the error of ``harmonic_numbers(N)``."""
+    return float(N * (math.log(N) + 1.0) * np.finfo(np.longdouble).eps)
+
+
+# ----------------------------------------------------------------------------
+# Exact (ball-arithmetic) decisions for near-threshold cases
+# ----------------------------------------------------------------------------
+def _decide_by_arb(lhs_int: int, rhs_fn, max_prec: int = 4096) -> bool:
+    """Rigorously decide whether the integer ``lhs_int`` exceeds a real threshold.
+
+    ``rhs_fn()`` must return an Arb ball for the threshold at the current
+    ``flint.ctx.prec``; the precision is doubled until the ball excludes
+    ``lhs_int``, and the answer is ``lhs_int > threshold`` (identical to
+    ``>=`` once they are separated).  Exact equality cannot be separated and
+    raises ArithmeticError.
+    """
+    old = _flint_ctx.prec
+    prec = 128
+    try:
+        while prec <= max_prec:
+            _flint_ctx.prec = prec
+            rhs = rhs_fn()
+            lhs = arb(lhs_int)
+            if lhs > rhs:
+                return True
+            if lhs < rhs:
+                return False
+            prec *= 2
+    finally:
+        _flint_ctx.prec = old
+    raise ArithmeticError("could not separate sigma(n) from the threshold (equality?)")
+
+
+def robin_violates_exact(n: int, sigma_n: int) -> bool:
+    """Rigorous decision of sigma(n) >= e^gamma n log log n (Robin violated) in Arb, n >= 2."""
+    n = int(n)
+    if n < 2:
+        raise ValueError("Robin's inequality needs n >= 2")
+    return _decide_by_arb(int(sigma_n),
+                          lambda: arb.const_euler().exp() * arb(n) * arb(n).log().log())
+
+
+def lagarias_violates_exact(n: int, sigma_n: int) -> bool:
+    """Rigorous decision whether n violates Lagarias' inequality, in Arb.
+
+    n = 1: violated iff sigma(1) > 1 (H_1 = 1, log H_1 = 0: equality is exact).
+    n >= 2: violated iff sigma(n) >= H_n + exp(H_n) log H_n (equality allowed
+    only at n = 1), with H_n = psi(n+1) + gamma as a ball.
+    """
+    n = int(n)
+    if n < 1:
+        raise ValueError("n must be >= 1")
+    if n == 1:
+        return int(sigma_n) > 1
+
+    def rhs():
+        H = arb(n + 1).digamma() + arb.const_euler()
+        return H + H.exp() * H.log()
+
+    return _decide_by_arb(int(sigma_n), rhs)
 
 
 # ----------------------------------------------------------------------------
@@ -136,6 +203,12 @@ class RobinResult:
     max_robin_ratio_beyond_5040: float   # the same divided by e^gamma (< 1 iff Robin holds)
     ratio_at_5040: float                 # sigma(5040)/(5040 log log 5040) / e^gamma  (> 1)
     top: List[Tuple[int, float]] = field(default_factory=list)  # 10 largest Robin ratios beyond 5040
+    # decision robustness: relative margin (sigma - rhs)/|rhs| closest to 0 over 2 <= n <= N, and the
+    # n whose float64 decision was within `recheck_threshold` and was therefore re-decided in Arb
+    min_abs_rel_margin: float = float("nan")
+    argmin_abs_rel_margin: int = 0
+    recheck_threshold: float = float("nan")
+    rechecked: List[int] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -143,7 +216,7 @@ class RobinResult:
         return d
 
 
-def robin_check(N: int, sigma: Optional[np.ndarray] = None) -> RobinResult:
+def robin_check(N: int, sigma: Optional[np.ndarray] = None, recheck_rtol: float = 1e-10) -> RobinResult:
     """Check Robin's inequality sigma(n) < e^gamma n log log n for 2 <= n <= N.
 
     Returns every violator (the strict inequality fails) in [2, N] -- which
@@ -151,6 +224,14 @@ def robin_check(N: int, sigma: Optional[np.ndarray] = None) -> RobinResult:
     sigma(n)/(n log log n) over 5040 < n <= N with its argmax.  The quantity
     ``max_robin_ratio_beyond_5040`` is that maximum divided by e^gamma; RH
     predicts it is < 1 for every N (Robin 1984).
+
+    sigma(n) is exact; the threshold is evaluated in float64 with relative
+    error < 2e-15 (n >= 2).  Every n whose relative margin
+    |sigma(n) - e^gamma n log log n| / |e^gamma n log log n| is below
+    ``recheck_rtol`` is re-decided rigorously in Arb ball arithmetic
+    (``robin_violates_exact``), so no decision depends on rounding.  For
+    N = 10^7 the smallest margin is 8.7e-4 (n = 720, a violator; n = 420 holds
+    by 9.9e-4), so nothing needs re-checking at the default 1e-10.
     """
     if N < 5041:
         raise ValueError("N must be > 5040 to say anything beyond the exceptional set")
@@ -158,7 +239,15 @@ def robin_check(N: int, sigma: Optional[np.ndarray] = None) -> RobinResult:
     n = np.arange(2, N + 1, dtype=np.float64)
     loglog = np.log(np.log(n))
     s = sig[2:N + 1].astype(np.float64)
-    viol = (np.nonzero(s >= E_GAMMA * n * loglog)[0] + 2).tolist()
+    rhs = E_GAMMA * n * loglog
+    violated = s >= rhs
+    rel = (s - rhs) / np.abs(rhs)
+    i_m = int(np.argmin(np.abs(rel)))
+    thr = max(float(recheck_rtol), 1e-13)
+    near = np.nonzero(np.abs(rel) < thr)[0]
+    for j in near:
+        violated[j] = robin_violates_exact(int(j) + 2, int(sig[int(j) + 2]))
+    viol = (np.nonzero(violated)[0] + 2).tolist()
     ratio = s / (n * loglog)                       # sigma(n)/(n log log n), n >= 2
     beyond = ratio[5039:]                          # n = 5041 .. N
     i = int(np.argmax(beyond))
@@ -175,6 +264,10 @@ def robin_check(N: int, sigma: Optional[np.ndarray] = None) -> RobinResult:
         max_robin_ratio_beyond_5040=float(beyond[i] / E_GAMMA),
         ratio_at_5040=float(ratio[5038] / E_GAMMA),
         top=top,
+        min_abs_rel_margin=float(abs(rel[i_m])),
+        argmin_abs_rel_margin=i_m + 2,
+        recheck_threshold=thr,
+        rechecked=[int(j) + 2 for j in near],
     )
 
 
@@ -192,25 +285,42 @@ class LagariasResult:
     argmax_ratio: int
     slack_at_5040: float
     ratio_at_5040: float
+    # decision robustness (n >= 2): relative margin (sigma - rhs)/rhs closest to 0, and the n
+    # whose long-double decision was within `recheck_threshold` and was re-decided in Arb
+    min_abs_rel_margin: float = float("nan")
+    argmin_abs_rel_margin: int = 0
+    recheck_threshold: float = float("nan")
+    rechecked: List[int] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-def lagarias_check(N: int, sigma: Optional[np.ndarray] = None) -> LagariasResult:
+def lagarias_check(N: int, sigma: Optional[np.ndarray] = None, recheck_rtol: float = 1e-10) -> LagariasResult:
     """Check Lagarias' inequality sigma(n) <= H_n + exp(H_n) log H_n for 1 <= n <= N.
 
-    Equality must hold for n = 1 only.  Returns the violators (none expected),
-    the minimal slack RHS - sigma(n) over n >= 2 and the maximal ratio
-    sigma(n)/RHS over n >= 2.  Computed in 80-bit extended precision.
+    Equality must hold for n = 1 only (it does exactly: H_1 = 1, log 1 = 0).
+    Returns the violators (none expected), the minimal slack RHS - sigma(n)
+    over n >= 2 and the maximal ratio sigma(n)/RHS over n >= 2.  Computed in
+    ``np.longdouble``; every n >= 2 whose relative margin |sigma(n) - RHS|/RHS
+    is below max(recheck_rtol, 100 x the a priori error bound of H_n) is
+    re-decided rigorously in Arb (``lagarias_violates_exact``).  For N = 10^7
+    the smallest margin is 1.1e-2 (n = 12), so nothing needs re-checking.
     """
     sig = sigma_sieve(N) if sigma is None else sigma
     H = harmonic_numbers(N)[1:]                      # H_1..H_N
     rhs = H + np.exp(H) * np.log(H)                  # n = 1..N
     s = sig[1:N + 1].astype(np.longdouble)
     slack = rhs - s
-    viol = (np.nonzero(slack[1:] <= 0)[0] + 2).tolist()
-    if slack[0] < 0:
+    violated = slack[1:] <= 0                        # n = 2..N
+    rel = -slack[1:] / rhs[1:]
+    i_m = int(np.argmin(np.abs(rel))) if N >= 2 else 0
+    thr = max(float(recheck_rtol), 100.0 * _harmonic_error_bound(N), 1e-13)
+    near = np.nonzero(np.abs(rel) < thr)[0]
+    for j in near:
+        violated[j] = lagarias_violates_exact(int(j) + 2, int(sig[int(j) + 2]))
+    viol = (np.nonzero(violated)[0] + 2).tolist()
+    if lagarias_violates_exact(1, int(sig[1])):      # exact: RHS(1) = 1
         viol.insert(0, 1)
     ratio = s[1:] / rhs[1:]
     i = int(np.argmin(slack[1:]))
@@ -225,6 +335,10 @@ def lagarias_check(N: int, sigma: Optional[np.ndarray] = None) -> LagariasResult
         argmax_ratio=j + 2,
         slack_at_5040=float(slack[5039]) if N >= 5040 else float("nan"),
         ratio_at_5040=float(ratio[5038]) if N >= 5040 else float("nan"),
+        min_abs_rel_margin=float(abs(rel[i_m])) if N >= 2 else float("nan"),
+        argmin_abs_rel_margin=i_m + 2 if N >= 2 else 0,
+        recheck_threshold=thr,
+        rechecked=[int(j) + 2 for j in near],
     )
 
 

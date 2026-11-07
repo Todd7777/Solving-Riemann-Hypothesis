@@ -44,7 +44,11 @@ zeros off the line are located with the cell/winding/Newton machinery of
 ``rh.speiser`` and certified with the Krawczyk test (rigorous Re s > 1/2);
 zeros on the line are the sign changes of Z(t).  Consistency: the winding
 number of the whole strip rectangle must equal (#sign changes) + 2 (#off-line
-zeros with Re s > 1/2 found).
+zeros with Re s > 1/2 found), and the certified off-line boxes must be
+pairwise disjoint (distinct zeros).  The off-line search covers
+1/2 + 10^-3 < Re s < 1.5; a zero with 1/2 < Re s <= 1/2 + 10^-3 would be
+missed by it and by the sign-change count, and would show up as an
+inconsistency rather than be miscounted.
 
 References
 ----------
@@ -69,8 +73,8 @@ import mpmath as mp
 import numpy as np
 from flint import acb, arb, ctx, acb_series, dirichlet_char
 
-from .speiser import (ArgumentPrincipleError, Certificate, LocatedZero, certify_zero,
-                      locate_zeros, winding_number, _to_complex)
+from .speiser import (ArgumentPrincipleError, Certificate, LocatedZero, certification_summary,
+                      certify_zero, locate_zeros, winding_number, _to_complex)
 
 # ----------------------------------------------------------------------------
 # constants and characters
@@ -263,7 +267,11 @@ def on_line_zeros(t0: float, t1: float, step: float = 0.05, tol: float = 1e-12,
 # ----------------------------------------------------------------------------
 # Off-line zeros and the full scan
 # ----------------------------------------------------------------------------
-def off_line_zeros(t0: float, t1: float, sigma_lo: float = 0.5 + 1e-3, sigma_hi: float = 1.5,
+OFF_LINE_SIGMA_LO = 0.5 + 1e-3     # off-line search strip; a zero with 1/2 < Re s <= OFF_LINE_SIGMA_LO
+OFF_LINE_SIGMA_HI = 1.5            # would be missed and make dh_scan report consistent = False
+
+
+def off_line_zeros(t0: float, t1: float, sigma_lo: float = OFF_LINE_SIGMA_LO, sigma_hi: float = OFF_LINE_SIGMA_HI,
                    *, dt: float = 0.5, step_h: float = 0.25, step_v: float = 0.2, threshold: float = 1.0,
                    certify: bool = True, dps: int = 20, certify_dps: int = 30
                    ) -> Tuple[List[dict], int, int]:
@@ -319,6 +327,11 @@ class DHResult:
     evaluations: int
     wall_seconds: float
     dps: int
+    # the certified off-line boxes (one zero each) are pairwise disjoint -> distinct zeros,
+    # and lie inside the off-line search rectangle
+    off_line_distinct: int = 0
+    off_line_boxes_disjoint: bool = False
+    off_line_inside: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -328,19 +341,27 @@ def dh_scan(T: float = 300.0, t0: float = 0.0, *, dt: float = 0.5, z_step: float
             dps: int = 20, certify: bool = True, fe_points: Sequence[complex] = (
                 complex(0.3, 10.0), complex(0.8, 85.7), complex(1.7, 3.3), complex(-0.4, 50.2), complex(0.5, 200.1))
             ) -> DHResult:
-    """Full study of the zeros of f with t0 < Im s < T; see the module docstring."""
+    """Full study of the zeros of f with t0 < Im s < T; see the module docstring.
+
+    ``consistent`` requires total winding == (#sign changes of Z) + 2 (#off-line
+    zeros) and, when certifying, that every off-line zero is certified with
+    pairwise disjoint boxes inside the search rectangle (so the off-line zeros
+    are distinct: a zero found twice cannot mask a missed one).
+    """
     t_start = time.time()
     fe = [functional_equation_residual(s) for s in fe_points]
     kc = verify_kappa()
     sigma0 = dh_zero_free_abscissa()
     off, w_off, nev = off_line_zeros(t0, T, dt=dt, certify=certify, dps=dps)
+    cs = certification_summary(off, OFF_LINE_SIGMA_LO, OFF_LINE_SIGMA_HI, t0, T)
+    certs_ok = (not certify) or (cs["disjoint"] and cs["inside"] and cs["n_certified"] == len(off))
     on = on_line_zeros(t0, T, step=z_step, dps=dps)
     total = total_zero_count(t0, T, 1.0 - sigma0 - 0.1, sigma0 + 0.1, dps=dps)
-    consistent = (total == len(on) + 2 * len(off))
+    consistent = (total == len(on) + 2 * len(off)) and certs_ok
     if not consistent:
         # refine the line scan (close pairs of on-line zeros) once
         on = on_line_zeros(t0, T, step=z_step / 5, dps=dps)
-        consistent = (total == len(on) + 2 * len(off))
+        consistent = (total == len(on) + 2 * len(off)) and certs_ok
     known = []
     for k in KNOWN_OFF_LINE_ZEROS:
         if t0 < k.imag < T:
@@ -357,6 +378,8 @@ def dh_scan(T: float = 300.0, t0: float = 0.0, *, dt: float = 0.5, z_step: float
         total_count_winding=total, consistent=consistent, off_line_zeros=off, on_line_zeros=on,
         known_zeros_found=known, min_offline_distance_to_line=mind, evaluations=nev,
         wall_seconds=time.time() - t_start, dps=dps,
+        off_line_distinct=cs["n_distinct"], off_line_boxes_disjoint=cs["disjoint"],
+        off_line_inside=cs["inside"],
     )
 
 

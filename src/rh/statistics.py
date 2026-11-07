@@ -102,6 +102,14 @@ LD = np.longdouble
 PI_LD = LD("3.14159265358979323846264338327950288419716939937510")
 TWO_PI_LD = 2 * PI_LD
 
+# Kolmogorov law of sqrt(n) D_n for i.i.d. samples (n -> oo): mean sqrt(pi/2) log 2,
+# median and 95% point (scipy.stats.kstwobign).
+KOLMOGOROV_MEAN = 0.8687311606
+KOLMOGOROV_MEDIAN = 0.8275735552
+KOLMOGOROV_Q95 = 1.3580986393
+
+GAMMA_1 = 14.134725141734693790     # ordinate of the first zero (lower end of the zero density)
+
 
 # --------------------------------------------------------------------------- #
 # 1. Unfolding
@@ -304,8 +312,8 @@ class GUESpacing:
     about 1e-13 and 1e-11 in the interior (1e-9 for p_2 at the endpoints),
     including the far tail where E is tiny.  Tiny negative round-off in p_2 is
     clipped to zero.
-    Beyond s_max (default 6, where 1 - F < 1e-20) the law is extended by
-    E = 0, F = 1, p = 0.
+    Beyond s_max (default 6, where 1 - F = -E'(6) ~ 3e-19 by the asymptotics
+    E ~ c s^{-1/4} exp(-pi^2 s^2/8)) the law is extended by E = 0, F = 1, p = 0.
     """
 
     def __init__(self, s_max=6.0, degree=96, m=60):
@@ -766,12 +774,16 @@ def ks_distance(spacings, cdf=None):
     """Kolmogorov–Smirnov distance sup_s |F_emp(s) - F(s)| of the sample
     ``spacings`` from the law with CDF ``cdf`` (default: exact GUE).
 
-    Returns dict(D, s_at, sign, n, pvalue, noise_floor); the p-value is the
-    two-sided ``scipy.stats.kstwo`` value (exact for n <= 5000, the asymptotic
-    Kolmogorov law ``kstwobign`` beyond), which assumes independent draws
-    (consecutive zeta spacings are weakly correlated, so treat it as
-    indicative).  noise_floor = 0.8687/sqrt(n) is the expected D of a sample
-    that does follow the law exactly.
+    Returns dict(D, s_at, sign, n, pvalue, noise_floor, null_median, null_q95);
+    the p-value is the two-sided ``scipy.stats.kstwo`` value (exact for
+    n <= 5000, the asymptotic Kolmogorov law ``kstwobign`` beyond), which
+    assumes independent draws (consecutive zeta spacings are weakly
+    correlated, so treat it as indicative).  noise_floor = 0.8687/sqrt(n) is
+    the *mean* of D for an i.i.d. sample that follows the law exactly
+    (E sup|Brownian bridge| = sqrt(pi/2) log 2 = 0.86873; the exact finite-n
+    mean is ~0.3% lower at n = 6000); it is not a quantile: the null median
+    is 0.8276/sqrt(n) (``null_median``) and the 95% point 1.358/sqrt(n)
+    (``null_q95``).
     """
     if cdf is None:
         cdf = gue_table().cdf
@@ -793,7 +805,9 @@ def ks_distance(spacings, cdf=None):
         "sign": sign,
         "n": int(n),
         "pvalue": float(stats.kstwo.sf(D, n)) if n <= 5000 else float(stats.kstwobign.sf(D * math.sqrt(n))),
-        "noise_floor": float(0.8687 / math.sqrt(n)),
+        "noise_floor": float(KOLMOGOROV_MEAN / math.sqrt(n)),
+        "null_median": float(KOLMOGOROV_MEDIAN / math.sqrt(n)),
+        "null_q95": float(KOLMOGOROV_Q95 / math.sqrt(n)),
     }
 
 
@@ -814,10 +828,18 @@ def ks_by_height(gammas, windows=None, start_index=1, method="theta", label=None
 
     ``windows`` is a list of (lo, hi) 1-based zero indices (default
     ``index_windows``).  For each window the result records n, the height range,
-    log T at the geometric centre, the KS distances to GUE, to the Wigner
-    surmise and to Poisson, the location of the GUE discrepancy and the noise
-    floor 0.87/sqrt(n).  Bogomolny–Keating-type corrections make the
+    the KS distances to GUE, to the Wigner surmise and to Poisson, the location
+    of the GUE discrepancy and the noise floor 0.87/sqrt(n) (the null *mean* of
+    D, see ``ks_distance``).  Bogomolny–Keating-type corrections make the
     discrepancy from GUE shrink slowly (like a power of 1/log T).
+
+    Height assigned to a window: ``logT_mid`` is the mean of log t over the
+    window's spacings (t = midpoint of each spacing), i.e. the height at which
+    the pooled spacings that enter D actually sit, and ``T_mid`` = exp(logT_mid).
+    The log of the geometric mean of the end points, sqrt(T_lo T_hi), is kept as
+    ``logT_endpoints``; it is badly biased low for a window spanning several
+    decades of height because the zero density grows with t (zeros 1..10^4:
+    5.92 vs 8.35; zeros 1..10^6: 7.98 vs 12.40).
     """
     g = np.asarray(gammas, dtype=np.float64)
     if windows is None:
@@ -830,12 +852,13 @@ def ks_by_height(gammas, windows=None, start_index=1, method="theta", label=None
         k_gue = ks_distance(d, tab.cdf)
         k_wig = ks_distance(d, wigner_surmise_cdf)
         k_poi = ks_distance(d, poisson_cdf)
-        T_mid = math.sqrt(float(seg[0]) * float(seg[-1]))
+        logT_mid = float(np.mean(np.log(0.5 * (seg[1:] + seg[:-1]))))
         out.append({
             "label": label or f"zeros {lo}..{hi}",
             "index_lo": int(lo), "index_hi": int(hi), "n_spacings": int(d.size),
-            "T_lo": float(seg[0]), "T_hi": float(seg[-1]), "T_mid": T_mid,
-            "logT_mid": math.log(T_mid),
+            "T_lo": float(seg[0]), "T_hi": float(seg[-1]), "T_mid": math.exp(logT_mid),
+            "logT_mid": logT_mid,
+            "logT_endpoints": 0.5 * (math.log(float(seg[0])) + math.log(float(seg[-1]))),
             "mean_spacing": float(d.mean()), "var_spacing": float(d.var()),
             "ks_gue": k_gue["D"], "ks_gue_s_at": k_gue["s_at"], "ks_gue_sign": k_gue["sign"],
             "ks_gue_pvalue": k_gue["pvalue"],
@@ -870,7 +893,36 @@ def smallest_spacings(gammas, k=10, method="theta", start_index=1):
     } for i in idx]
 
 
-def lehmer_pair_statistic(gammas, i, include_conjugates=True):
+def _csv_missing_zeros(a, b, g_first, g_last, start_index, include_conjugates):
+    """Smooth-density estimate of sum [1/(g-a)^2 + 1/(g-b)^2] (and the conjugate
+    terms 1/(g+a)^2 + 1/(g+b)^2) over the zeros g that are *not* in the data:
+    those above g_last and, if start_index > 1, those below g_first.
+
+    The zeros are replaced by the density rho(t) = log(t/2pi)/(2pi) starting half
+    a mean spacing beyond each end of the data (midpoint rule), integrated in
+    closed form: an antiderivative of log(t/2pi)/(t - x)^2 is
+    G(t; x) = -log(t/2pi)/(t - x) + log(|t - x|/t)/x  (x = a, b, and -a, -b for
+    the conjugate ordinates), with G(oo; x) = 0.  Checked against the full
+    10^6-zero dataset: for a pair 60-100 zeros from an edge this reduces the
+    relative truncation error of Delta from 0.5-1% to < 1e-4.
+    """
+    def dens(t):
+        return math.log(t / (2 * math.pi)) / (2 * math.pi)
+
+    def G(t, x):
+        return -math.log(t / (2 * math.pi)) / (t - x) + math.log(abs(t - x) / t) / x
+
+    xs = [a, b] + ([-a, -b] if include_conjugates else [])
+    c_hi = g_last + 0.5 / dens(g_last)
+    tot = sum(-G(c_hi, x) for x in xs)
+    if start_index > 1:
+        c_lo = g_first - 0.5 / dens(g_first)
+        if c_lo > GAMMA_1:
+            tot += sum(G(c_lo, x) - G(GAMMA_1, x) for x in xs)
+    return tot / (2 * math.pi)
+
+
+def lehmer_pair_statistic(gammas, i, include_conjugates=True, start_index=1, tail_correction=True):
     """Csordas–Smith–Varga Lehmer-pair quantity for the pair (gamma_i, gamma_{i+1})
     (0-based positions in ``gammas``):
 
@@ -879,8 +931,15 @@ def lehmer_pair_statistic(gammas, i, include_conjugates=True):
     the sum running over all other zeros (including the conjugate ordinates
     -gamma_j when include_conjugates).  The pair is a Lehmer pair when
     Delta < 4/5; such pairs give lower bounds for the de Bruijn–Newman constant
-    (Csordas, Smith, Varga 1994).  The sum is truncated to the available zeros;
-    the missing tail is O(density/gamma_max), negligible for the datasets here.
+    (Csordas, Smith, Varga 1994).
+
+    ``gammas`` must be consecutive zeros, gammas[0] being the zero with 1-based
+    index ``start_index``.  The zeros outside the data (above the last one and,
+    if start_index > 1, below the first one) are missing from the sum; the
+    truncation error is about (gamma_{i+1}-gamma_i)^2 rho / (distance to the
+    data edge), i.e. 0.5-1% relative for a pair 60-100 zeros from an edge.
+    With ``tail_correction`` (default) it is replaced by the smooth-density
+    estimate of ``_csv_missing_zeros``, which leaves < 1e-4 relative error.
     """
     g = np.asarray(gammas, dtype=np.float64)
     a, b = g[i], g[i + 1]
@@ -888,6 +947,8 @@ def lehmer_pair_statistic(gammas, i, include_conjugates=True):
     if include_conjugates:
         others = np.concatenate([others, -g])
     tot = np.sum(1.0 / (others - a) ** 2 + 1.0 / (others - b) ** 2)
+    if tail_correction:
+        tot += _csv_missing_zeros(a, b, float(g[0]), float(g[-1]), int(start_index), include_conjugates)
     return float((b - a) ** 2 * tot)
 
 
@@ -897,7 +958,7 @@ def lehmer_pairs(gammas, k=20, method="theta", start_index=1):
     g = np.asarray(gammas, dtype=np.float64)
     rows = smallest_spacings(g, k=k, method=method, start_index=start_index)
     for r in rows:
-        r["csv_delta"] = lehmer_pair_statistic(g, r["index"] - start_index)
+        r["csv_delta"] = lehmer_pair_statistic(g, r["index"] - start_index, start_index=start_index)
         r["is_lehmer_pair"] = bool(r["csv_delta"] < 0.8)
     return rows
 

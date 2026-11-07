@@ -50,9 +50,18 @@ Method
    the interior of X then X contains exactly one zero of zeta', and it lies in
    K(X) (Brouwer + contraction).  This yields rigorous bounds on Re s for each
    zero, in particular a rigorous proof that Re s > 1/2 for every zero found.
-4. Consistency checks: (a) the number of certified distinct zeros equals the
-   winding number of the whole rectangle computed with an independent, finer
-   sampling; (b) comparison with Berndt's main term and with
+4. Consistency checks: (a) the certified boxes are pairwise disjoint (each
+   holds exactly one zero, so the certified zeros are distinct: two Newton
+   runs ending on the same zero would be caught) and lie inside the
+   rectangle, and their number equals the winding number of the whole
+   rectangle computed with an independent, finer sampling (``complete``).
+   Since the zeros returned are distinct genuine zeros in the rectangle and
+   their number equals its winding number, none was missed.  (The sum of the
+   cell winding numbers is not an independent check on its own: shared edges
+   are cached and cancel, so it telescopes to the outer boundary sampled
+   with the coarse step; an interior sampling error shifts a zero between
+   neighbouring cells, which the bisection consistency w1 + w2 = w and the
+   disjointness test detect.)  (b) comparison with Berndt's main term and with
    N(T) - (T/2pi) log 2, where N(T) is the rigorous zero count of zeta
    (``arb.zeta_nzeros``); (c) the rectangle [sigma_min, sigma_max] x
    [-t_min, t_min] has winding number -2 (the double pole, no zeros).
@@ -368,6 +377,22 @@ class Certificate:
         return asdict(self)
 
 
+def _float_down(x: arb) -> float:
+    """Largest float <= the exact (radius-0) arb x."""
+    f = float(x)
+    if arb(f) > x:
+        f = math.nextafter(f, -math.inf)
+    return f
+
+
+def _float_up(x: arb) -> float:
+    """Smallest float >= the exact (radius-0) arb x."""
+    f = float(x)
+    if arb(f) < x:
+        f = math.nextafter(f, math.inf)
+    return f
+
+
 def certify_zero(ball_jet, z: complex, dps: int = 30,
                  radii: Sequence[float] = (1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3)) -> Certificate:
     """Prove that a box around z contains exactly one zero of f (Krawczyk test).
@@ -376,7 +401,9 @@ def certify_zero(ball_jet, z: complex, dps: int = 30,
     box X (python-flint ``acb``).  With c = f'(mid) and
     K = mid - f(mid)/c + (1 - f'(X)/c)(X - mid), K in interior(X) implies that
     g(z) = z - f(z)/c maps X into itself (Brouwer: a zero exists) and is a
-    contraction there (uniqueness); every zero in X lies in K.
+    contraction there (uniqueness); every zero in X lies in K.  The float
+    bounds of K returned in the certificate are rounded outward, so they
+    enclose the zero rigorously.
     """
     old = ctx.dps
     ctx.dps = dps
@@ -391,12 +418,33 @@ def certify_zero(ball_jet, z: complex, dps: int = 30,
             K = mid - fm / dfm + (1 - dX / dfm) * (X - mid)
             if X.contains_interior(K):
                 return Certificate(z.real, z.imag, True, r,
-                                   float(K.real.lower()), float(K.real.upper()),
-                                   float(K.imag.lower()), float(K.imag.upper()), dps)
+                                   _float_down(K.real.lower()), _float_up(K.real.upper()),
+                                   _float_down(K.imag.lower()), _float_up(K.imag.upper()), dps)
         return Certificate(z.real, z.imag, False, float("nan"), float("nan"), float("nan"),
                            float("nan"), float("nan"), dps)
     finally:
         ctx.dps = old
+
+
+def overlapping_boxes(boxes: Sequence[Tuple[float, float, float, float]]) -> List[Tuple[int, int]]:
+    """Index pairs of closed boxes (re_lo, re_hi, im_lo, im_hi) that intersect.
+
+    Each certified box contains exactly one zero, so pairwise disjoint
+    certified boxes prove that the certified zeros are *distinct* (two Newton
+    runs converging to the same zero would show up here as an overlap).
+    Sweep over the boxes sorted by im_lo.
+    """
+    order = sorted(range(len(boxes)), key=lambda k: boxes[k][2])
+    out: List[Tuple[int, int]] = []
+    for p, i in enumerate(order):
+        r0, r1, _, i1 = boxes[i]
+        for j in order[p + 1:]:
+            s0, s1, j0, _ = boxes[j]
+            if j0 > i1:
+                break
+            if s0 <= r1 and r0 <= s1:
+                out.append((min(i, j), max(i, j)))
+    return out
 
 
 # ----------------------------------------------------------------------------
@@ -408,11 +456,21 @@ def berndt_main_term(T: float) -> float:
 
 
 def zeta_zero_count(T: float, dps: int = 15) -> int:
-    """Rigorous N(T) = number of zeros of zeta with 0 < Im s <= T (Arb, Turing's method)."""
+    """Rigorous N(T) = number of zeros of zeta with 0 < Im s <= T (Arb, Turing's method).
+
+    Arb returns an exact integer for a float T; an inexact ball (which it
+    returns when it cannot separate T from a zero ordinate) raises instead of
+    being rounded to a possibly wrong integer.
+    """
+    if not (math.isfinite(T) and T > 0):          # Arb crashes on a NaN argument
+        raise ValueError(f"T must be finite and positive, got {T}")
     old = ctx.dps
     ctx.dps = dps
     try:
-        return int(round(float(arb(T).zeta_nzeros())))
+        v = arb(T).zeta_nzeros()
+        if not v.is_exact():
+            raise ArithmeticError(f"N({T}) not determined exactly by Arb: {v}")
+        return int(float(v))                        # an exact integer < 2^53
     finally:
         ctx.dps = old
 
@@ -471,9 +529,44 @@ class SpeiserResult:
     wall_seconds: float
     dps: int
     zeros: List[dict] = field(default_factory=list)
+    # Completeness: the certified boxes (each holding exactly one zero) are pairwise disjoint,
+    # so the certified zeros are distinct, and lie inside the scanned rectangle; together with
+    # count_certified == winding_total_independent this shows no zero was missed or counted twice.
+    count_certified_distinct: int = 0   # connected components of overlapping certified boxes
+    certified_boxes_disjoint: bool = False
+    certified_inside_rectangle: bool = False
+    complete: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def certification_summary(zero_dicts: Sequence[dict], s0: float, s1: float, t0: float, t1: float) -> dict:
+    """Distinctness and containment of certified zeros (dicts with re/im_lower/upper).
+
+    Returns n_certified, n_distinct (connected components of the overlap graph of
+    the certified boxes: a rigorous lower bound for the number of distinct zeros
+    found), disjoint (no two certified boxes meet), inside (every certified box
+    lies in the open rectangle (s0, s1) x (t0, t1)) and the overlapping pairs.
+    """
+    idx = [k for k, d in enumerate(zero_dicts) if d.get("certified")]
+    boxes = [(zero_dicts[k]["re_lower"], zero_dicts[k]["re_upper"],
+              zero_dicts[k]["im_lower"], zero_dicts[k]["im_upper"]) for k in idx]
+    pairs = overlapping_boxes(boxes)
+    parent = list(range(len(boxes)))
+
+    def root(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for a, b in pairs:
+        parent[root(a)] = root(b)
+    n_distinct = len({root(a) for a in range(len(boxes))})
+    inside = all(s0 < b[0] and b[1] < s1 and t0 < b[2] and b[3] < t1 for b in boxes)
+    return {"n_certified": len(boxes), "n_distinct": n_distinct, "disjoint": not pairs,
+            "inside": inside, "overlapping_pairs": [(idx[a], idx[b]) for a, b in pairs]}
 
 
 def speiser_scan(T: float, t_min: float = 0.25, sigma_min: float = -1.0, sigma_max: float = 4.0,
@@ -546,6 +639,9 @@ def speiser_scan(T: float, t_min: float = 0.25, sigma_min: float = -1.0, sigma_m
             d.update({"certified": False})
             n_lt_half_rig += 1
         zero_dicts.append(d)
+    cs = certification_summary(zero_dicts, sigma_min, sigma_max, t_min, T)
+    count = sum(z.multiplicity for z in zeros)
+    complete = bool(cs["disjoint"] and cs["inside"] and n_cert == count == w_cells == w_total)
     # --- 4b, 4c: counts and pole check -----------------------------------------------------
     NT = zeta_zero_count(T, dps)
     pc = None
@@ -561,7 +657,7 @@ def speiser_scan(T: float, t_min: float = 0.25, sigma_min: float = -1.0, sigma_m
             match &= any(abs(z.z - z0) < 1e-8 for z in zeros)
     return SpeiserResult(
         T=T, t_min=t_min, sigma_min=sigma_min, sigma_max=sigma_max,
-        count=sum(z.multiplicity for z in zeros), count_certified=n_cert,
+        count=count, count_certified=n_cert,
         count_re_lt_half=int(sum(1 for z in zeros if z.re < 0.5)),
         count_re_lt_half_rigorous=n_lt_half_rig,
         min_re=float(re_vals[i_min]), zero_min_re=(zeros[i_min].re, zeros[i_min].im) if zeros else (math.nan, math.nan),
@@ -571,4 +667,6 @@ def speiser_scan(T: float, t_min: float = 0.25, sigma_min: float = -1.0, sigma_m
         N_T_minus_log2_term=NT - T / TWO_PI * math.log(2.0),
         pole_check_winding=pc, first_zeros_match_spira=match, evaluations=nev,
         wall_seconds=time.time() - t_start, dps=dps, zeros=zero_dicts,
+        count_certified_distinct=cs["n_distinct"], certified_boxes_disjoint=cs["disjoint"],
+        certified_inside_rectangle=cs["inside"], complete=complete,
     )

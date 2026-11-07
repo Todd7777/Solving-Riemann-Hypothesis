@@ -73,9 +73,15 @@ def test_no_zeros_left_of_half_and_pole_check():
 
 def test_speiser_scan_T100():
     r = S.speiser_scan(100.0, workers=1)
-    assert r.count == 19                                   # two independent winding computations
+    assert r.count == 19
+    # the cell total telescopes to the outer boundary (shared edges cancel); the independent check is
+    # the finer whole-rectangle winding number against the number of *distinct* certified zeros
     assert r.winding_total_cells == r.winding_total_independent == r.count
-    assert r.count_certified == r.count
+    assert r.count_certified == r.count_certified_distinct == r.count
+    assert r.certified_boxes_disjoint and r.certified_inside_rectangle and r.complete
+    # certified bounds are rounded outward and enclose the Newton point
+    assert all(z["re_lower"] <= z["re"] <= z["re_upper"] and z["re_lower"] < z["re_upper"]
+               and z["im_lower"] <= z["im"] <= z["im_upper"] for z in r.zeros)
     assert r.count_re_lt_half == 0 and r.count_re_lt_half_rigorous == 0
     assert r.min_re > 0.5
     assert all(z["certified"] and z["re_lower"] > 0.5 for z in r.zeros)
@@ -91,7 +97,25 @@ def test_speiser_scan_T100():
     assert all(z["residual"] < 1e-12 for z in r.zeros)
 
 
+def test_certification_summary_detects_duplicates_and_escapes():
+    zs = [{"certified": True, "re_lower": 0.9, "re_upper": 0.9 + 1e-12, "im_lower": 10.0, "im_upper": 10.0 + 1e-12},
+          {"certified": True, "re_lower": 1.9, "re_upper": 1.9 + 1e-12, "im_lower": 10.0, "im_upper": 10.0 + 1e-12},
+          {"certified": False}]
+    cs = S.certification_summary(zs, -1, 4, 0.25, 100)
+    assert cs["disjoint"] and cs["inside"] and cs["n_certified"] == 2 == cs["n_distinct"]
+    dup = zs + [dict(zs[0])]                                   # the same zero found twice
+    cs = S.certification_summary(dup, -1, 4, 0.25, 100)
+    assert not cs["disjoint"] and cs["n_certified"] == 3 and cs["n_distinct"] == 2
+    assert cs["overlapping_pairs"] == [(0, 3)]
+    assert not S.certification_summary(zs, -1, 1.5, 0.25, 100)["inside"]   # second box outside
+    assert S.overlapping_boxes([(0, 1, 0, 1), (2, 3, 0.5, 2), (0.5, 0.6, 0.9, 5)]) == [(0, 2)]
+
+
 def test_berndt_main_term_and_zero_count():
     assert S.zeta_zero_count(100.0) == 29 and S.zeta_zero_count(1000.0) == 649
+    # an exact float T just below / above the first ordinate is resolved exactly by Arb
+    assert S.zeta_zero_count(14.134725141734693) == 0 and S.zeta_zero_count(14.134725141734695) == 1
+    with pytest.raises(ValueError):
+        S.zeta_zero_count(float("nan"))
     T = 1000.0
     assert abs(S.berndt_main_term(T) - (T / (2 * math.pi) * math.log(T / (4 * math.pi)) - T / (2 * math.pi))) < 1e-9

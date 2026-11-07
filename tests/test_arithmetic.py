@@ -46,6 +46,25 @@ def test_robin_ratio_against_direct_formula(sigma_1e5):
     assert abs(direct - A.robin_check(10 ** 5, sigma=sigma_1e5).max_robin_ratio_beyond_5040) < 1e-14
 
 
+def test_decisions_robust_and_exact_recheck(sigma_1e5):
+    # float64 / long-double decisions are far from the thresholds ...
+    r = A.robin_check(10 ** 5, sigma=sigma_1e5)
+    assert r.argmin_abs_rel_margin == 720 and 8e-4 < r.min_abs_rel_margin < 9e-4 and r.rechecked == []
+    l = A.lagarias_check(10 ** 5, sigma=sigma_1e5)
+    assert l.argmin_abs_rel_margin == 12 and 0.011 < l.min_abs_rel_margin < 0.012 and l.rechecked == []
+    # ... and forcing a wide re-check band re-decides those cases rigorously in Arb with the same outcome
+    rw = A.robin_check(10 ** 5, sigma=sigma_1e5, recheck_rtol=5e-2)
+    assert len(rw.rechecked) > 30 and 720 in rw.rechecked and 420 in rw.rechecked
+    assert rw.violators == r.violators == list(A.ROBIN_EXCEPTIONS)
+    lw = A.lagarias_check(10 ** 5, sigma=sigma_1e5, recheck_rtol=5e-2)
+    assert 12 in lw.rechecked and lw.violators == [] == l.violators
+    # the exact deciders on their own
+    assert all(A.robin_violates_exact(n, int(sigma_1e5[n])) == (n in A.ROBIN_EXCEPTIONS) for n in range(2, 5200))
+    assert not any(A.lagarias_violates_exact(n, int(sigma_1e5[n])) for n in range(1, 3000))
+    assert A.lagarias_violates_exact(1, 2) and not A.lagarias_violates_exact(1, 1)   # RHS(1) = 1 exactly
+    assert A.lagarias_violates_exact(12, 28 + 1) and A.robin_violates_exact(10080, 10 ** 6)
+
+
 def test_lagarias_no_violators_to_1e5(sigma_1e5):
     r = A.lagarias_check(10 ** 5, sigma=sigma_1e5)
     assert r.violators == []
@@ -92,6 +111,39 @@ def test_ca_against_brute_force_maximisation():
         eps_mid = 0.5 * (cas[k].critical_epsilon + cas[k + 1].critical_epsilon)
         assert A.brute_force_ca_argmax(eps_mid, N, sig) == cas[k].n
         assert A.ca_number_for_epsilon(eps_mid) == cas[k].factorization
+
+
+def test_ca_against_hardy_ramanujan_maximisation():
+    """sigma(n)/n^(1+eps) is maximised by an n with non-increasing exponents on 2, 3, 5, ...
+    (moving an exponent to a smaller prime lowers n and raises sigma(n)/n).  Maximising over all
+    17563 such n <= 10^16 at three eps in each CA interval reproduces CA_1 .. CA_21 (A004490)."""
+    B = 10 ** 16
+    primes = list(sympy.primerange(2, 100))
+    cand = []
+
+    def rec(i, maxa, val, fac):
+        cand.append((val, fac))
+        v = val
+        for a in range(1, maxa + 1):
+            v *= primes[i]
+            if v > B:
+                break
+            rec(i + 1, a, v, fac + (a,))
+
+    rec(0, 64, 1, ())
+    assert len(cand) == 17563
+    lsn = np.array([sum(math.log((primes[i] ** (a + 1) - 1) / (primes[i] ** a * (primes[i] - 1)))
+                        for i, a in enumerate(f)) for _, f in cand])
+    ln = np.log(np.array([float(v) for v, _ in cand]))
+    cas = A.ca_numbers(22)
+    assert [c.n for c in cas[:21]] == list(A.CA_NUMBERS_KNOWN)
+    for k in range(21):
+        lo, hi = cas[k + 1].critical_epsilon, cas[k].critical_epsilon
+        for frac in (0.02, 0.5, 0.98):
+            score = lsn - (lo + frac * (hi - lo)) * ln
+            top2 = np.sort(score)[-2:]
+            assert top2[1] - top2[0] > 1e-12                      # decision robust in float64
+            assert cand[int(np.argmax(score))][0] == cas[k].n
 
 
 def test_ca_exponent_formula():

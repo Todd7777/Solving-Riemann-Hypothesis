@@ -129,6 +129,46 @@ def test_ks_by_height_windows(zeros_1e5):
     assert [r["n_spacings"] for r in rows] == [9999, 90000]
     assert all(r["ks_gue"] < 0.05 for r in rows)
     assert rows[0]["logT_mid"] < rows[1]["logT_mid"]
+    # the height of a window is the mean of log t over its spacings, not the geometric mean of the
+    # end points (which sits far below the bulk of the zeros when the window spans decades)
+    g = zeros_1e5[:10 ** 4]
+    assert abs(rows[0]["logT_mid"] - np.mean(np.log(0.5 * (g[1:] + g[:-1])))) < 1e-12
+    assert abs(rows[0]["logT_mid"] - 8.3548) < 1e-3 and abs(rows[0]["logT_endpoints"] - 5.9233) < 1e-3
+    assert all(r["T_lo"] < r["T_mid"] < r["T_hi"] for r in rows)
+
+
+def test_ks_null_constants():
+    from scipy import stats
+    k = st.ks_distance(np.linspace(0.01, 3, 400))
+    n = k["n"]
+    assert abs(k["noise_floor"] * math.sqrt(n) - stats.kstwobign.mean()) < 1e-9     # mean, sqrt(pi/2) log 2
+    assert abs(k["null_median"] * math.sqrt(n) - stats.kstwobign.median()) < 1e-9   # 50% quantile 0.8276
+    assert abs(k["null_q95"] * math.sqrt(n) - stats.kstwobign.ppf(0.95)) < 1e-9
+
+
+def _inverse_unfold(x):
+    """Ordinates gamma with theta(gamma)/pi + 1 = x (Newton in long double)."""
+    x = np.asarray(x, dtype=np.longdouble)
+    g = np.asarray(2 * np.pi * x / np.log(x), dtype=np.longdouble) + 100
+    for _ in range(50):
+        g = g - (st._theta_ld(g) / st.PI_LD + 1 - x) / (np.log(g / st.TWO_PI_LD) / (2 * st.PI_LD))
+    return np.asarray(g, dtype=np.float64)
+
+
+def test_estimators_normalised_on_poisson_process():
+    """A unit-density Poisson process, mapped to 'ordinates' through the inverse of the
+    unfolding, must give R_2 = 1 and Sigma^2(L) = L: checks the edge handling and the
+    normalisation of pair_correlation and number_variance independently of zeta."""
+    rng = np.random.default_rng(3)
+    x = 2000.0 + np.cumsum(rng.exponential(1.0, 200000))
+    g = _inverse_unfold(x)
+    assert np.max(np.abs(st.unfold(g) - x)) < 1e-8
+    pc = st.pair_correlation(g, alpha_max=4.0, bins=40)
+    z = (pc["R2"] - 1) / pc["se"]
+    assert abs(pc["R2"].mean() - 1) < 0.005 and np.max(np.abs(z)) < 4.5
+    L = np.array([0.5, 2.0, 8.0])
+    nv = st.number_variance(g, L, n_windows=40000)
+    assert np.allclose(nv["mean_count"], L, rtol=0.02) and np.allclose(nv["sigma2"], L, rtol=0.05)
 
 
 # --------------------------------------------------------- number variance --
@@ -172,6 +212,21 @@ def test_lehmer_pair_is_among_smallest_spacings(zeros_1e5):
     assert rows[0]["normalized_spacing"] < 0.03
     delta = st.lehmer_pair_statistic(zeros_1e5, 6708)
     assert 0 < delta < 0.8                               # Csordas–Smith–Varga Lehmer pair
+    assert abs(delta - 0.006933) < 2e-6
+
+
+def test_lehmer_statistic_tail_correction(zeros_1e5):
+    """Zeros missing beyond the ends of the data bias the CSV sum low by ~Delta^2 rho/distance;
+    the smooth-density tail estimate removes this (reference: the same pair with 10^5 zeros)."""
+    full = st.lehmer_pair_statistic(zeros_1e5, 6708)
+    cut = zeros_1e5[:6800]                                # pair 92 zeros below the upper data edge
+    raw = st.lehmer_pair_statistic(cut, 6708, tail_correction=False)
+    cor = st.lehmer_pair_statistic(cut, 6708)
+    assert raw / full - 1 < -3e-3 and abs(cor / full - 1) < 1e-4
+    win = zeros_1e5[6600:6820]                            # a window starting at index 6601
+    raw = st.lehmer_pair_statistic(win, 6708 - 6600, tail_correction=False)
+    cor = st.lehmer_pair_statistic(win, 6708 - 6600, start_index=6601)
+    assert raw / full - 1 < -5e-3 and abs(cor / full - 1) < 2e-4
 
 
 def test_montgomery_F_shape(zeros_1e5):

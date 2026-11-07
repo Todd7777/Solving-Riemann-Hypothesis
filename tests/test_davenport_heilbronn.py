@@ -39,6 +39,31 @@ def test_dirichlet_series_and_no_euler_product():
     assert abs(D.dh_f(acb(-1))) < 1e-15 and abs(D.dh_f(acb(-3))) < 1e-15
 
 
+def test_definition_independent_of_flint_characters():
+    """f = 5^{-s} sum_a c_a zeta(s, a/5) with (c_1..c_4) = (1, kappa, -kappa, -1) (Titchmarsh 10.25),
+    evaluated with mpmath's Hurwitz zeta, agrees with the L-function form inside the critical strip,
+    and satisfies f(s) = (5/pi)^{1/2-s} Gamma((2-s)/2)/Gamma((1+s)/2) f(1-s) with mpmath's Gamma."""
+    mp = pytest.importorskip("mpmath")
+    with mp.workdps(30):
+        k = D.KAPPA_MP
+        c = {1: 1, 2: k, 3: -k, 4: -1}
+
+        def f(s):
+            return mp.mpf(5) ** (-s) * mp.fsum(c[a] * mp.zeta(s, mp.mpf(a) / 5) for a in c)
+
+        def G(s):
+            return (mp.mpf(5) / mp.pi) ** (mp.mpf(1) / 2 - s) * mp.gamma((2 - s) / 2) / mp.gamma((1 + s) / 2)
+
+        assert complex(D.CHI(2)) == 1j and complex(D.CHI(3)) == -1j and complex(D.CHI(4)) == -1
+        for s in [mp.mpc(0.3, 10), mp.mpc(0.8085171824566374, 85.6993484853776), mp.mpc(-0.4, 50.2)]:
+            ref = complex(f(s))
+            assert abs(ref - D.dh_f_complex(complex(s))) < 1e-14 * max(1.0, abs(ref))
+            assert abs(f(s) - G(s) * f(1 - s)) < 1e-25
+        # root number of chi equals (1 + i kappa)/(1 - i kappa)
+        tau = mp.fsum(complex(D.CHI(a)) * mp.exp(2j * mp.pi * a / 5) for a in range(1, 5))
+        assert abs(tau / (1j * mp.sqrt(5)) - (1 + 1j * k) / (1 - 1j * k)) < 1e-25
+
+
 def test_Z_is_real():
     for t in [10.0, 85.7, 114.16, 250.3]:
         z = D.dh_Z_acb(t, dps=20)
@@ -65,6 +90,7 @@ def test_first_off_line_zero_found_and_certified():
 def test_scan_consistency_80_120():
     r = D.dh_scan(T=120.0, t0=80.0)
     assert r.consistent
+    assert r.off_line_boxes_disjoint and r.off_line_inside and r.off_line_distinct == 2
     assert r.off_line_count_right == 2 and r.off_line_certified == 2
     assert r.total_count_winding == r.on_line_count + 2 * r.off_line_count_right
     assert r.on_line_count == 24
