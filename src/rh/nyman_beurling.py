@@ -310,3 +310,48 @@ def gram_entry_direct_mp(h: int, k: int, K: int = 200, dps: int = 40):
             if mo > 5 and abs(term) < mp.mpf(10) ** (-dps):
                 break
         return head + tail
+
+
+# ----------------------------------------------------------------------------
+# Sensitivity: the floor that hypothetical off-line zeros would impose on d_N
+# ----------------------------------------------------------------------------
+def offline_floor_zeta(rhos) -> float:
+    """Lower bound, valid for every N, that zeros rho_i of zeta with Re rho_i > 1/2
+    would impose on the Báez-Duarte distance d_N^2 (pass both members of each
+    conjugate pair).
+
+    Write phi = 1_(0,1] - sum c_k rho_k = phi_1 + phi_2 with phi_1 = phi on (0,1)
+    and phi_2 = phi on [1, inf).  For x >= 1 every rho_k(x) = 1/(kx), so
+    phi_2(x) = -B/x with B = sum c_k/k, ||phi_2||^2 = B^2 and Mellin transform
+    B/(s-1).  phi_1 lies in L^2(0,1), whose Mellin image is the Hardy space
+    H^2(Re s > 1/2) with kernel K(s,w) = 1/(s + conj(w) - 1).  At a zero rho of
+    zeta the full Mellin transform (1 - zeta A)/s equals 1/rho, so
+    M phi_1(rho_i) = 1/rho_i - B/(rho_i - 1) =: u_i - B w_i, and
+        ||phi||^2 >= min_B [ (u - Bw)^* K^{-1} (u - Bw) + B^2 ].
+    For one zero 1/2 + delta + i gamma (with its conjugate) the value is
+    about 4 delta / gamma^2."""
+    import mpmath as mp
+    rh = [mp.mpc(r) for r in rhos]
+    n = len(rh)
+    K = mp.matrix(n, n)
+    u = mp.matrix(n, 1)
+    w = mp.matrix(n, 1)
+    for i in range(n):
+        u[i] = 1 / rh[i]
+        w[i] = 1 / (rh[i] - 1)
+        for j in range(n):
+            K[i, j] = 1 / (rh[i] + mp.conj(rh[j]) - 1)
+    Ku = mp.lu_solve(K, u)
+    Kw = mp.lu_solve(K, w)
+    uKu = mp.re(sum(mp.conj(u[i]) * Ku[i] for i in range(n)))
+    wKw = mp.re(sum(mp.conj(w[i]) * Kw[i] for i in range(n)))
+    wKu = mp.re(sum(mp.conj(w[i]) * Ku[i] for i in range(n)))
+    return float(uKu - wKu ** 2 / (wKw + 1))
+
+
+def detection_horizon_log_N(gamma: float, delta: float, C: float = BAEZ_DUARTE_C) -> float:
+    """log N at which the floor of a hypothetical zero pair 1/2 + delta +- i gamma
+    equals the on-line term C/log N of d_N^2 (heuristic model
+    d_N^2 ~ C/log N + floor): log N* = C / floor ~ C gamma^2 / (4 delta)."""
+    floor = offline_floor_zeta([complex(0.5 + delta, gamma), complex(0.5 + delta, -gamma)])
+    return C / floor
