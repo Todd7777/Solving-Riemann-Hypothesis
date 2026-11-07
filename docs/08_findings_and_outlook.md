@@ -28,7 +28,9 @@ The Davenport–Heilbronn function, a genuine RH violation at height 86, confirm
 
 **5. Explicit-formula structure in the Báez-Duarte sequence (E3).** $c_k=\sum_j(-1)^j\binom kj/\zeta(2j+2)$ is reproduced to $10^{-9}$ for $k\le10^6$ by an explicit formula over 8 nontrivial and 12 trivial zeros. The trivial-zero term dominates until $k\approx2\times10^4$, which any numerical test of the $k^{-3/4}$ law must account for.
 
-**6. Everything else is consistent with RH and with the random-matrix picture.** Zeros to $10^6$ certified by an independent Turing-method implementation; Robin, Lagarias and Nicolas inequalities to $10^7$ and $10^4$ primorials; colossally abundant numbers with Robin margin $\approx0.13/\sqrt{\log n}$; 1298 zeros of $\zeta'$ right of the line; GUE statistics approaching the limit like $c/(\log T)^2$; the explicit formula to $10^{-15}$.
+**6. An empirical growth law for the Li coefficients' oscillation (E4).** For $n\le10^5$ every $\lambda_n$ is positive, the linear constant matches RH's prediction to $3\times10^{-6}$, and the oscillating part grows like $n^{0.32\pm0.05}$. That is consistent with a heuristic $n^{1/4}(\log n)^{1/2}$ and far below the proven RH bound $O(\sqrt n\log n)$.
+
+**7. Everything else is consistent with RH and with the random-matrix picture.** Zeros to $10^6$ certified by an independent Turing-method implementation; Robin, Lagarias and Nicolas inequalities to $10^7$ and $10^4$ primorials; colossally abundant numbers with Robin margin $\approx0.13/\sqrt{\log n}$; 1298 zeros of $\zeta'$ right of the line; GUE statistics approaching the limit like $c/(\log T)^2$; the explicit formula to $10^{-15}$.
 
 ## 8.2 What would constitute progress
 

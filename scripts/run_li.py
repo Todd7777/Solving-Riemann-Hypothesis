@@ -135,7 +135,7 @@ def plot_oscillation(ns, osc, path, hp_ns=None, hp_osc=None):
     r = osc / np.sqrt(ns)
     r100 = np.max(np.abs(r[ns >= 100])) if np.any(ns >= 100) else np.max(np.abs(r))
     ax2.set_title(f"Scaled by √n: within [{r.min():+.2f}, {r.max():+.2f}], and |·| < {r100:.2f} for n ≥ 100 "
-                  f"(RH predicts O(√n log n), Bombieri–Lagarias 1999)")
+                  f"(RH implies O(√n log n): Lagarias 2007, Thm 1.1)")
     fig.tight_layout()
     fig.savefig(path, dpi=160)
     plt.close(fig)
