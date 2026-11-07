@@ -39,7 +39,7 @@ The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every 
 
 **Q5 (GUE deviations).** The lower-order corrections to GUE (Bogomolny–Keating; Conrey–Snaith) are arithmetic: they contain the primes. We measure the spacing-distribution deviation in five windows up to height $6\times10^5$ and at $\sim3.3\times10^9$ and compare with the $1/\log T$ scaling.
 
-**Q6 (Davenport–Heilbronn as a control).** Every criterion we compute for $\zeta$ can also be computed for the DH function $f$, which violates RH. Which criteria *detect* the violation at computationally accessible scale (e.g. Li-type coefficients for $f$ grow exponentially; the analogue of $d_N$ stalls)? This calibrates how sensitive each criterion is — a necessary sanity check before reading anything into numerics for $\zeta$.
+**Q6 (Davenport–Heilbronn as a control).** *Answered for Nyman–Beurling (E11):* the Davenport–Heilbronn distances are indistinguishable from those of $L(s,(n/5))$ for $N\le2000$; the violation shows only near $N\approx10^{302}$. Weil positivity is being tested in E12. The original question follows. Every criterion we compute for $\zeta$ can also be computed for the DH function $f$, which violates RH. Which criteria *detect* the violation at computationally accessible scale (e.g. Li-type coefficients for $f$ grow exponentially; the analogue of $d_N$ stalls)? This calibrates how sensitive each criterion is — a necessary sanity check before reading anything into numerics for $\zeta$.
 
 ## 5.4 What would constitute progress
 

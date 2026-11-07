@@ -243,6 +243,42 @@ Both the eigenvalue and the distances are unchanged to all printed digits when t
 
 ---
 
+## E11. Sensitivity of the Nyman–Beurling criterion, with a real RH violation as control (2026-11-07)
+
+`python3 scripts/run_nyman_beurling_control.py --N 2000` (729 s). Module `nyman_beurling_periodic.py` (plus `nyman_beurling.offline_floor_zeta`, `detection_horizon_log_N`); 19 tests.
+
+**Setup.** Let $F(s)=\sum c_nn^{-s}$ have real coefficients of period $q$ summing to $0$ over a period. Then the functions $\psi_k(x)=A(1/(kx))$, with $A(y)=c_1+\dots+c_{\lfloor y\rfloor}$, are bounded, supported in $(0,1]$, and have Mellin transforms $k^{-s}F(s)/s$. So $d_N^2=\min\|\mathbf 1_{(0,1]}-\sum_{k\le N}c_k\psi_k\|^2=\min_{A_N}\frac1{2\pi}\int|1-FA_N|^2|s|^{-2}dt$, exactly as for ζ. We use two controls with $q=5$:
+* $L(s,(n/5))$, whose zeros lie on the critical line (GRH);
+* the Davenport–Heilbronn function, which has zeros off the line (the first at $0.8085+85.699i$; E7).
+
+The Gram matrix $\langle\psi_j,\psi_k\rangle$ has a closed form: summing the jumps of the step-function integrand and applying digamma asymptotics to the resulting periodic series gives an $O(q(h+k))$ formula. It agrees with an independent exact period-sum formula to $2.2\times10^{-16}$.
+
+**Constants.**
+* By the Hadamard product, $\sum_\rho\frac1{\rho(1-\rho)}=2\Lambda'/\Lambda(1)=\log\frac q\pi+\psi(\tfrac{1+e}2)+2F'(1)/F(1)$. For ζ this formula gives Burnol's $2+\gamma-\log4\pi$.
+* $L(s,(n/5))$: $C=0.156557$. Here $F(1)=2\log\phi/\sqrt5$ is reproduced, and $F'(1)$ is checked against mpmath.
+* Davenport–Heilbronn: the sum over all zeros is $0.195272$. Removing its 5 off-line quadruples below $t=300$ (which contribute $0.001193$) leaves the on-line constant $C_{\rm on}=0.194079$. The direct sum over its 204 computed on-line zeros plus a density tail gives $0.194083$.
+* Off-line floor: the Mellin transform maps $L^2(0,1)$ onto the Hardy space $H^2(\Re s>\tfrac12)$, so each off-line zero forces a value at a point. The minimal-norm interpolation bound gives **$d_N^2\ge2.793\times10^{-4}$ for every $N$** (rigorous given the zeros).
+
+**Results** ($d_N^2\log N$):
+
+| $N$ | 10 | 100 | 300 | 1000 | 2000 | predicted limit |
+|---|---|---|---|---|---|---|
+| $L(s,(n/5))$ (GRH) | 0.320 | 0.153 | 0.145 | 0.136 | 0.136 | $C=0.157$ |
+| Davenport–Heilbronn (RH false) | 0.122 | 0.155 | 0.163 | 0.167 | 0.175 | $C_{\rm on}=0.194$ (+ floor·log N = 0.002 at $N=2000$) |
+
+Both sequences are within 13–16% of their on-line constants at $N=2000$, approaching from opposite sides. Davenport–Heilbronn's $d_{2000}^2=0.0231$ is 80 times its floor. The off-line zeros add only floor·$\log N\approx0.002$ to $d_N^2\log N$ at $N=2000$, about 1% of $C_{\rm on}$. That is far below the 15% finite-$N$ deviations both functions show. Under the model $d_N^2\approx C_{\rm on}/\log N+$floor, the floor dominates only for $\log N>C_{\rm on}/{\rm floor}\approx695$, i.e. **$N\approx10^{302}$**. Figure `nyman_beurling_control.png`.
+
+**ζ with a hypothetical off-line zero.** Báez-Duarte's functions are not supported in $(0,1)$; their tail is $-B/x$ on $[1,\infty)$, whose Mellin transform is $B/(s-1)$. With that correction the floor of a pair $\tfrac12+\delta\pm i\gamma$ is computed exactly by `offline_floor_zeta`, and is $\approx4\delta/\gamma^2$. The detection horizon is $\log N^*=C\gamma^2/(4\delta)$ with $C=0.0462$, compared below with Li's for the same zeros ($\delta=0.1$):
+
+| $\gamma$ | 14.13 | 100 | $10^3$ | $3\times10^{12}$ |
+|---|---|---|---|---|
+| Nyman–Beurling $N^*$ | $10^{10}$ | $10^{502}$ | $10^{50\,000}$ | $10^{4.5\times10^{23}}$ |
+| Li $n^*$ | $2.2\times10^4$ | $1.6\times10^6$ | $2.1\times10^8$ | $6\times10^{27}$ |
+
+**Interpretation.** RH is equivalent to $d_N\to0$. But on-line zeros make $d_N^2$ decay only like $C/\log N$, while a violation adds a floor proportional to $\delta/\gamma^2$. The criterion is therefore numerically blind: even the gross Davenport–Heilbronn violation ($\delta\approx0.31$ at height 86) is invisible for every computable $N$. This is a property of the $\log N$ scale of the criterion, not of our numerics. Any use of Nyman–Beurling toward RH must be a genuinely asymptotic argument. The finite-$N$ behaviour also warns against reading convergence off the data: neither $d_N^2\log N$ curve is within 10% of its limit at $N=2000$ (ζ's is 2% below at $N=10^4$, E2b).
+
+---
+
 ## Summary of the state of the evidence after all experiments
 
 Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated — and found to be essentially nil at the heights that matter.
