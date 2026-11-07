@@ -438,29 +438,49 @@ def certify_on_line_zeros(Z: Callable, ordinates: Sequence[float], delta: float 
 # 3. The coefficients a_n of -F'/F
 # ----------------------------------------------------------------------------
 _COEFF_CACHE: dict = {}
+N_CAP = 20_000_000          # refuse coefficient tables larger than this (memory ~ 4 * 8 * N bytes)
 
 
 def log_derivative_coefficients(series: SelfDualSeries, N: int) -> np.ndarray:
-    """a_0..a_N (a_0 := 0, a_1 = 0) from sum_{d|n} a_d c_{n/d} = c_n log n, float64
-    sieve in O(N log N).  Cached; the returned array is read-only."""
+    """a_0..a_N (a_0 := 0, a_1 = 0) from sum_{d|n} a_d c_{n/d} = c_n log n (float64).
+
+    Block sieve: a_n for n in [L, 2L) only involves divisors d <= n/2 < L, so the
+    whole block is final once [2, L) is; its contributions a_n c_m to S[n m]
+    (m >= 2) are then added with strided slices, looping over whichever of n or m
+    has fewer values.  O(N log N) work in O(sqrt(N) log N) numpy calls.  Cached;
+    the returned array is read-only."""
     N = int(N)
+    if N > N_CAP:
+        raise ValueError(f"N = {N} exceeds N_CAP = {N_CAP}")
     key = (series.coeffs, series.pole)
     got = _COEFF_CACHE.get(key)
     if got is not None and got.size >= N + 1:
         return got[:N + 1]
     c = series.c_array(N)
-    nz = c != 0.0
     a = np.zeros(N + 1)
     S = np.zeros(N + 1)
-    logs = np.log(np.maximum(np.arange(N + 1), 1))
-    for n in range(2, N + 1):
-        an = c[n] * logs[n] - S[n]
-        a[n] = an
-        if an != 0.0 and 2 * n <= N:
-            mmax = N // n
-            m = np.arange(2, mmax + 1)
-            sel = nz[2:mmax + 1]
-            S[n * m[sel]] += an * c[m[sel]]
+    L = 2
+    while L <= N:
+        H = min(2 * L, N + 1)                         # block [L, H)
+        idx = np.arange(L, H)
+        a[L:H] = c[L:H] * np.log(idx.astype(float)) - S[L:H]
+        if 2 * L <= N:
+            mmax = N // L
+            if H - L <= mmax:                          # loop over n in the block
+                for n in range(L, H):
+                    if 2 * n > N:
+                        break
+                    if a[n] != 0.0:
+                        S[2 * n::n] += a[n] * c[2:N // n + 1]
+            else:                                      # loop over the multipliers m
+                for m in range(2, mmax + 1):
+                    if c[m] == 0.0:
+                        continue
+                    nhi = min(H, N // m + 1)
+                    if nhi <= L:
+                        break
+                    S[L * m:nhi * m:m] += a[L:nhi] * c[m]
+        L = H
     a.setflags(write=False)
     _COEFF_CACHE[key] = a
     return a
@@ -637,16 +657,19 @@ def archimedean_term_r(series: SelfDualSeries, h: Callable, r_windows=((0.0, 50.
 
 
 def arithmetic_side(series: SelfDualSeries, tf: TestFunction, N: Optional[int] = None, arch: str = "u",
-                    truncation_check: bool = True) -> dict:
+                    truncation_check: bool = True, N_check_max: int = 2_000_000) -> dict:
     """Right-hand side of (EF) for an even test function (an `rh.explicit_formula.TestFunction`:
     g, complex-capable h, u_support or u_max, r_windows).
 
-    N defaults to floor(e^{u_cut}) (exact for compact support).  arch = 'u', 'r' or
-    'both' (u-space value used, r-space reported).  With truncation_check and
-    non-compact g, the omitted terms N < n <= e^{1.25 u_cut} are summed and
-    reported as `prime_sum_truncation_estimate`."""
+    N defaults to floor(e^{u_cut}) (exact for compact support; must be <= N_CAP,
+    otherwise pass N).  arch = 'u', 'r' or 'both' (u-space value used, r-space
+    reported).  With truncation_check and non-compact g, the omitted terms
+    N < n <= min(e^{1.25 u_cut}, max(4N, 1000), N_check_max) are summed and reported
+    as `prime_sum_truncation_estimate` (not added)."""
     U = tf.u_cut()
     if N is None:
+        if U > math.log(N_CAP):
+            raise ValueError(f"e^u_cut = {math.exp(U):.3g} terms: pass N explicitly")
         N = max(1, int(math.floor(math.exp(U) * (1 + 1e-12))))
     a = log_derivative_coefficients(series, N)
     P = prime_type_sum(series, tf.g, N, a)
@@ -660,7 +683,7 @@ def arithmetic_side(series: SelfDualSeries, tf: TestFunction, N: Optional[int] =
     if Wu is not None and Wr is not None:
         out["archimedean_u_minus_r"] = Wu - Wr
     if truncation_check and tf.u_support is None:
-        N2 = int(math.floor(math.exp(1.25 * U)))
+        N2 = int(min(math.floor(math.exp(min(1.25 * U, 40.0))), max(4 * N, 1000), max(N_check_max, N)))
         if N2 > N:
             a2 = log_derivative_coefficients(series, N2)
             out["prime_sum_truncation_estimate"] = prime_type_sum(series, tf.g, N2, a2, n_min=N + 1)
