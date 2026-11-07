@@ -162,10 +162,13 @@ def test_dataset_and_manifest(zeros, manifest):
         assert c["agree"] and c["sign_changes"] == c["N_backlund"] == c["N_winding"] == int(np.sum(zeros <= c["T"]))
         assert abs(c["N_smooth"] + c["S"] - c["N_backlund"]) < 1e-9
     assert manifest["reality_check"]["high_precision"]["Im_contains_0"]
-    assert manifest["independent_mpmath_check"]["max_abs_diff_25_digits"] < 1e-18
-    # the 25-digit ordinates round to the stored float64 values
-    for s, g in zip(manifest["ordinates_25_digits"][:50], zeros[:50]):
-        assert abs(float(s) - g) <= math.ulp(g)
+    assert manifest["independent_mpmath_check"]["max_abs_diff_hp"] < 1e-18
+    assert manifest["hp_radius"] <= 1e-20
+    assert all(b["N_diff"] == b["sign_changes"] for b in manifest["certification"]["blocks"])
+    # the high-precision ordinates round to the stored float64 values
+    assert len(manifest["ordinates_hp"]) == len(zeros)
+    for s, g in zip(manifest["ordinates_hp"], zeros):
+        assert abs(float(s) - g) <= math.ulp(g) / 2
 
 
 def test_sign_change_certificates_sample(lz, zeros, manifest):

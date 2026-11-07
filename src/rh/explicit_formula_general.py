@@ -656,14 +656,16 @@ def archimedean_term_r(series: SelfDualSeries, h: Callable, r_windows=((0.0, 50.
     return total / math.pi
 
 
-def arithmetic_side(series: SelfDualSeries, tf: TestFunction, N: Optional[int] = None, arch: str = "u",
+def arithmetic_side(series: SelfDualSeries, tf: TestFunction, N: Optional[int] = None, arch: str = "auto",
                     truncation_check: bool = True, N_check_max: int = 2_000_000) -> dict:
     """Right-hand side of (EF) for an even test function (an `rh.explicit_formula.TestFunction`:
     g, complex-capable h, u_support or u_max, r_windows).
 
     N defaults to floor(e^{u_cut}) (exact for compact support; must be <= N_CAP,
-    otherwise pass N).  arch = 'u', 'r' or 'both' (u-space value used, r-space
-    reported).  With truncation_check and non-compact g, the omitted terms
+    otherwise pass N).  arch = 'u', 'r', 'both' (u-space value used, r-space
+    reported) or 'auto' (u-space for compactly supported g, whose h may decay
+    slowly; r-space otherwise, which also copes with rapidly oscillating g).
+    With truncation_check and non-compact g, the omitted terms
     N < n <= min(e^{1.25 u_cut}, max(4N, 1000), N_check_max) are summed and reported
     as `prime_sum_truncation_estimate` (not added)."""
     U = tf.u_cut()
@@ -671,6 +673,8 @@ def arithmetic_side(series: SelfDualSeries, tf: TestFunction, N: Optional[int] =
         if U > math.log(N_CAP):
             raise ValueError(f"e^u_cut = {math.exp(U):.3g} terms: pass N explicitly")
         N = max(1, int(math.floor(math.exp(U) * (1 + 1e-12))))
+    if arch == "auto":
+        arch = "u" if tf.u_support is not None else "r"
     a = log_derivative_coefficients(series, N)
     P = prime_type_sum(series, tf.g, N, a)
     out = {"series": series.name, "test_function": tf.name, "params": dict(tf.params), "N": int(N)}
@@ -713,7 +717,7 @@ def _as_complex(z) -> complex:
 
 def zero_side(h: Callable, on_line: Sequence[float] = (), off_line: Sequence = (),
               series: Optional[SelfDualSeries] = None, tail: bool = False, T: Optional[float] = None,
-              r_windows=None, density: str = "log") -> dict:
+              r_windows=None, density: str = "log", tail_h: Optional[Callable] = None) -> dict:
     """sum_rho h(tau_rho), tau = (rho - 1/2)/i, over the given zeros.
 
     on_line   ordinates gamma > 0 of zeros 1/2 + i gamma (each gives h(gamma) + h(-gamma);
@@ -722,7 +726,9 @@ def zero_side(h: Callable, on_line: Sequence[float] = (), off_line: Sequence = (
               completed to rho, 1 - rho, conj rho, 1 - conj rho (a real rho to rho, 1 - rho)
     tail      add 2 int_T^inf h(r) d(r) dr with the zero density d of `zero_density`
               (needs series; T defaults to the last on-line ordinate; integrated
-              over r_windows intersected with [T, inf))."""
+              over r_windows intersected with [T, inf)).  For slowly decaying,
+              oscillating h pass tail_h (e.g. its local mean, TestFunction.tail_average):
+              the tail is then 2 int_T^inf tail_h(r) d(r) dr over all of [T, inf)."""
     on = np.asarray(on_line, dtype=float)
     if np.any(on < 0):
         raise ValueError("pass on-line ordinates gamma >= 0 (conjugates are added)")
@@ -748,6 +754,10 @@ def zero_side(h: Callable, on_line: Sequence[float] = (), off_line: Sequence = (
             raise ValueError("the density tail needs the series (conductor, parity)")
         Tt = float(T if T is not None else (on.max() if on.size else 0.0))
         wins = r_windows if r_windows is not None else ((Tt, Tt + 200.0),)
+        if tail_h is not None:
+            wins = ()
+            tail_val = quad(lambda r: float(np.real(tail_h(r)) * zero_density(series, r, density)), Tt, np.inf,
+                            limit=400, epsabs=1e-16, epsrel=1e-12)[0]
         for lo, hi in wins:
             a, b = max(lo, Tt), hi
             if b <= a:
@@ -765,12 +775,12 @@ def zero_side(h: Callable, on_line: Sequence[float] = (), off_line: Sequence = (
 
 def explicit_formula_check(series: SelfDualSeries, tf: TestFunction, on_line: Sequence[float] = (),
                            off_line: Sequence = (), N: Optional[int] = None, tail: bool = False,
-                           T: Optional[float] = None, arch: str = "u", density: str = "log") -> dict:
+                           T: Optional[float] = None, arch: str = "auto", density: str = "log") -> dict:
     """Both sides of (EF); residual = zero side - arithmetic side.  Also reports the
     residual when the off-line zeros are omitted (residual_without_off_line)."""
     A = arithmetic_side(series, tf, N=N, arch=arch)
     Z = zero_side(tf.h, on_line, off_line, series=series, tail=tail, T=T, r_windows=tf.r_windows,
-                  density=density)
+                  density=density, tail_h=tf.tail_average)
     res = Z["total"] - A["arithmetic_side"]
     scale = max(abs(Z["total"]), abs(A["arithmetic_side"]), 1e-300)
     return {"series": series.name, "test_function": tf.name, "params": dict(tf.params), "arithmetic": A,

@@ -539,8 +539,10 @@ def brackets_from_grid(ts, sg):
 def _refine_worker(args):
     """Illinois iteration at REFINE_DPS digits inside a certified bracket, then a certificate.
 
-    Returns (t* as decimal string, float64 x, eps, certified) where certified means that
-    Z_chi(x - eps), Z_chi(x + eps) have opposite certified signs and a < x - eps < x + eps < b."""
+    Returns (s, x, eps, certified, r_hp): s the refined ordinate as a 27-digit decimal string,
+    x the float64 nearest to it, and certified means that Z_chi(x - eps), Z_chi(x + eps) have
+    opposite certified signs with a < x - eps < x + eps < b, so the unique zero of the bracket
+    satisfies |gamma - x| < eps; likewise |gamma - s| < r_hp (nan if that check failed)."""
     a, b, sa, dps = args
     from flint import arb, ctx
     ctx.dps = dps
@@ -570,16 +572,24 @@ def _refine_worker(args):
         if abs(xb - xa) < tol or step < tol:
             break
     tstar = xb if abs(xb - xa) >= tol else ((xa + xb) / 2).mid()
-    x = float(tstar)
-    for eps in (math.ulp(x) / 2 + 1e-15, 1e-13, 1e-12):
-        lo, hi = arb(x) - arb(eps), arb(x) + arb(eps)
+
+    def brackets_zero(center, radius) -> bool:
+        lo, hi = center - arb(radius), center + arb(radius)
         if not (lo > a and hi < b):
-            continue
+            return False
         s_lo, _ = Z_sign(lo, (dps, 2 * dps))
         s_hi, _ = Z_sign(hi, (dps, 2 * dps))
-        if s_lo == sa and s_hi == -sa:
-            return tstar.str(25, radius=False), x, eps, True
-    return tstar.str(25, radius=False), x, float("nan"), False
+        return s_lo == sa and s_hi == -sa
+
+    # high-precision certificate for the printed decimal ordinate s: |gamma - s| < 1e-20
+    s_hp = tstar.str(27, radius=False)
+    hp = next((r for r in ("1e-20", "1e-18", "1e-16") if brackets_zero(arb(s_hp), arb(r))), None)
+    # float64 certificate: |gamma - x| < eps, eps = ulp(x)/2 + 1e-15 (x = nearest double to t*)
+    x = float(tstar)
+    for eps in (math.ulp(x) / 2 + 1e-15, 1e-13, 1e-12):
+        if brackets_zero(arb(x), eps):
+            return s_hp, x, eps, True, (float(hp) if hp else float("nan"))
+    return s_hp, x, float("nan"), False, (float(hp) if hp else float("nan"))
 
 
 def refine_all(brackets, workers: int = 1, dps: int = REFINE_DPS):
@@ -642,7 +652,7 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
         if bcount[Tb]["N"] is None:
             raise RuntimeError(f"Backlund count at T={Tb} not an integer: {bcount[Tb]}")
     log(f"[{time.time() - t_start:7.1f}s] Backlund counts at {len(bounds)} heights: N({T:g}) = {bcount[float(T)]['N']}")
-    refinements = []
+    refinements, blocks = [], []
     prev = 1.0
     final_br = []
     for Tb in bounds:
@@ -658,6 +668,7 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
             cur = brackets_from_grid(ts2, sg2)
             refinements.append({"interval": [prev, Tb], "den": d, "sign_changes": len(cur), "N_diff": want})
             log(f"   refined ({prev:g}, {Tb:g}] with step 1/{d}: {len(cur)} sign changes, need {want}")
+        blocks.append({"interval": [prev, Tb], "N_diff": int(want), "sign_changes": len(cur), "grid_den": d})
         final_br.extend(cur)
         prev = Tb
     final_br.sort()
@@ -670,8 +681,10 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
     ref = refine_all(final_br, workers)
     gam = np.array([r[1] for r in ref], dtype=np.float64)
     eps = np.array([r[2] for r in ref], dtype=np.float64)
+    hp_rad = np.array([r[4] for r in ref], dtype=np.float64)
     ok = all(r[3] for r in ref)
-    log(f"[{time.time() - t_start:7.1f}s] refined {len(ref)} zeros, all certified: {ok}, max eps {np.nanmax(eps):.2e}")
+    log(f"[{time.time() - t_start:7.1f}s] refined {len(ref)} zeros, all certified: {ok}, max eps {np.nanmax(eps):.2e}, "
+        f"high-precision radius max {np.max(hp_rad):.1e} (nan: {int(np.sum(np.isnan(hp_rad)))})")
     if not ok:
         raise RuntimeError("some zero failed its certificate")
     if not np.all(np.diff(gam) > 0):
@@ -695,15 +708,15 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
         r = mpmath_zero(float(gam[i]))
         with mp.workdps(30):
             d_hp = abs(r - mp.mpf(ref[i][0]))
-        mpc.append({"index": i + 1, "stored": float(gam[i]), "arb_25_digits": ref[i][0], "mpmath": mp.nstr(r, 25),
-                    "abs_diff_stored": float(abs(r - gam[i])), "abs_diff_25_digits": float(d_hp)})
+        mpc.append({"index": i + 1, "stored": float(gam[i]), "arb_hp": ref[i][0], "mpmath": mp.nstr(r, 27),
+                    "abs_diff_stored": float(abs(r - gam[i])), "abs_diff_hp": float(d_hp)})
     log(f"[{time.time() - t_start:7.1f}s] mpmath check: max |mpmath - stored| "
-        f"{max(d['abs_diff_stored'] for d in mpc):.2e}, max |mpmath - Arb 25 digits| "
-        f"{max(d['abs_diff_25_digits'] for d in mpc):.2e}")
+        f"{max(d['abs_diff_stored'] for d in mpc):.2e}, max |mpmath - Arb high precision| "
+        f"{max(d['abs_diff_hp'] for d in mpc):.2e}")
     reality_hp = reality_check_high_precision()
     gaps = np.diff(gam)
     res = {
-        "gam": gam, "eps": eps, "tstar": [r[0] for r in ref],
+        "gam": gam, "eps": eps, "tstar": [r[0] for r in ref], "hp_radius": hp_rad,
         "manifest": {
             "L_function": "L(s, chi), chi = (n/5) the Legendre symbol mod 5 (real, even, primitive; Conrey label 5.4)",
             "character_values_n_1_to_5": [1, -1, -1, 1, 0],
@@ -720,13 +733,23 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
             "error_semantics": ("rigorous: for each n, the n-th zero ordinate gamma_n satisfies |gamma_n - stored_n| < eps_n "
                                 "<= max_error, certified by opposite ball-arithmetic signs of Z_chi at stored_n -+ eps_n "
                                 "(eps_n = ulp/2 + 1e-15)"),
-            "all_zeros_on_line_and_simple": bool(all(c["agree"] for c in counts) and disjoint),
+            "all_zeros_on_line_and_simple": bool(all(c["agree"] for c in counts) and disjoint
+                                                 and all(b["N_diff"] == b["sign_changes"] for b in blocks)),
+            "hp_radius": float(np.max(hp_rad)),
+            "hp_semantics": ("rigorous: |gamma_n - ordinates_hp[n]| < hp_radius, the same sign-change certificate "
+                             "at 30 digits around the printed decimal"),
             "certification": {
                 "statement": (f"every zero of L(s,(n/5)) with 0 < Im s <= {T:g} is simple, has Re s = 1/2 and is one of the "
                               f"{len(gam)} stored ordinates (to within its eps); the counts below agree"),
                 "bottom_rectangle_winding_[-2.5,3.5]x[-1,1]": b0,
                 "counts": counts,
                 "block_heights_backlund": {str(k): v["N"] for k, v in bcount.items()},
+                "blocks": blocks,
+                "facts_used": ["L(s,chi) != 0 for Re s > 1 (Euler product)",
+                               "Lambda(s) = eps Lambda(1-s) with eps = +-1 for real primitive chi; the ball "
+                               "enclosure of tau(chi)/sqrt5 excludes -1, so eps = 1 (used by Z real and by (B) only)",
+                               "zeros with Re s < 0 are the trivial ones 0, -2, -4, ... (from the functional equation)",
+                               "Arb/python-flint enclosures are correct (acb_dirichlet_l, its power series, lgamma, arg)"],
                 "grid_step": f"1/{den}",
                 "local_refinements": refinements,
                 "full_rectangle": {k: v for k, v in fr.items() if k != "counts"},
@@ -746,7 +769,7 @@ def compute(T: float = 1000.0, heights=DEFAULT_HEIGHTS, den: int = 16, block_ste
             "functional_equation_check": info["functional_equation"],
             "hardy_z_crosscheck": info["hardy_z_crosscheck"],
             "independent_mpmath_check": {"max_abs_diff_stored": max(d["abs_diff_stored"] for d in mpc),
-                                         "max_abs_diff_25_digits": max(d["abs_diff_25_digits"] for d in mpc),
+                                         "max_abs_diff_hp": max(d["abs_diff_hp"] for d in mpc),
                                          "zeros": mpc,
                                          "method": "mpmath.findroot on Re[exp(i theta) mpmath.dirichlet(1/2+it, chi)] at 30 digits"},
             "min_gap": float(np.min(gaps)), "min_gap_at": float(gam[int(np.argmin(gaps))]),
@@ -775,7 +798,7 @@ def main():
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     np.save(a.out + ".npy", res["gam"])
     man = res["manifest"]
-    man["ordinates_25_digits"] = res["tstar"]
+    man["ordinates_hp"] = res["tstar"]
     man["eps"] = [float(e) for e in res["eps"]]
     with open(a.out + ".json", "w") as f:
         json.dump(man, f, indent=1)
