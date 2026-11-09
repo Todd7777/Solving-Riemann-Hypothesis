@@ -253,7 +253,10 @@ def _sector_tables(basis: Basis, parity: str):
             for k, bk in enumerate(b):
                 bplus[k, i] = 0.5 * kp[i] * float(bk)
                 bminus[k, i] = 0.5 * km[i] * float(bk)
-    # endpoint derivatives psi^{(l)}(+-a) = a^{-l} sum_k b_k P_k^{(l)}(+-1)
+    # endpoint derivatives psi^{(l)}(+-a) = a^{-l} sum_k b_k P_k^{(l)}(+-1), stored SCALED as
+    # psi^{(l)}(+-a) / S^l with S = K^2 / a, i.e. the exact rational sum_k b_k P_k^{(l)}(+-1) / K^{2l}:
+    # P_k^{(l)}(1) <= (k(k+1))^l / (2^l l!) makes these <= sum |b_k| / (2^l l!), so nothing overflows
+    # (unscaled, P_k^{(l)}(1) exceeds the float64 range for k, l ~ 150).
     L = K
     Ep = np.zeros((L, n))
     Em = np.zeros((L, n))
@@ -266,9 +269,11 @@ def _sector_tables(basis: Basis, parity: str):
                     d = bk * _Pkl_one(k, l)
                     sp += d
                     sm += d if (k + l) % 2 == 0 else -d
-            Ep[l, i] = float(sp) / basis.a ** l
-            Em[l, i] = float(sm) / basis.a ** l
-    return {"labels": labels, "K": K, "bplus": bplus, "bminus": bminus, "Ep": Ep, "Em": Em, "kp": kp, "km": km}
+            scale = Fraction(1, K ** (2 * l))
+            Ep[l, i] = float(sp * scale)
+            Em[l, i] = float(sm * scale)
+    return {"labels": labels, "K": K, "bplus": bplus, "bminus": bminus, "Ep": Ep, "Em": Em,
+            "deriv_scale": K * K / basis.a, "kp": kp, "km": km}
 
 
 def basis_values(basis: Basis, parity: str, u) -> np.ndarray:
@@ -808,13 +813,17 @@ def far_field(basis: Basis, parity: str, z):
     tab = _sector_tables(basis, parity)
     z = np.atleast_1d(np.asarray(z, dtype=complex)).ravel()
     L = tab["K"]
+    S = tab["deriv_scale"]                 # the tables hold psi^{(l)}(+-a) / S^l
     sgn = (-1.0) ** np.arange(L)
     Ep, Em = sgn[:, None] * tab["Ep"], sgn[:, None] * tab["Em"]
 
     def AB(zeta):
-        # (i zeta)^{-(l+1)}, l = 0..L-1, by repeated multiplication (underflows gracefully)
+        # psi^{(l)} (i zeta)^{-(l+1)} = [psi^{(l)} / S^l] (i zeta)^{-1} (S / (i zeta))^l, l = 0..L-1, by
+        # repeated multiplication (|S / zeta| < 1 where the expansion is used; underflows gracefully)
         inv = 1.0 / (1j * zeta)
-        pw = np.cumprod(np.repeat(inv[:, None], L, axis=1), axis=1)
+        ratio = S * inv
+        pw = inv[:, None] * np.cumprod(np.concatenate([np.ones((zeta.size, 1), dtype=complex),
+                                                       np.repeat(ratio[:, None], L - 1, axis=1)], axis=1), axis=1)
         return pw @ Ep, -(pw @ Em)
 
     if basis.kind == "legendre" or basis.r0 == 0.0:
@@ -858,6 +867,7 @@ def _composite_gl(edges, n: int = 20):
 
 
 _TAIL_S_EDGES = (0.0, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
+_TAIL_CHUNK = 20000
 
 
 def _tail_parts(basis: Basis, parity: str, series, T: float, density: str):
@@ -875,9 +885,11 @@ def _tail_parts(basis: Basis, parity: str, series, T: float, density: str):
         width = math.pi / (2 * a)
         npan = int(math.ceil((T1 - T) / width))
         rr, ww = _composite_gl(np.linspace(T, T1, npan + 1), 16)
-        V = fourier_matrix(basis, parity, rr)
-        d = np.real(zero_density(series, rr, density))
-        out += np.real((V * (ww * d)[:, None]).T @ np.conj(V))
+        for s0 in range(0, rr.size, _TAIL_CHUNK):          # bounded memory for large bases
+            r_, w_ = rr[s0:s0 + _TAIL_CHUNK], ww[s0:s0 + _TAIL_CHUNK]
+            V = fourier_matrix(basis, parity, r_)
+            d = np.real(zero_density(series, r_, density))
+            out += np.real((V * (w_ * d)[:, None]).T @ np.conj(V))
     # N part
     s, ws = _composite_gl(_TAIL_S_EDGES, 20)
     r = T1 * np.exp(s)
@@ -1042,8 +1054,10 @@ def _tail_scalar(basis: Basis, parity: str, c, series, T: float, density: str) -
         width = math.pi / (2 * a)
         npan = int(math.ceil((T1 - T) / width))
         rr, ww = _composite_gl(np.linspace(T, T1, npan + 1), 16)
-        fh = fourier_matrix(basis, parity, rr) @ c
-        val += float(np.sum(ww * np.real(zero_density(series, rr, density)) * np.abs(fh) ** 2))
+        for s0 in range(0, rr.size, _TAIL_CHUNK):
+            r_, w_ = rr[s0:s0 + _TAIL_CHUNK], ww[s0:s0 + _TAIL_CHUNK]
+            fh = fourier_matrix(basis, parity, r_) @ c
+            val += float(np.sum(w_ * np.real(zero_density(series, r_, density)) * np.abs(fh) ** 2))
     s, ws = _composite_gl(_TAIL_S_EDGES, 20)
     r = T1 * np.exp(s)
     Ap, Bp = far_field(basis, parity, r)
@@ -1147,15 +1161,12 @@ def boundary_vanishing_subspace(basis: Basis, parity: str, order: int) -> np.nda
     (sympy), then orthonormalised in float64.  Then f^(r) = O(r^{-order-1}), so the zero side
     converges fast and the density tail is small (useful for series with few known zeros)."""
     import sympy as sp
+    if basis.kind == "localized":
+        raise ValueError("the localised basis already vanishes to order m at +-a")
     tab_labels = basis.labels(parity)
     rows = []
     for l in range(order):
-        row = []
-        for j, trig in tab_labels:
-            b = _window_legendre(basis.m, j) if basis.kind == "localized" else tuple([Fraction(0)] * j + [Fraction(1)])
-            if basis.kind == "localized":
-                raise ValueError("the localised basis already vanishes to order m at +-a")
-            row.append(sum((bk * _Pkl_one(k, l) for k, bk in enumerate(b) if bk and l <= k), Fraction(0)))
+        row = [_Pkl_one(j, l) for j, _ in tab_labels]          # P_j^{(l)}(1) (0 for l > j)
         rows.append([sp.Rational(x.numerator, x.denominator) for x in row])
     Cm = sp.Matrix(rows)
     ns = Cm.nullspace()
