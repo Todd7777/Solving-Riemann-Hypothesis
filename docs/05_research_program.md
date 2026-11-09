@@ -23,7 +23,8 @@ The Riemann Hypothesis will not be settled by a software project, and this repos
 | H | Explicit formula and Weil positivity numerics | `explicit_formula.py` | done |
 | I | Integral and sequential criteria (Balazard–Saias–Yor, Volchkov, Báez-Duarte's $c_k$) | `integral_criteria.py`, `sequential_criteria.py` | done |
 | J | Spectral analysis of Weil's quadratic form on bounded supports | `weil_form.py` | done (E10) |
-| K | Sensitivity of Nyman–Beurling to off-line zeros; Davenport–Heilbronn and $L(s,(\cdot/5))$ controls | `nyman_beurling_periodic.py` | E11 |
+| K | Sensitivity of Nyman–Beurling to off-line zeros; Davenport–Heilbronn and $L(s,(\cdot/5))$ controls | `nyman_beurling_periodic.py` | done (E11) |
+| L | Explicit formula without an Euler product; Weil positivity for $L(s,(\cdot/5))$ and Davenport–Heilbronn; detection horizon of Weil's criterion; certified values of the Weil form | `explicit_formula_general.py`, `weil_form_general.py`, `weil_certificate.py` | done (E12) |
 
 The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every number produced, with the command that produced it.
 
@@ -39,7 +40,7 @@ The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every 
 
 **Q5 (GUE deviations).** The lower-order corrections to GUE (Bogomolny–Keating; Conrey–Snaith) are arithmetic: they contain the primes. We measure the spacing-distribution deviation in five windows up to height $6\times10^5$ and at $\sim3.3\times10^9$ and compare with the $1/\log T$ scaling.
 
-**Q6 (Davenport–Heilbronn as a control).** *Answered for Nyman–Beurling (E11):* the Davenport–Heilbronn distances are indistinguishable from those of $L(s,(n/5))$ for $N\le2000$; the violation shows only near $N\approx10^{302}$. Weil positivity is being tested in E12. The original question follows. Every criterion we compute for $\zeta$ can also be computed for the DH function $f$, which violates RH. Which criteria *detect* the violation at computationally accessible scale (e.g. Li-type coefficients for $f$ grow exponentially; the analogue of $d_N$ stalls)? This calibrates how sensitive each criterion is — a necessary sanity check before reading anything into numerics for $\zeta$.
+**Q6 (Davenport–Heilbronn as a control).** *Answered for Nyman–Beurling (E11):* the Davenport–Heilbronn distances are indistinguishable from those of $L(s,(n/5))$ for $N\le2000$; the violation shows only near $N\approx10^{302}$. *Answered for Weil positivity (E12):* the Davenport–Heilbronn form turns negative at support $a\approx1.88$, where only the coefficients $n\le42$ enter. This is certified rigorously for explicit test functions, while $L(s,(n/5))$ stays positive on the same spaces. For ζ with a hypothetical off-line zero at height $\gamma$, the threshold grows like $\tfrac12\log(\gamma/2\pi)$: primes up to $\approx\gamma$ suffice. Weil's criterion is by far the most sensitive of those computed here. The original question follows. Every criterion we compute for $\zeta$ can also be computed for the DH function $f$, which violates RH. Which criteria *detect* the violation at computationally accessible scale (e.g. Li-type coefficients for $f$ grow exponentially; the analogue of $d_N$ stalls)? This calibrates how sensitive each criterion is — a necessary sanity check before reading anything into numerics for $\zeta$.
 
 ## 5.4 What would constitute progress
 

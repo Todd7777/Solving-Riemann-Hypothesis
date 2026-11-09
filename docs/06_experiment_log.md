@@ -309,6 +309,104 @@ Both sequences are within 13–16% of their on-line constants at $N=2000$, appro
 
 ---
 
+## E12. Weil positivity against a real RH violation, and its detection horizon (2026-11-07 – 2026-11-09)
+
+### Stage 1: the explicit formula without an Euler product (2026-11-07)
+
+Modules `explicit_formula_general.py`, `scripts/compute_lchi5_zeros.py`; tests `test_explicit_formula_general.py`, `test_lchi5_zeros.py`.
+
+* **Explicit formula for real, self-dual, periodic Dirichlet series** (ζ, $L(s,(n/5))$, Davenport–Heilbronn). The derivation uses the Dirichlet series of $-F'/F$ on one line $\Re s=c$ of absolute convergence only, so no Euler product is needed. The "prime" side becomes $-2\sum_n a_nn^{-1/2}g(\log n)$ over the coefficients $a_n$ of $-F'/F$, which for Davenport–Heilbronn are not supported on prime powers ($a_6=(1+\kappa^2)\log6$). It holds to relative residuals $10^{-16}$–$10^{-11}$ for all three series. For Davenport–Heilbronn, dropping the off-line quadruples breaks it by exactly their contribution (0.753 and 0.200 for two test functions), and dropping the $n$ that are not prime powers breaks it by 0.084.
+* **Zeros of $L(s,(n/5))$ to height 1000:** 904 zeros, all simple and on the line. Ordinates are certified to $6\times10^{-14}$ by ball-arithmetic sign changes of $Z_\chi$, and the counts by winding numbers at $T=100,300,600,1000$. An independent mpmath check agrees to $5\times10^{-14}$.
+
+### Stage 2: does Weil positivity see an off-line zero, and from how far? (2026-11-09)
+
+`python3 scripts/run_weil_detection.py` (27 min; `--parts A23` re-runs only the arithmetic-side checks and the certificates, about 8 min). Results in `weil_detection_summary.json`. Modules `weil_form_general.py`, `weil_certificate.py`; 33 tests.
+
+**Setup.** As in E10, $Q_a(f)$ is the arithmetic side of Weil's form for real $f$ supported in $[-a,a]$. Only the coefficients $a_n$ with $n\le e^{2a}$ and the Gamma factor enter, now for all three series. By the explicit formula $Q_a(f)=\sum_\rho\hat f(\tau_\rho)\hat f(-\tau_\rho)$ with $\tau_\rho=(\rho-\tfrac12)/i$. An on-line zero contributes $2|\hat f(\gamma)|^2\ge0$; an off-line quadruple $\tfrac12\pm\delta\pm i\gamma$ contributes $4\Re\hat f(\gamma-i\delta)^2$, an indefinite rank-2 form. To probe the height of an off-line zero we use *wave packets* $\phi(u)=(1-u^2/a^2)^mP_j(u/a)\{\cos,\sin\}(r_0u)$, $j<J$, whose transforms concentrate near $\pm r_0$ and decay like $|r\mp r_0|^{-m-1}$. Matrices are assembled in Arb at 40 digits, as in E10. Validation:
+* the arithmetic side equals the zero side to $10^{-16}$ for ζ and $L(s,(n/5))$, and to $10^{-13}$ for Davenport–Heilbronn, whose off-line zeros contribute $O(0.1)$ there;
+* ζ in the Legendre basis reproduces the E10 matrices to $10^{-50}$.
+
+A negative eigenvalue on any subspace means $Q_a$ takes negative values. So every threshold below is an **upper bound** on the true support at which Weil positivity fails.
+
+**A. Davenport–Heilbronn: the violation is detected.** For wave packets centred at each certified off-line zero, the smallest support with a negative eigenvalue (zero side, float64; grid step 0.02; best of five bases, $(J,m)\in\{(20,2),(36,1),(36,2),(20,4),(28,4)\}$). The last column splits the minimiser's zero side into its off-line and on-line parts.
+
+| off-line zero | $\delta$ | first negative $a$ | coefficients used | basis $(J,m)$ | $\lambda_{\min}$ DH | $\lambda_{\min}$ $L(s,(n/5))$, same space | $\tfrac12\log(5\gamma/2\pi)$ | off-line / on-line |
+|---|---|---|---|---|---|---|---|---|
+| $0.8085+85.699i$ | 0.309 | 1.88 | $n\le42$ | (36, 1) | $-0.073$ | 0.65 | 2.11 | $-0.77$ / $+0.69$ |
+| $0.6508+114.163i$ | 0.151 | 2.16 | $n\le75$ | (36, 1) | $-0.017$ | 0.75 | 2.26 | $-0.24$ / $+0.22$ |
+| $0.5744+166.479i$ | 0.074 | 2.26 | $n\le91$ | (36, 1) | $-0.100$ | 0.86 | 2.44 | $-0.50$ / $+0.40$ |
+| $0.7243+176.702i$ | 0.224 | 2.24 | $n\le88$ | (36, 1) | $-0.005$ | 0.53 | 2.47 | $-0.47$ / $+0.46$ |
+| $0.8695+240.405i$ | 0.370 | 2.16 | $n\le75$ | (36, 1) | $-0.051$ | 1.13 | 2.63 | $-1.71$ / $+1.65$ |
+
+* Every certified off-line zero below height 300 is detected, at a support 0.2–0.5 below the zero-density estimate. Each time, the minimiser's negative value comes from the off-line quadruple it is centred on.
+* The threshold for the first zero depends little on the basis. A scan over $J=12$–$36$, $m=0$–$6$ and $r_0=82$–$90$ (`scripts/run_weil_detection_checks.py`) puts its 15 lowest thresholds at $a=1.86$–$1.88$. The most negative eigenvalue over $J=20$–$36$, $m=0$–$4$, $r_0=84$–$87.5$ is $+0.21$ at $a=1.8$, $-0.23$ at $a=1.9$ and $-0.67$ at $a=2.0$.
+* **Arithmetic side alone** (Arb, 40 digits, no zeros used; error bound from ball radii and quadrature estimates):
+
+  | $a$ | basis | $\lambda_{\min}$ DH | $\lambda_{\min}$ $L(s,(n/5))$ |
+  |---|---|---|---|
+  | 1.86 | $J=36$, $m=1$, $r_0=85.699$ | $+0.003877$ | – |
+  | 1.88 | same | $-0.0733917238922\pm4\times10^{-23}$ | $+0.64552$ |
+  | 1.92 | same | $-0.273806898213\pm4\times10^{-23}$ | $+0.59945$ |
+  | 2.0 | $J=20$, $m=4$, $r_0=85.7$ | $-0.290030152626\pm1\times10^{-26}$ | $+0.61062$ |
+
+  Both sides agree with the zero-side values.
+
+**A3. Machine-checked: Weil positivity fails for Davenport–Heilbronn on $[-1.88,1.88]$.** `rh.weil_certificate` encloses $Q_a(f)$ for an explicit $f$: the minimiser rounded to rationals, with its exact coefficients stored in the JSON. Every error is bounded:
+* $g=f*\tilde f$ in closed form (polynomial times exponential, acb_poly algebra with guard digits);
+* $a_n$ as Arb balls;
+* the archimedean integral by `acb.integral` (rigorous), plus a mean-value bound on $[0,10^{-12}]$, where the integrand has a removable singularity. The bound includes the jump terms of test functions that do not vanish at $\pm a$; for the windowed functions used here those terms are zero.
+
+| support | coefficients used | enclosure of $Q_a(f)$ | $\lVert f\rVert_2^2$ |
+|---|---|---|---|
+| $[-1.88,1.88]$ | $n\le42$ | $[-0.0733917240,\,-0.0733917238]$ | $1\pm2\times10^{-16}$ |
+| $[-1.92,1.92]$ | $n\le46$ | $[-0.2738068983,\,-0.2738068981]$ | $1\pm4\times10^{-16}$ |
+| $[-2,2]$ | $n\le54$ | $[-0.2900301527,\,-0.2900301525]$ | $1\pm5\times10^{-16}$ |
+
+By the explicit formula, a theorem for this function (derivation in `explicit_formula_general`), $Q_a(f)=\sum_\rho\hat f(\tau_\rho)\hat f(-\tau_\rho)$, and zeros on the critical line contribute $|\hat f(\gamma)|^2\ge0$. So **the Davenport–Heilbronn function has a zero off the critical line**, proved from its first 42 Dirichlet coefficients, its functional equation and a finite computation. Such zeros have been known since Davenport–Heilbronn (1936); the point is how little data Weil's criterion needs. For comparison, Nyman–Beurling shows this violation only near $N\approx10^{302}$ (E11). Li's criterion, by `li.detection_horizon` (ζ-normalised), needs $n\approx3\times10^5$.
+
+**B. ζ: how far up can it see?** Thought experiment: replace two adjacent zeros $\gamma_k,\gamma_{k+1}$ by the quadruple $\tfrac12\pm\delta+i\gamma_0$, $\gamma_0=(\gamma_k+\gamma_{k+1})/2$. The zero count is unchanged, as when a close pair collides and leaves the line. By the explicit formula, the arithmetic side of such a function equals its zero side, computed from the $10^6$ certified zeros within $\pm2000$ of $\gamma_0$ plus the density tail; the packets decay like $|r-\gamma_0|^{-10}$. Below, $a^*$ is the smallest support (grid step 0.05) at which $J=16$ packets at $r_0=\gamma_0$ ($m=4$) give a negative eigenvalue: median [min, max] over 8 consecutive pairs per height.
+
+| $\gamma_0$ | $\tfrac12\log\frac{\gamma_0}{2\pi}$ | $\delta=0.4$ | 0.2 | 0.1 | 0.05 | 0.02 | 0.01 |
+|---|---|---|---|---|---|---|---|
+| 110 | 1.43 | 1.35 [1.30, 1.45] | 1.50 [1.45, 1.55] | 1.55 [1.50, 1.60] | 1.60 [1.55, 1.60] | 1.67 [1.60, 1.70] | 1.70 [1.70, 1.75] |
+| 403 | 2.08 | 1.80 [1.60, 2.05] | 2.05 [1.90, 2.15] | 2.17 [2.15, 2.20] | 2.25 [2.20, 2.30] | 2.38 [2.30, 2.40] | 2.42 [2.35, 2.50] |
+| 1 005 | 2.54 | 2.20 [1.85, 2.35] | 2.50 [2.20, 2.60] | 2.65 [2.50, 2.70] | 2.75 [2.65, 2.80] | 2.85 [2.80, 2.90] | 2.92 [2.80, 3.05] |
+| 3 137 | 3.11 | 2.42 [2.10, 2.50] | 2.85 [2.50, 3.00] | 3.15 [2.95, 3.20] | 3.30 [3.20, 3.35] | 3.45 [3.35, 3.50] | 3.55 [3.45, 3.60] |
+| 10 002 | 3.69 | 2.67 [2.40, 2.95] | 3.48 [3.00, 3.55] | 3.73 [3.30, 3.85] | 3.95 [3.85, 4.00] | 4.10 [4.05, 4.15] | 4.25 [4.20, 4.30] |
+| 33 193 | 4.29 | 2.90 [2.55, 3.15] | 3.75 [3.15, 4.20] | 4.28 [3.70, 4.45] | 4.50 [4.00, 4.60] | 4.65 [4.50, 4.80] | 4.78 [4.65, 4.95] |
+| 100 003 | 4.84 | 2.92 [2.80, 3.25] | 3.97 [3.55, 4.30] | 4.38 [4.20, 4.85] | 4.75 [4.65, 5.15] | 5.15 [4.95, 5.45] | 5.30 [5.20, 5.60] |
+| 260 879 | 5.32 | 3.25 [3.15, 3.40] | 4.53 [4.00, 4.95] | 5.30 [4.70, 5.45] | 5.57 [5.25, 5.70] | 5.93 [5.65, 6.10] | 6.18 [5.90, 6.25] |
+| 489 740 | 5.63 | 3.25 [2.85, 3.45] | 4.53 [3.80, 5.15] | 5.12 [4.45, 5.65] | 5.67 [4.95, 5.90] | 6.03 [5.65, 6.15] | 6.18 [5.95, 6.30] |
+
+* *Law.* Least-squares slope of the medians against $\log(\gamma_0/2\pi)$:
+
+  | $\delta$ | 0.01 | 0.02 | 0.05 | 0.1 | 0.2 | 0.4 |
+  |---|---|---|---|---|---|---|
+  | slope | $0.544\pm0.014$ | $0.524\pm0.010$ | $0.488\pm0.014$ | $0.439\pm0.021$ | $0.363\pm0.015$ | $0.216\pm0.017$ |
+
+  For small $\delta$ the threshold follows the pre-registered zero-density prediction $\tfrac12\log(\gamma_0/2\pi)$ with an $O(1)$ offset. The mean offset is $+0.49$ at $\delta=0.01$, $+0.16$ at $0.05$ and $-0.07$ at $0.1$. Gross violations are seen earlier, and the more so the higher they are.
+* *Robustness.* With bases $(J,m)=(24,4),(16,2),(32,3)$ at $\gamma_0\approx10^3,10^4,10^5$ (4 pairs each), the thresholds move by at most 0.35, and larger bases give lower ones, as an upper bound should. With $J=32$ the small-$\delta$ slope over these heights is 0.49 (e.g. $\delta=0.01$: 2.70, 3.90, 4.97). The float64 eigenvalues agree with 50-digit solves of the same matrices to 8 digits, and perturbing every zero by its accuracy ($10^{-10}$) changes nothing visible. At the largest height, $\delta=0.01$, $\lambda_{\min}$ goes from $+2.9\times10^{-4}$ ($a=6.2$) to $-2.4\times10^{-3}$ ($a=6.25$).
+* *Arithmetic-side check.* At $\gamma_0=102.52$ (zeros 30, 31), $\delta=0.1$, ζ's Arb arithmetic side minus the two on-line pairs plus the quadruple gives $\lambda_{\min}=+0.0256435598$ at $a=1.45$ and $-0.0122667835$ at $a=1.5$. The zero side agrees to $6\times10^{-10}$.
+* *Additive model* (the quadruple added, no zeros removed, so it sits between two on-line zeros): thresholds are 1–2 units higher, e.g. 3.60, 5.05, 6.38 at $\gamma_0\approx10^3,10^4,10^5$ for $\delta=0.1$. An off-line zero crowded by on-line neighbours is harder to see.
+
+**C. Comparison of detection horizons** ($\delta=0.1$; Li's $n^*$ from `li.detection_horizon`, Nyman–Beurling's $N^*$ from `nyman_beurling.detection_horizon_log_N`):
+
+| $\gamma_0$ | 110 | 1 005 | 10 002 | 100 003 | 489 740 |
+|---|---|---|---|---|---|
+| Weil: largest prime power used, $e^{2a^*}$ | 22 | 200 | $1.7\times10^3$ | $6.3\times10^3$ | $2.8\times10^4$ |
+| Li: $n^*$ | $1.9\times10^6$ | $2.1\times10^8$ | $2.6\times10^{10}$ | $3.1\times10^{12}$ | $8.2\times10^{13}$ |
+| Nyman–Beurling: $\log_{10}N^*$ | 607 | $5.1\times10^4$ | $5.0\times10^6$ | $5.0\times10^8$ | $1.2\times10^{10}$ |
+
+For every $\delta\ge0.01$ tried, $e^{2a^*}\le0.9\gamma_0$: primes up to the height of the zero suffice. Figures: `weil_detection_dh.png`, `weil_detection_zeta.png`, `weil_detection_horizons.png`.
+
+**Interpretation.**
+* *Weil positivity is the sensitive criterion.* Seeing an off-line zero at height $\gamma$ needs primes up to $\approx\gamma$, against $n^*\propto\gamma^2/\delta$ Li coefficients and $\log N^*\propto\gamma^2/\delta$ for Nyman–Beurling. For a real violation, Davenport–Heilbronn, 42 coefficients suffice, and the failure of positivity is certified rigorously.
+* *Why the threshold sits at $\tfrac12\log(\gamma/2\pi)$* (**Heuristic**). $\hat f$ has exponential type $a$, so its real zeros have average density at most $a/\pi$. To expose the off-line term, the on-line contributions near $\gamma$ must be suppressed, i.e. $\hat f$ must nearly vanish at the zeros there, whose density is $\log(\gamma/2\pi)/2\pi$. This is possible once $a\gtrsim\tfrac12\log(\gamma/2\pi)$. Approximate vanishing slightly beyond that density costs norm, as E10's refuted capture law showed. This explains the $O(1)$ offsets, and why large-$\delta$ violations, whose off-line term grows like $e^{2a\delta}$, are seen earlier.
+* *The reach is local in height.* By the same token, positivity at a fixed support constrains only the zeros below height $\sim2\pi e^{2a}$ (heuristic). Weil positivity on $[-a,a]$ is therefore a finite statement about low zeros, much like zero verification. Its efficiency is no shortcut to RH, which needs every $a$, while for ζ the positivity margin collapses super-exponentially in $a$ (E10).
+* *What this does not show.* The thresholds are upper bounds from wave-packet subspaces: other test functions might detect earlier. The ζ part is a thought experiment that keeps all other zeros fixed. Its numbers are float64 on the zero side, cross-checked against the Arb arithmetic side at one height. Nothing here concerns the actual zeros of ζ, which are all on the line as far as computed.
+
+---
+
 ## Summary of the state of the evidence after all experiments
 
-Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated — and found to be essentially nil at the heights that matter.
+Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.

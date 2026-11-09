@@ -23,18 +23,25 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-08: 228 pass
+python3 -m pytest                   # 2026-11-09: 261 pass, about 2 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
 `data/zeros/` already holds 10^6 rigorous zero ordinates. Full experiment runs take hours.
 
-## State on 2026-11-08
+## State on 2026-11-09
 
-- The last commit is a work-in-progress snapshot ("E12 stage 2, agent still working") that adds
-  `src/rh/weil_form_general.py` (1,166 lines). No test covers it yet, so review it and add tests before
-  relying on it.
+- E12 is complete (`docs/06_experiment_log.md`, E12; synthesis in `docs/08_findings_and_outlook.md`, item 1b).
+  `src/rh/weil_form_general.py` was reviewed and is covered by `tests/test_weil_form_general.py`; a float64
+  overflow in its far-field tables was fixed. `src/rh/weil_certificate.py` gives rigorous enclosures of the
+  Weil form at one explicit test function. `scripts/run_weil_detection.py` (in `run_all.py`) reproduces the
+  E12 numbers; the full run takes about 30 minutes.
+- Headline: the Davenport–Heilbronn Weil form is negative at support a = 1.88, where only the coefficients
+  n <= 42 enter (Machine-checked: rigorous enclosures at a = 1.88, 1.92, 2). For zeta with an off-line pair moved off the line at height gamma, the detection threshold
+  is about (1/2) log(gamma / 2 pi) + c(delta) (Numerical, wave-packet bases, upper bounds).
 
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
+The open threads from E12 are listed in §8.3: certified positivity on whole subspaces (the route past Zhu's
+a = 0.8), whether bases other than wave packets detect earlier, and a theory for c(delta).
