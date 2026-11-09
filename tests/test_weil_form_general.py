@@ -265,3 +265,17 @@ def test_weil_form_detects_davenport_heilbronn_violation(zero_data):
     S5 = wg.build_sector("chi5", B, "even", dps=30)
     v5, _ = wg.smallest_eigenpairs(S5, k=1)
     assert v5[0] > 0.3
+
+
+@pytest.mark.parametrize("basis", [wg.Basis.localized(1.2, 6, 30.0, 4), wg.Basis.localized(0.4, 10, 3.0, 2),
+                                   wg.Basis.localized(2.0, 10, 300.5, 3), wg.Basis.legendre(1.0, 8)])
+def test_gram_matrix_float_against_quadrature(basis):
+    """The quadrature-free Gram matrix (exact window expansions, spherical Bessel for the oscillatory
+    part) against brute-force Gauss–Legendre."""
+    for par in ("even", "odd"):
+        G = wg.gram_matrix_float(basis, par)
+        Gq = _float_gram(basis, par, nodes=int(1.5 * basis.r0 * basis.a + 6 * basis.degree + 400))
+        assert np.max(np.abs(G - Gq)) < 1e-12 * np.max(np.abs(Gq))
+        ev, vec, rank = wg.smallest_eigenpairs_float(np.eye(G.shape[0]), G)
+        assert rank == G.shape[0] or basis.kind == "localized"
+        assert abs(float(vec[:, 0] @ G @ vec[:, 0]) - 1) < 1e-8

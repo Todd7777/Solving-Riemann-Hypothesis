@@ -89,6 +89,7 @@ __all__ = [
     "eigenvalue_error_bound", "quadratic_value", "fourier_matrix", "fourier_vector_mp", "fourier_transform",
     "fourier_transform_arb", "far_field", "zero_density", "zero_side", "zero_side_matrix", "load_zero_data",
     "quadruple_matrix", "add_zero_quadruple", "boundary_vanishing_subspace", "basis_values",
+    "gram_matrix_float", "smallest_eigenpairs_float",
 ]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -274,6 +275,54 @@ def _sector_tables(basis: Basis, parity: str):
             Em[l, i] = float(sm * scale)
     return {"labels": labels, "K": K, "bplus": bplus, "bminus": bminus, "Ep": Ep, "Em": Em,
             "deriv_scale": K * K / basis.a, "kp": kp, "km": km}
+
+
+def gram_matrix_float(basis: Basis, parity: str) -> np.ndarray:
+    """Gram matrix int phi_i phi_j du of the sector in float64, without quadrature.
+
+    With phi(a x) = Psi(x) trig(w x), w = r0 a, and Psi = sum_l b_l P_l (exact window expansion):
+    cos cos = (1 + cos 2wx)/2, sin sin = (1 - cos 2wx)/2, cos sin = sin(2wx)/2, so
+    G = (a/2) [int Psi_i Psi_j dx (+-) int Psi_i Psi_j e^{2iwx} dx]; with d the Legendre coefficients
+    of Psi_i Psi_j the first term is 2 d_0 and the second sum_l d_l 2 i^l j_l(2w).  Cost independent of r0 (a Gauss-Legendre rule would need ~r0 a
+    nodes); for r0 a >> 1 the oscillatory part is O((2 r0 a)^{-2m-1})."""
+    from numpy.polynomial import legendre as npleg
+    from scipy.special import spherical_jn
+    labels = basis.labels(parity)
+    n = len(labels)
+    if basis.kind == "legendre":
+        return np.diag([2 * basis.a / (2 * j + 1) for j, _ in labels])
+    b = [np.array([float(x) for x in _window_legendre(basis.m, j)]) for j, _ in labels]
+    w2 = 2.0 * basis.r0 * basis.a
+    D = 2 * basis.degree + 1
+    ls = np.arange(D)
+    osc_basis = 2.0 * _ipow_vec(D) * spherical_jn(ls, w2) if w2 > 0 else 2.0 * (ls == 0)
+    G = np.zeros((n, n))
+    for i in range(n):
+        for k in range(i, n):
+            d = npleg.legmul(b[i], b[k])
+            plain = 2.0 * float(d[0])                      # int_{-1}^{1} P_l dx = 2 delta_{l0}
+            osc = complex(np.sum(d * osc_basis[: d.size]))
+            ti, tk = labels[i][1], labels[k][1]
+            if ti == tk == "cos":
+                v = plain + osc.real
+            elif ti == tk == "sin":
+                v = plain - osc.real
+            else:
+                v = osc.imag
+            G[i, k] = G[k, i] = 0.5 * basis.a * v
+    return G
+
+
+def smallest_eigenpairs_float(Z: np.ndarray, G: np.ndarray, k: int = 1, cutoff: float = 1e-14):
+    """Smallest k generalised eigenpairs of (Z, G) in float64, robust to an ill-conditioned G:
+    G = V diag(g) V^T is whitened on the directions with g > cutoff max(g) (the localised bases
+    have cond(G) ~ 1e10).  Returns (eigenvalues, coefficient vectors as columns, normalised to
+    c^T G c = 1, rank kept).  Exploration only: eigenvalues below ~1e-16 cond(G) ||Z|| are noise."""
+    gv, gV = np.linalg.eigh(0.5 * (G + G.T))
+    keep = gv > gv.max() * cutoff
+    Wm = gV[:, keep] / np.sqrt(gv[keep])
+    ev, evec = np.linalg.eigh(Wm.T @ (0.5 * (Z + Z.T)) @ Wm)
+    return ev[:k], Wm @ evec[:, :k], int(keep.sum())
 
 
 def basis_values(basis: Basis, parity: str, u) -> np.ndarray:
