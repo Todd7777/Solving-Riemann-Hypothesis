@@ -35,8 +35,9 @@ How each piece is enclosed
 * The integral over [eps, 2a]: `acb.integral` (Petras' algorithm with rigorous error bounds;
   the integrand is meromorphic, its poles are at u = i pi k, k != 0).  On [0, eps] the integrand
   has a removable singularity; by the mean value theorem |I(u)| <= sup|N'| / (2 e^{-2 eps}) with
-  N(u) = g(0) e^{-2u} - g(u) e^{-2 alpha u} and |N'| <= (2 + 2 alpha) g(0) + ||f||_2 ||f'||_2
-  (|g| <= g(0), |g'| <= ||f|| ||f'|| by Cauchy–Schwarz), so the piece is enclosed by a ball.
+  N(u) = g(0) e^{-2u} - g(u) e^{-2 alpha u} and |N'| <= (2 + 2 alpha) g(0) + sup|g'|, where
+  |g| <= g(0) and |g'| <= ||f||_2 ||f'||_2 + (|f(a-)| + |f(-a+)|) sup|f| (Cauchy–Schwarz, plus the
+  jump terms of an f that does not vanish at +-a), so the piece is enclosed by a ball.
 * F_L(+-1/2) (zeta): exact antiderivatives of polynomial x exponential.
 
 The enclosure inherits rigour from Arb.  It assumes the explicit formula for the series, which
@@ -179,6 +180,24 @@ class CorrelationEvaluator:
         ev.pstar = (self.pstar.derivative() - self.pstar * self.iw) * (1 / self.a)
         return ev
 
+    def boundary_values_abs_sum(self):
+        """|f(a-)| + |f(-a+)| (arb upper bound), f(a x) = (p(x) e^{iwx} + p*(x) e^{-iwx}) / 2 at x = +-1;
+        exactly 0 for a window of order m >= 1."""
+        from flint import acb, arb
+        tot = arb(0)
+        for x in (acb(1), acb(-1)):
+            v = (self.p(x) * (self.iw * x).exp() + self.pstar(x) * (-self.iw * x).exp()) / 2
+            tot += abs(v)
+        return tot
+
+    def sup_norm_bound(self):
+        """Upper bound for sup |f| on [-a, a]: sum of the moduli of the coefficients of p (|x| <= 1)."""
+        from flint import arb
+        tot = arb(0)
+        for c in self.p.coeffs():
+            tot += abs(c)
+        return tot
+
     def laplace(self, s):
         """F_L(s) = int f(u) e^{su} du = a int_{-1}^{1} f(a x) e^{s a x} dx (acb)."""
         from flint import acb
@@ -250,9 +269,14 @@ def certify_weil_value(series, basis: Basis, parity: str, coeffs: Sequence, dps:
         tol = arb(10) ** (-int(dps))
         J = acb.integral(integrand, e / A, acb(2), rel_tol=tol, abs_tol=tol)
         main = 2 * A * J.real
-        # [0, eps]: |I| <= sup|N'| / (2 e^{-2 eps}), |N'| <= (2 + 2 alpha) g0 + ||f|| ||f'||
+        # [0, eps]: |I| <= sup|N'| / (2 e^{-2 eps}), |N'| <= (2 + 2 alpha) g0 + sup|g'|, and for f smooth on
+        # (-a, a) with one-sided boundary values f(+-a) (nonzero only without a window, m = 0),
+        # g'(u) = -int f(v) f'(v - u) dv - f(-a+) f(u - a) + f(a-) f(u + a), so
+        # |g'| <= ||f||_2 ||f'||_2 + (|f(a-)| + |f(-a+)|) ||f||_inf  (f' the derivative inside (-a, a)).
         fp_norm2 = ev.derivative_evaluator().norm2()
-        bound = ((2 + 2 * alpha) * g0 + (g0 * fp_norm2).sqrt()) / (2 * (-2 * e).exp())
+        jump = ev.boundary_values_abs_sum() * ev.sup_norm_bound()
+        gprime = (g0 * fp_norm2).sqrt() + jump
+        bound = ((2 + 2 * alpha) * g0 + gprime) / (2 * (-2 * e).exp())
         rad = 2 * e * bound                                   # factor 2 of the formula
         piece_arch = main + arb(0, float(rad.upper()) * (1 + 1e-12))
         Q = piece_pole + piece_prime + piece_const + piece_arch

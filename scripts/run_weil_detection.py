@@ -19,7 +19,8 @@ Part B. Zeta, thought experiment.  Replace the adjacent zeros gamma_k, gamma_{k+
   cross-check of the zero-side eigenvalues at gamma0 ~ 102.5 from zeta's arithmetic side.
 Part C. Comparison with the detection horizons of Li's and the Nyman–Beurling criterion (E4, E11).
 
-Usage:  python3 scripts/run_weil_detection.py [--quick] [--skip-certificates]
+Usage:  python3 scripts/run_weil_detection.py [--quick] [--skip-certificates] [--parts all|A23]
+        (--parts A23 re-runs only A2 and A3 from the A1 thresholds stored in the existing summary)
 Writes results/json/weil_detection_summary.json and results/figures/weil_detection_*.png.
 """
 import argparse
@@ -112,6 +113,17 @@ def part_a2(cases, dps):
         print(f"  A2 a={a} J={J} m={m} r0={r0}: arithmetic side DH lambda={rec['dh']['lambda']} "
               f"(+-{rec['dh']['error_bound']}), chi5 lambda={rec['chi5']['lambda']}", flush=True)
     return out
+
+
+def a2_cases_from(a1_rows, quick):
+    """Arithmetic-side confirmations / certificates: support a = 2 (J = 20, m = 4) and, for the first
+    off-line zero, the threshold support found in A1 and 0.04 above it (same basis)."""
+    t1 = a1_rows[0]["threshold"]
+    cases = [(2.0, 20, 4, 85.7)]
+    if not quick:
+        for da in (0.0, 0.04):
+            cases.append((round(t1["a"] + da, 2), t1["J"], t1["m"], round(t1["r0"], 3)))
+    return cases
 
 
 def part_a3(a2_rows, dps):
@@ -304,8 +316,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--skip-certificates", action="store_true")
+    ap.add_argument("--parts", choices=["all", "A23"], default="all")
     args = ap.parse_args()
     t0 = time.time()
+    if args.parts == "A23":
+        with open(OUT_JSON) as f:
+            res = json.load(f)
+        res["A2"] = part_a2(a2_cases_from(res["A1"], res.get("quick", False)), dps=40)
+        res["A3"] = part_a3(res["A2"], dps=15)
+        with open(OUT_JSON, "w") as f:
+            json.dump(res, f, indent=1, default=str)
+        print(f"updated A2/A3 in {OUT_JSON} [{time.time() - t0:.0f}s]")
+        return
     zd = {s: wg.load_zero_data(s) for s in ("chi5", "dh")}
     res = {"description": "E12 stage 2: sensitivity of Weil positivity to off-line zeros", "quick": args.quick}
     deltas = [0.4, 0.2, 0.1, 0.05, 0.02, 0.01]
@@ -315,9 +337,7 @@ def main():
     res["A1"] = part_a1(zd, cfg_a, a_grid_a)
     res["A_curve"] = {"J": 20, "m": 4, "r0": 85.7,
                       "rows": part_a_curve(zd, 20, 4, 85.7, np.round(np.arange(0.4, 3.01, 0.1 if args.quick else 0.05), 3))}
-    t1 = res["A1"][0]["threshold"]
-    a2_cases = [(2.0, 20, 4, 85.7)] if args.quick else [(2.0, 20, 4, 85.7), (round(t1["a"] + 0.04, 2), t1["J"], t1["m"], round(t1["r0"], 3))]
-    res["A2"] = part_a2(a2_cases, dps=40)
+    res["A2"] = part_a2(a2_cases_from(res["A1"], args.quick), dps=40)
     if not args.skip_certificates:
         res["A3"] = part_a3(res["A2"], dps=15)
     print("Part B: zeta with a pair moved off the line", flush=True)

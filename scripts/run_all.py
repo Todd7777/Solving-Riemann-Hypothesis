@@ -26,6 +26,7 @@ EXPERIMENTS = [
     ("run_debruijn_newman.py", [], ["--quick"]),
     ("run_weil_form.py", [], ["--quick"]),
     ("run_explicit_formula.py", [], ["--quick"]),
+    ("run_weil_detection.py", [], ["--quick"]),
 ]
 
 
