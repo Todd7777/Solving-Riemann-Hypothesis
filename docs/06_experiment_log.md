@@ -339,7 +339,10 @@ A negative eigenvalue on any subspace means $Q_a$ takes negative values. So ever
 | $0.8695+240.405i$ | 0.370 | 2.16 | $n\le75$ | (36, 1) | $-0.051$ | 1.13 | 2.63 | $-1.71$ / $+1.65$ |
 
 * Every certified off-line zero below height 300 is detected, at a support 0.2–0.5 below the zero-density estimate. Each time, the minimiser's negative value comes from the off-line quadruple it is centred on.
-* The threshold for the first zero depends little on the basis. A scan over $J=12$–$36$, $m=0$–$6$ and $r_0=82$–$90$ (`scripts/run_weil_detection_checks.py`) puts its 15 lowest thresholds at $a=1.86$–$1.88$. The most negative eigenvalue over $J=20$–$36$, $m=0$–$4$, $r_0=84$–$87.5$ is $+0.21$ at $a=1.8$, $-0.23$ at $a=1.9$ and $-0.67$ at $a=2.0$.
+* *Basis dependence of the first threshold* (`python3 scripts/run_weil_detection_checks.py`, 12 min, results in `weil_detection_checks.json`). All 120 bases with $J\in\{12,20,28,36\}$, $m\in\{0,1,2,3,4,6\}$, $r_0\in\{82,84,85.7,87.5,90\}$ detect the violation, at $a=1.86$–$2.18$.
+  * By window order: 1.86–1.90 for $m\le1$, rising to 1.96–2.18 for $m=6$. Smoother test functions detect later.
+  * By basis size: larger bases detect earlier ($J=36$: 1.86–1.96).
+  * The most negative eigenvalue over $J=20$–$36$, $m=0$–$4$, $r_0=84$–$87.5$ is $+0.21$ at $a=1.8$, $-0.23$ at $a=1.9$ and $-0.67$ at $a=2.0$, with $L(s,(n/5))$ at $+0.87$, $+0.64$ and $+0.51$ on the same spaces.
 * **Arithmetic side alone** (Arb, 40 digits, no zeros used; error bound from ball radii and quadrature estimates):
 
   | $a$ | basis | $\lambda_{\min}$ DH | $\lambda_{\min}$ $L(s,(n/5))$ |
@@ -385,7 +388,7 @@ By the explicit formula, a theorem for this function (derivation in `explicit_fo
   | slope | $0.544\pm0.014$ | $0.524\pm0.010$ | $0.488\pm0.014$ | $0.439\pm0.021$ | $0.363\pm0.015$ | $0.216\pm0.017$ |
 
   For small $\delta$ the threshold follows the pre-registered zero-density prediction $\tfrac12\log(\gamma_0/2\pi)$ with an $O(1)$ offset. The mean offset is $+0.49$ at $\delta=0.01$, $+0.16$ at $0.05$ and $-0.07$ at $0.1$. Gross violations are seen earlier, and the more so the higher they are.
-* *Robustness.* With bases $(J,m)=(24,4),(16,2),(32,3)$ at $\gamma_0\approx10^3,10^4,10^5$ (4 pairs each), the thresholds move by at most 0.35, and larger bases give lower ones, as an upper bound should. With $J=32$ the small-$\delta$ slope over these heights is 0.49 (e.g. $\delta=0.01$: 2.70, 3.90, 4.97). The float64 eigenvalues agree with 50-digit solves of the same matrices to 8 digits, and perturbing every zero by its accuracy ($10^{-10}$) changes nothing visible. At the largest height, $\delta=0.01$, $\lambda_{\min}$ goes from $+2.9\times10^{-4}$ ($a=6.2$) to $-2.4\times10^{-3}$ ($a=6.25$).
+* *Robustness.* With bases $(J,m)=(24,4),(16,2),(32,3)$ at $\gamma_0\approx10^3,10^4,10^5$ (4 pairs each), the thresholds move by at most 0.35, and larger bases give lower ones, as an upper bound should. With $J=32$ the small-$\delta$ slope over these heights is 0.49 (e.g. $\delta=0.01$: 2.70, 3.90, 4.97). The float64 eigenvalues agree with 50-digit solves of the same matrices to 8 digits, and perturbing every zero by its accuracy ($10^{-10}$) changes nothing visible (`run_weil_detection_checks.py`). At the largest height, $\delta=0.01$, $\lambda_{\min}$ goes from $+2.9\times10^{-4}$ ($a=6.2$) to $-2.4\times10^{-3}$ ($a=6.25$).
 * *Arithmetic-side check.* At $\gamma_0=102.52$ (zeros 30, 31), $\delta=0.1$, ζ's Arb arithmetic side minus the two on-line pairs plus the quadruple gives $\lambda_{\min}=+0.0256435598$ at $a=1.45$ and $-0.0122667835$ at $a=1.5$. The zero side agrees to $6\times10^{-10}$.
 * *Additive model* (the quadruple added, no zeros removed, so it sits between two on-line zeros): thresholds are 1–2 units higher, e.g. 3.60, 5.05, 6.38 at $\gamma_0\approx10^3,10^4,10^5$ for $\delta=0.1$. An off-line zero crowded by on-line neighbours is harder to see.
 
