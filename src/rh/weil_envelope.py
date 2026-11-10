@@ -421,7 +421,6 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
         err_unit_total = 0.0
         log10_tau = -(dps + 40)
         sum_abs_wsig = 0.0                      # sum_k |w_k sigma_k| (float upper bound), for the drop radius
-        partial = {}                            # leading-block size -> accumulated block
 
         def flush():
             nonlocal C, rows_G, rows_W
@@ -431,13 +430,14 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
             Gm = arb_mat([r + [0] * (k - len(r)) for r in rows_G])
             Wm = arb_mat([r + [0] * (k - len(r)) for r in rows_W])
             blk = Gm.transpose() * Wm
+            del Gm, Wm
+            rows_G, rows_W = [], []
             if k == N:
                 C += blk
-            elif k in partial:
-                partial[k] += blk
-            else:
-                partial[k] = blk
-            rows_G, rows_W = [], []
+            else:                               # fold the leading block in now (bounded memory)
+                for i in range(k):
+                    for j in range(k):
+                        C[i, j] += blk[i, j]
 
         inv_pi = 1 / arb.pi()
         work = ctx.prec
@@ -469,10 +469,6 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
                     flush()
             err_unit_total += P.err_unit
         flush()
-        for k, blk in partial.items():          # embed the leading blocks
-            for i in range(k):
-                for j in range(k):
-                    C[i, j] += blk[i, j]
         if truncate:
             drop = 10.0 ** log10_tau * math.sqrt(2 * L * (2 * n_max + 1)) * sum_abs_wsig * (1 + 1e-9)
             for i in range(N):
