@@ -589,6 +589,112 @@ def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, 
             "gap": float("nan"), "n_free": int(len(fidx)), "nB": nB, "rank": int(keep.sum()), "iters": it}
 
 
+def _joint_structure(L: float, Lam: float):
+    """Pair structure of the joint SOS: monomials B, free-monomial ids of the '+' entries (ent, kid), their
+    transposes (entT), counts and targets t_m / 2 (one orientation)."""
+    import numpy as np
+    comb = prime_comb(L)
+    primes = sorted(comb)
+    lp = np.array([math.log(p) for p in primes])
+    B = np.array(_smooth_exponents(primes, Lam))
+    nB = len(B)
+    flat = (B[:, None, :] - B[None, :, :]).reshape(nB * nB, -1)
+    first = np.argmax(flat != 0, axis=1)
+    sgn = np.sign(flat[np.arange(nB * nB), first])
+    plus = sgn > 0
+    keys, inv = np.unique(flat[plus], axis=0, return_inverse=True)
+    inv = inv.ravel()
+    free = np.abs(keys @ lp) < 2 * L - 1e-9
+    fidx = np.nonzero(free)[0]
+    col = -np.ones(len(keys), dtype=int)
+    col[fidx] = np.arange(len(fidx))
+    pos = np.nonzero(plus)[0]
+    kf = col[inv]
+    sel = kf >= 0
+    ent, kid = pos[sel], kf[sel]
+    entT = (ent % nB) * nB + ent // nB
+    target = np.zeros(len(fidx))
+    for a, kidx in enumerate(fidx):
+        nz = np.nonzero(keys[kidx])[0]
+        if len(nz) == 1:
+            p, k = primes[nz[0]], keys[kidx][nz[0]]
+            if k <= len(comb[p]):
+                target[a] = -float(comb[p][k - 1][1].mid()) / 2
+    return {"B": B, "primes": primes, "nB": nB, "ent": ent, "kid": kid, "entT": entT, "target": target,
+            "n_free": int(len(fidx))}
+
+
+def joint_gram_alm(L: float, Lam: float, rank: int = 400, warm: dict | None = None, outer: int = 30,
+                   inner: int = 300, sigma0: float = 10.0, verbose: bool = False, checkpoint: str | None = None) -> dict:
+    """Low-rank (Burer-Monteiro) augmented Lagrangian for the joint SOS: X = R^T R with R of `rank` rows,
+    minimise tr X - y.(A X - b) + (sigma/2) |A X - b|^2 over R by L-BFGS, then update y and sigma.  One
+    evaluation costs two n x n x rank products (no eigendecomposition), so monomial sets of a few thousand
+    are within reach.  The certificate value tr X + sum |s_m - t_m| of the best R is tracked and returned
+    as for `joint_gram_admm` (any R gives a valid certificate)."""
+    import numpy as np
+    from scipy.optimize import minimize
+    S = _joint_structure(L, Lam)
+    nB, ent, kid, entT, b = S["nB"], S["ent"], S["kid"], S["entT"], S["target"]
+    nf = S["n_free"]
+
+    def A_of(X):
+        return np.bincount(kid, weights=X.ravel()[ent], minlength=nf)
+
+    def At(z):
+        Z = np.zeros(nB * nB)
+        np.add.at(Z, ent, z[kid] / 2)
+        np.add.at(Z, entT, z[kid] / 2)
+        return Z.reshape(nB, nB)
+
+    if warm is not None:
+        pos_of = {tuple(bb): i for i, bb in enumerate(S["B"].tolist())}
+        idx = np.array([pos_of[tuple(bb)] for bb in warm["B"].tolist()])
+        Rw = np.zeros((max(rank, warm["R"].shape[0]), nB))
+        Rw[:warm["R"].shape[0], idx] = warm["R"]
+        R = Rw[:rank] if Rw.shape[0] >= rank else np.vstack([Rw, np.zeros((rank - Rw.shape[0], nB))])
+        R = R + 1e-6 * np.random.default_rng(0).standard_normal(R.shape)
+    else:
+        R = 0.1 * np.random.default_rng(0).standard_normal((rank, nB)) / math.sqrt(nB)
+    y = np.zeros(nf)
+    sigma = sigma0
+    best = (float("inf"), None, None)
+
+    def value(Rm):
+        X = Rm.T @ Rm
+        r = A_of(X) - b
+        mis = float(2 * np.sum(np.abs(r)))
+        return float(np.trace(X)) + mis, mis
+
+    for k in range(outer):
+        def fg(v):
+            Rm = v.reshape(rank, nB)
+            X = Rm.T @ Rm
+            r = A_of(X) - b
+            f = float(np.trace(X) - y @ r + 0.5 * sigma * r @ r)
+            G = np.eye(nB) + At(-y + sigma * r)
+            return f, (2 * Rm @ G).ravel()
+        res = minimize(fg, R.ravel(), jac=True, method="L-BFGS-B", options={"maxiter": inner, "maxcor": 20})
+        R = res.x.reshape(rank, nB)
+        X = R.T @ R
+        r = A_of(X) - b
+        y = y - sigma * r
+        val, mis = value(R)
+        if val < best[0]:
+            best = (val, R.copy(), mis)
+            if checkpoint is not None:
+                import pickle
+                pickle.dump({"B": S["B"], "R": R.copy(), "primes": S["primes"], "dual": float("nan"),
+                             "admm_value": val, "admm_mismatch": mis, "gap": float("nan"), "n_free": nf,
+                             "nB": nB, "rank": rank, "iters": k + 1}, open(checkpoint, "wb"))
+        if verbose:
+            print(f"  alm L={L} Lam={Lam} outer {k}: value {val:.6f} (trace {val - mis:.6f}, mismatch {mis:.2e}) "
+                  f"sigma {sigma:.0e} lbfgs its {res.nit}", flush=True)
+        sigma = min(sigma * 2.0, 1e6)
+    val, Rb, mis = best
+    return {"B": S["B"], "R": Rb, "primes": S["primes"], "dual": float("nan"), "admm_value": val,
+            "admm_mismatch": mis, "gap": float("nan"), "n_free": nf, "nB": nB, "rank": rank, "iters": outer}
+
+
 def admm_polish(L: float, Lam: float, G: dict) -> dict:
     """Second candidate from an ADMM Gram factor: project Z = R^T R exactly onto the constraints (zero
     mismatch) and add eps I with eps = max(0, -lambda_min), costing eps |B| in the trace instead of the L1

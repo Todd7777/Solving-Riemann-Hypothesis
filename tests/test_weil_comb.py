@@ -177,3 +177,19 @@ def test_admm_joint_certificate_matches_barrier_and_is_valid():
     H = sum(float(h.mid()) * np.cos(ts * math.log(n / dd)) for n, dd, h in cert.terms)
     assert (float(cert.A_prime.mid()) - P + H).min() > -1e-9
     assert cert.omega_min >= 2 * L
+
+
+def test_low_rank_alm_joint_certificate():
+    """The low-rank augmented Lagrangian (meant for monomial sets of thousands) reaches the barrier optimum on
+    a small case, and its factor gives a valid certificate whose A' reproduces the solver's value."""
+    L, Lam = 1.0, 4.5
+    G = wcb.joint_gram_alm(L, Lam, rank=43, outer=15, inner=200)
+    bar = wcb.joint_comb_certificate(L, Lam).describe()["A_prime"]
+    assert abs(G["admm_value"] - bar) < 2e-3
+    cert = wcb.joint_comb_certificate(L, Lam, gram=G)
+    assert abs(float(cert.A_prime.mid()) - G["admm_value"]) < 1e-9
+    comb = wcb.prime_comb(L)
+    ts = np.linspace(0, 2000, 200001)
+    P = sum(float(c.mid()) * np.cos(ts * math.log(n)) for t in comb.values() for n, c in t)
+    H = sum(float(h.mid()) * np.cos(ts * math.log(n / dd)) for n, dd, h in cert.terms)
+    assert (float(cert.A_prime.mid()) - P + H).min() > -1e-9
