@@ -85,7 +85,8 @@ def upper_bound(L, parity, J, dps):
     W = wf.build_weil_form(L, J, dps=dps_eig, estimate_quad_error=False)
     Qs, Gs, idx = W.sector(parity)
     v, vec = wf.smallest_eigenpairs(Qs, Gs, dps_eig, k=1)
-    c = wc.rationalize(vec[0])
+    # round the minimiser exactly at ~dps + 30 digits (rounding through float would move Q(f) by ~1e-33)
+    c = wc.rationalize(vec[0], bits=int(3.33 * (dps + 30)) + 64)
     r = wc.certify_weil_value("zeta", wg.Basis.legendre(L, J), parity, c, dps=dps, eps=10.0 ** (-(dps + 8)))
     return {"J": J, "lambda_J_numerical": mp.nstr(v[0], 10), "upper": r["ratio_upper"],
             "lower_of_ratio": r["ratio_lower"], "seconds": r["seconds"]}

@@ -88,3 +88,15 @@ def test_certificate_davenport_heilbronn_off_line_zero():
     # the same f for L(s,(n/5)) (GRH): positive
     r5 = wc.certify_weil_value("chi5", B, "even", c, dps=8)
     assert r5["positive"]
+
+
+def test_rationalize_with_bits_is_exact_rounding():
+    import mpmath as mp
+    from fractions import Fraction
+    with mp.workdps(120):
+        x = mp.mpf(1) / 3
+        r = wc.rationalize([x, -x * mp.mpf(10) ** -30], bits=300)
+        assert r[0].denominator == 2 ** 300 or (2 ** 300) % r[0].denominator == 0
+        assert abs(mp.mpf(r[0].numerator) / r[0].denominator - x) <= mp.mpf(2) ** -301
+        assert abs(mp.mpf(r[1].numerator) / r[1].denominator + x * mp.mpf(10) ** -30) <= mp.mpf(2) ** -301
+    assert wc.rationalize([0.5]) == [Fraction(1, 2)]                 # default behaviour unchanged

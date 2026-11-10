@@ -58,11 +58,18 @@ from .weil_form_general import Basis, _flint_dps, get_series
 __all__ = ["test_polynomial", "CorrelationEvaluator", "certify_weil_value", "rationalize", "guard_digits"]
 
 
-def rationalize(coeffs: Sequence, max_den: Optional[int] = None) -> list:
+def rationalize(coeffs: Sequence, max_den: Optional[int] = None, bits: Optional[int] = None) -> list:
     """Exact rationals for (float / mpmath) coefficients: the binary value of float(c) (exact), or
-    the best approximation with denominator <= max_den."""
+    the best approximation with denominator <= max_den, or (bits given) c rounded to the nearest
+    multiple of 2^-bits, computed exactly from the mpmath value.  Rounding through float costs ~16
+    digits: the trial function's Q(f) then moves by ~1e-33, which hides margins below that (L >= 1.1)."""
     out = []
     for c in coeffs:
+        if bits is not None:
+            import mpmath as mp
+            with mp.workprec(int(bits) + 64 + int(max(0, mp.mag(mp.mpf(c))))):
+                out.append(Fraction(int(mp.nint(mp.mpf(c) * mp.mpf(2) ** bits)), 2 ** int(bits)))
+            continue
         fr = Fraction(float(c))
         out.append(fr.limit_denominator(max_den) if max_den else fr)
     return out
