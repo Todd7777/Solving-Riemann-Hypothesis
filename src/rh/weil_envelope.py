@@ -664,22 +664,35 @@ def residual_certify(M, shift, b: int = 64) -> dict:
         return {"certified": False, "failed_at": f["first_negative"], "lower_bound": None, "residual_F": None,
                 "min_pivot": f["min_pivot"], "n_negative": f["n_negative"]}
     Lt = f["L"]
-    Dm = arb_mat(n, n)
-    for i in range(n):
-        Dm[i, i] = f["d"][i]
-    A = M
-    if shift is not None:
-        A = M - arb_mat(n, n, [shift if i == j else 0 for i in range(n) for j in range(n)])
-    E = A - (Lt * Dm) * Lt.transpose()
+    d = f["d"]
+    sh = arb(shift) if shift is not None else arb(0)
+    min_pivot = f["min_pivot"]
+    del f
+    # E = M - shift I - Lt D Lt^T, in column blocks of width w (memory: two n x w blocks, not five n x n
+    # matrices).  E is symmetric, so only its lower triangle is evaluated and the off-diagonal part counted twice.
+    w = 256
     fro2 = arb(0)
-    for i in range(n):
-        for j in range(n):
-            e = abs(E[i, j]).upper()
+    for c0 in range(0, n, w):
+        c1 = min(n, c0 + w)
+        Bc = arb_mat(n, c1 - c0)             # D (Lt[c0:c1, :])^T
+        for j in range(c1 - c0):
+            r = c0 + j
+            for k in range(r + 1):
+                Bc[k, j] = d[k] * Lt[r, k]
+        P = Lt * Bc                          # (Lt D Lt^T)[:, c0:c1]
+        del Bc
+        for j in range(c1 - c0):
+            c = c0 + j
+            e = abs(M[c, c] - sh - P[c, j]).upper()
             fro2 += e * e
+            for i in range(c + 1, n):
+                e = abs(M[i, c] - P[i, j]).upper()
+                fro2 += 2 * e * e
+        del P
     res = fro2.sqrt()
     lower = (arb(shift) if shift is not None else arb(0)) - res
     return {"certified": bool(lower > 0), "lower_bound": lower, "residual_F": res,
-            "min_pivot": f["min_pivot"], "failed_at": None, "n_negative": 0}
+            "min_pivot": min_pivot, "failed_at": None, "n_negative": 0}
 
 
 def inertia_count(M, shift) -> int:

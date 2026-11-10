@@ -480,7 +480,8 @@ def joint_gram(L: float, Lam: float, mu_min: float = 1e-9, verbose: bool = False
 
 
 def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, tol: float = 1e-9,
-                    verbose: bool = False, report: int = 1000, alpha: float = 1.0, warm: dict | None = None) -> dict:
+                    verbose: bool = False, report: int = 1000, alpha: float = 1.0, warm: dict | None = None,
+                    checkpoint: str | None = None) -> dict:
     """Near-optimal Gram matrix for the joint certificate by ADMM on the primal SOS problem (for monomial sets
     too large for the barrier method of `joint_gram`, whose Newton systems have one unknown per free moment).
 
@@ -570,6 +571,14 @@ def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, 
             if verbose and it % report == 0:
                 print(f"  admm L={L} Lam={Lam} it={it}: value {val:.6f} (trace {val - mis:.6f}, mismatch {mis:.2e})"
                       f" r_p {rp:.1e} r_d {rd:.1e} rho {rho:.2g}", flush=True)
+            if checkpoint is not None and it % report == 0:     # the best iterate so far, as a usable result
+                import pickle
+                lam_c, Q_c = np.linalg.eigh((best[1] + best[1].T) / 2)
+                keep_c = lam_c > 1e-14 * lam_c[-1]
+                pickle.dump({"B": B, "R": np.sqrt(lam_c[keep_c])[:, None] * Q_c[:, keep_c].T, "primes": primes,
+                             "dual": float("nan"), "admm_value": best[0], "admm_mismatch": best[2],
+                             "gap": float("nan"), "n_free": int(len(fidx)), "nB": nB, "rank": int(keep_c.sum()),
+                             "iters": it}, open(checkpoint, "wb"))
             if mis < tol and rp < tol and rd < tol:
                 break
     val, Zb, mis = best
