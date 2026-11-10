@@ -410,6 +410,68 @@ For every $\delta\ge0.01$ tried, $e^{2a^*}\le0.9\gamma_0$: primes up to the heig
 
 ---
 
+## E13. Certified Weil positivity on whole windows, past the previous record (2026-11-09 – 2026-11-10)
+
+`python3 scripts/run_weil_positivity.py` (31 min; `--parts upper` recomputes the upper bounds;
+`--only 1.0 --merge` adds the window $L=1$, about an hour per sector). Results in `weil_positivity_summary.json`. Module `weil_envelope.py`; 12 tests.
+
+**Statement (Machine-checked).** For each window $L$ in the table below and every real $f\in L^2$ supported in $[-L,L]$, the arithmetic side of Weil's quadratic form satisfies $Q(f)\ge c\,\lVert f\rVert^2$. Here $c=\min(c_{\rm even},c_{\rm odd})>0$ is certified in ball arithmetic. The form is
+$$Q(f)=2F(\tfrac i2)F(-\tfrac i2)+\frac1{2\pi}\int_{\mathbb R}|F(t)|^2\,\Psi_L(t)\,dt,$$
+with $F=\hat f$ and $\Psi_L(t)=\Re\psi(\tfrac14+\tfrac{it}2)-\log\pi-\sum_{\log n<2L}\frac{2\Lambda(n)}{\sqrt n}\cos(t\log n)$. It may take the value $+\infty$. Only the prime powers $n<e^{2L}$ and the Gamma factor enter; no zero of ζ is used. Weil's criterion says RH holds if and only if this positivity holds for every $L$. Positivity on $[-L,L]$ implies it on every smaller window. **The largest window certified here is $[-0.9729, 0.9729]$** (and $[-1,1]$ if the extended run below succeeds). The previous record we could find was $[-0.8,0.8]$ (Zhu 2026, arXiv:2608.24827v2).
+
+**Method: Zhu's envelope reduction, rebuilt in interval arithmetic.** We read Zhu's paper through WebFetch summaries of its arXiv abstract and HTML full text, not the PDF.
+* *Envelope.* $\Omega(t)=\Re\psi(\tfrac14+\tfrac{it}2)-\log\pi$ increases on $t>0$, because $\Im\psi'<0$ in the upper half-plane. With $|\cos|\le1$ this gives $\Psi_L(t)\ge\beta:=\Omega(T)-A_L$ for $t\ge T$, where $A_L=\sum_{\log n<2L}2\Lambda(n)/\sqrt n$ is the comb constant.
+* *Lower form.* Plancherel then gives $Q\ge R_T:=\beta I+\text{pole}+C_T$, where $C_T$ is the part of the form with $t\le T$.
+* *Matrix.* In an orthonormal Legendre basis of each parity sector, the entries of $C_T$ decay super-exponentially beyond order $\approx eLT/2$.
+* *Finite certificate.* A finite block $A$ is certified positive definite. The rest is controlled by explicit bounds: $\epsilon_D$ for the tail and $\epsilon_B$ for the coupling. Then
+$$\lambda_{\min}(R_T)\ \ge\ \min(\lambda_{\min}(R_A),\beta-\epsilon_D)-\epsilon_B.$$
+
+Every quantity is rigorous:
+* *Quadrature.* The $t$-integrals use composite Gauss–Legendre with an a-priori Bernstein-ellipse bound (Trefethen 2008, Thm 4.5). The symbol is bounded on each ellipse by Arb on adaptively bisected boxes; Arb's complex digamma returns NaN on wide boxes. The poles of $\Omega$ at $\pm i(\tfrac12+2k)$ are excluded.
+* *Bessel values.* The values $j_n(Lt)$, of order up to 1430, come from power-series starting values and three-term recurrences. These are run with guard digits sized to the "wrapping effect" of ball arithmetic, up to about 450 digits, and verified against 60-digit mpmath.
+* *Tail and coupling bounds.* These follow from $|j_n(x)|\le x^n/(2n+1)!!$ and $i_n(c)\le c^ne^c/(2n+1)!!$.
+* *Positive definiteness.* An approximate $LDL^T$ of the midpoint matrix is followed by a residual computed in ball arithmetic. If $A-\lambda_0I=\tilde L\tilde D\tilde L^T+E$ with $\tilde D\ge0$, then $\lambda_{\min}(A)\ge\lambda_0-\lVert E\rVert_F$. A ball Cholesky fails at this size because of the wrapping effect.
+
+Zhu's own lower bound used a-priori error bounds and a verified floating-point Cholesky rather than interval arithmetic.
+
+**Validation.**
+* The envelope matrix equals the independently tested $u$-space Legendre matrices of `rh.weil_form`, minus the frequency tail above $T$, to $10^{-7}$. That figure is the accuracy of the float tail used in the check.
+* $Q_A-R_A$ is positive semidefinite, as it must be.
+* At $L=0.8$ Zhu's certificate is reproduced and sharpened: $8.9\times10^{-18}\to1.0104\times10^{-17}$. Our $\beta$ uses $\Omega(T)$ itself rather than Zhu's bound $\log(T/2\pi)-1/T$.
+
+**Results.**
+
+| $L$ | prime powers $n<e^{2L}$ | $A_L$ | $T$ (even/odd) | orders | even: certified $c$ | even: upper | odd: certified $c$ | odd: upper |
+|---|---|---|---|---|---|---|---|---|
+| 0.5 | 2 | 0.980 | 40/40 | ≤ 73 | $5.6725\times10^{-07}$ | $9.3521\times10^{-07}$ | $1.0642\times10^{-04}$ | $1.9410\times10^{-04}$ |
+| 0.8 | 2, 3, 4 | 2.942 | 200/200 | ≤ 311 | $1.0104\times10^{-17}$ | $1.7026\times10^{-17}$ | $1.1194\times10^{-14}$ | $1.6197\times10^{-14}$ |
+| 0.8047 | 2, 3, 4 | 2.942 | 200/280 | ≤ 423 | $5.2156\times10^{-18}$ | $9.5164\times10^{-18}$ | $6.2984\times10^{-15}$ | $1.0088\times10^{-14}$ |
+| 0.81 | 2, 3, 4, 5 | 4.381 | 600/600 | ≤ 865 | $3.9121\times10^{-18}$ | $5.1081\times10^{-18}$ | $4.3057\times10^{-15}$ | $5.6149\times10^{-15}$ |
+| 0.85 | 2, 3, 4, 5 | 4.381 | 600/600 | ≤ 907 | $3.3152\times10^{-20}$ | $4.3544\times10^{-20}$ | $3.7815\times10^{-17}$ | $5.2107\times10^{-17}$ |
+| 0.9 | 2, 3, 4, 5 | 4.381 | 600/600 | ≤ 957 | $3.1171\times10^{-23}$ | $4.2322\times10^{-23}$ | $5.2544\times10^{-20}$ | $7.3724\times10^{-20}$ |
+| 0.95 | 2, 3, 4, 5 | 4.381 | 600/600 | ≤ 1009 | $1.7700\times10^{-26}$ | $2.6438\times10^{-26}$ | $3.8265\times10^{-23}$ | $5.5097\times10^{-23}$ |
+| 0.97 | 2, 3, 4, 5 | 4.381 | 600/600 | ≤ 1029 | $7.7733\times10^{-28}$ | $1.1684\times10^{-27}$ | $1.7681\times10^{-24}$ | $2.4735\times10^{-24}$ |
+| 0.9729 | 2, 3, 4, 5 | 4.381 | 600/840 | ≤ 1429 | $4.8865\times10^{-28}$ | $7.1173\times10^{-28}$ | $1.1323\times10^{-24}$ | $1.6137\times10^{-24}$ |
+| 1.0 | 2, 3, 4, 5, 7 | 5.852 | 2600/2600 | ≤ 3816 (even) | $5.1369\times10^{-30}$ | (running) | (running) | (running) |
+
+The upper bounds are rigorous enclosures (`rh.weil_certificate`) of $Q(f)/\lVert f\rVert^2$ for an explicit polynomial $f$: the Legendre minimiser of degree $<64$ for $L<0.9$, $<96$ beyond. So each window's $\inf Q/\lVert f\rVert^2$ is enclosed two-sidedly. At $L=0.8$ the even sector gives $[1.0104,\ 1.7026]\times10^{-17}$, against Zhu's $[0.89,\ 2.27]\times10^{-17}$. Each certificate needs $T$ above $T_1=2\pi e^{A_L}$. The envelope's loss must stay below the margin, and it does at $T=600$ for every $L\le0.97$. The one exception is the odd sector at $L=0.8047$ and $L=0.9729$: there the loss exceeded the odd margin at the first $T$. The positive-definiteness check caught it, the run was retried at $1.4T$, and the retry succeeded. The residuals ($10^{-33}$–$10^{-42}$) and the coupling bounds ($\le5\times10^{-33}$) lie far below the margins. One window takes 5–180 s per sector.
+
+**The reach of the envelope reduction (barrier).** The comb constant is $A_L\sim4e^L$ (prime number theorem), so the cutoff $T_1=2\pi e^{A_L}$ grows doubly exponentially in $L$. The Legendre order needed, $\approx eLT_1/2$, grows with it:
+
+| $L$ | 0.8 | 0.9729 | 1.0 | 1.1 | 1.2 | 1.5 | 2.0 |
+|---|---|---|---|---|---|---|---|
+| $A_L$ | 2.94 | 4.38 | 5.85 | 7.08 | 8.52 | 13.0 | 24.4 |
+| order $\approx eLT_1/2$ | 130 | 660 | 3000 | $1.1\times10^4$ | $5\times10^4$ | $6\times10^6$ | $7\times10^{11}$ |
+
+Zhu shows that $A_L$ is the best pointwise bound for the prime comb (Weyl equidistribution). So no implementation of this reduction gets past $L\approx1.1$–$1.2$; larger windows need an argument that is not pointwise in $t$. The margins themselves also collapse, from $\approx10^{-17}$ at $L=0.8$ to $\approx10^{-27}$ at $0.97$ (even sector).
+
+**Interpretation.**
+* This is a theorem-level, zero-free certificate for a finite piece of Weil's criterion. On $[-0.9729,0.9729]$ it uses only $n\in\{2,3,4,5\}$ and the Gamma factor. It extends the largest certified window from 0.8 to 0.9729, about 22% longer, as far as we could find. We could not survey the literature exhaustively.
+* *What the certificate says about zeros (heuristic).* By E12's detection law, test functions of support $L$ resolve only zeros below height $\sim2\pi e^{2L}$, which is about 44 at $L=0.97$. Those zeros are long known to lie on the line. The certificate carries no new information about zeros; its content is structural. The positivity margins of the arithmetic side collapse super-exponentially. The certification cost grows doubly exponentially in $L$, i.e. like $\exp(c\sqrt{\text{height}})$ in the height of the zeros the window "sees". That is far more than zero verification costs for the same height.
+* *What this does not show.* RH, or positivity on any larger window. The labels are: Machine-checked for the lower bounds and upper bounds; Heuristic for the remarks about heights.
+
+---
+
 ## Summary of the state of the evidence after all experiments
 
 Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.

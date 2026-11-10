@@ -319,10 +319,11 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
     """Composite rule on [0, T]: widths w0 near t = 0 (the poles of Omega sit at +-i/2), growing to
     wmax.  For each panel the (rho, nu) with the fewest nodes meeting `target` for the worst entry
     (orders <= n_max) is chosen; err_unit is the rigorous per-entry bound divided by
-    2L sqrt((2m+1)(2n+1))."""
+    2L sqrt((2m+1)(2n+1)) (evaluated in floats from Arb upper bounds; `envelope_block` inflates the
+    resulting radii by a relative 1e-9, which covers the float rounding)."""
     from flint import arb
     comb_list, A = comb(L)
-    beta = float(beta_star(L, T).mid())
+    beta = beta_star(L, T)            # the exact ball: sup |Psi_L - beta| is bounded with it
     edges = [0.0]
     t = 0.0
     while t < T - 1e-12:

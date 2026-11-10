@@ -30,13 +30,14 @@
 | Weil quadratic form on $[-a,a]$ in ball arithmetic, minimiser zeros | `rh.weil_form` |
 | Weil form for ζ, $L(s,(n/5))$ and Davenport–Heilbronn; wave-packet bases; zero side with off-line quadruples; hypothetical zeros | `rh.weil_form_general` |
 | certified enclosure of Weil's form at one explicit test function (every error bounded) | `rh.weil_certificate` |
+| certified positivity of Weil's form on a whole window $[-L,L]$ (envelope reduction; rigorous spherical Bessel functions to high order; residual-certified Cholesky) | `rh.weil_envelope` |
 | explicit formula for real periodic Dirichlet series (no Euler product needed) | `rh.explicit_formula_general` |
 | Nyman–Beurling distances for periodic-coefficient Dirichlet series | `rh.nyman_beurling_periodic` |
 | zero dynamics under the heat flow | `rh.debruijn_newman` |
 
 ## Ideas not yet implemented
 
-* Weil form: certified *positivity* on a whole finite-dimensional space (ball Cholesky of the matrices, with the quadrature errors of `weil_form_general` replaced by bounds as in `weil_certificate`), larger bases or prolate-type bases to approach the true infimum. E12 did the negative direction (a certified negative value for Davenport–Heilbronn) and the analysis for $L(s,(n/5))$.
+* Weil form beyond the envelope reduction's reach ($L\gtrsim1.1$, E13): the pointwise comb bound $A_L$ makes the cost grow doubly exponentially in $L$. A bound that uses the oscillation of the prime comb in $t$ (rather than $|\cos|\le1$), or a different finite reduction, is needed. The same machinery can certify positivity for $L(s,(n/5))$ (comb $\chi(n)\Lambda(n)$) and quantify how the margins depend on the conductor.
 * Nyman–Beurling with the Mellin-side weight modified (Báez-Duarte's and Burnol's generalisations with $|s|^{-2}$ replaced by other weights; the constant in the lower bound changes to $\sum_\rho w(\rho)$).
 * Li coefficients and $c_k$ for Dirichlet $L$-functions (python-flint has `acb.dirichlet_l` and `dirichlet_char`); GRH versions of every experiment.
 * Higher moments of $\zeta$ on the line against the CFKRS conjecture, using the zero dataset for the comparison of $S(T)$ statistics.

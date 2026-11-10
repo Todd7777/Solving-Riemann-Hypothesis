@@ -25,6 +25,7 @@ The Riemann Hypothesis will not be settled by a software project, and this repos
 | J | Spectral analysis of Weil's quadratic form on bounded supports | `weil_form.py` | done (E10) |
 | K | Sensitivity of Nyman–Beurling to off-line zeros; Davenport–Heilbronn and $L(s,(\cdot/5))$ controls | `nyman_beurling_periodic.py` | done (E11) |
 | L | Explicit formula without an Euler product; Weil positivity for $L(s,(\cdot/5))$ and Davenport–Heilbronn; detection horizon of Weil's criterion; certified values of the Weil form | `explicit_formula_general.py`, `weil_form_general.py`, `weil_certificate.py` | done (E12) |
+| M | Certified Weil positivity on whole windows $[-L,L]$ (envelope reduction in ball arithmetic) and the reach of the method | `weil_envelope.py` | done (E13) |
 
 The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every number produced, with the command that produced it.
 
