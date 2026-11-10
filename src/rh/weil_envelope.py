@@ -605,25 +605,33 @@ def ldl_certify(M, shift=None) -> dict:
 
 def ldl_mid_blocked(M, shift=None, b: int = 64) -> dict:
     """Approximate LDL^T (no pivoting) of the midpoint of the symmetric arb_mat M - shift I, in
-    exact dyadic (midpoint) arithmetic at the working precision: blocked and right-looking, so the
-    Schur-complement updates are FLINT matrix products (O(N^3) at C speed) and only the b x b diagonal
-    blocks are factored in Python.  Negative pivots do not stop it.
+    exact dyadic (midpoint) arithmetic at the working precision: blocked and right-looking.  The working
+    matrix is kept as a list of n x b column blocks; after each diagonal block is factored (in Python), the
+    blocks to its right are updated with one FLINT product each (full height, with zero rows above the
+    panel).  Memory: the column blocks plus L (about two n x n matrices); flops ~ n^3/2 at C speed.
+    Negative pivots do not stop it.
     Returns {'L': unit lower triangular arb_mat (exact entries), 'd': pivots (exact arb),
     'n_negative', 'min_pivot', 'first_negative'}."""
     from flint import arb, arb_mat
     n = M.nrows()
-    S = M.mid()
-    if shift is not None:
-        sh = arb(shift).mid()
-        for i in range(n):
-            S[i, i] = S[i, i] - sh
+    starts = list(range(0, n, b))
+    sh = arb(shift).mid() if shift is not None else None
+    blocks = []
+    for k0 in starts:                          # column blocks of mid(M) - shift I
+        k1 = min(n, k0 + b)
+        Sj = arb_mat(n, k1 - k0, [M[i, k0 + j].mid() for i in range(n) for j in range(k1 - k0)])
+        if sh is not None:
+            for j in range(k1 - k0):
+                Sj[k0 + j, j] = Sj[k0 + j, j] - sh
+        blocks.append(Sj)
     Lm = arb_mat(n, n)
     d = [None] * n
     n_neg, first_neg = 0, None
-    for k0 in range(0, n, b):
+    for jb, k0 in enumerate(starts):
         k1 = min(n, k0 + b)
         m = k1 - k0
-        B = [[S[k0 + i, k0 + j] for j in range(m)] for i in range(m)]
+        Sj = blocks[jb]
+        B = [[Sj[k0 + i, j] for j in range(m)] for i in range(m)]
         Lk = [[arb(0)] * m for _ in range(m)]
         dk = [None] * m
         for i in range(m):
@@ -650,12 +658,14 @@ def ldl_mid_blocked(M, shift=None, b: int = 64) -> dict:
                 Lm[k0 + i, k0 + j] = Lk[i][j]
         nb = n - k1
         if nb == 0:
+            blocks[jb] = None
             break
-        # panel below the diagonal block: X (Lk Dk)^T = S[k1:, k0:k1]  <=>  (Lk Dk) X^T = S[k0:k1, k1:]
+        # panel below the diagonal block: X (Lk Dk)^T = S[k1:, k0:k1]  <=>  (Lk Dk) X^T = S[k1:, k0:k1]^T
         LD = arb_mat(m, m, [Lk[i][j] * dk[j] if j <= i else 0 for i in range(m) for j in range(m)])
-        SbT = arb_mat(m, nb, [S[k0 + i, k1 + r] for i in range(m) for r in range(nb)])
+        SbT = arb_mat(m, nb, [Sj[k1 + r, i] for i in range(m) for r in range(nb)])
+        blocks[jb] = None                      # this column block is done
         XT = LD.solve(SbT, algorithm="approx").mid()
-        W = arb_mat(n, m)
+        W = arb_mat(n, m)                      # X in rows k1.., zero above
         WD = arb_mat(n, m)
         for r in range(nb):
             for i in range(m):
@@ -663,7 +673,12 @@ def ldl_mid_blocked(M, shift=None, b: int = 64) -> dict:
                 Lm[k1 + r, k0 + i] = x
                 W[k1 + r, i] = x
                 WD[k1 + r, i] = x * dk[i]
-        S = (S - W * WD.transpose()).mid()
+        for jb2 in range(jb + 1, len(starts)):  # S[:, block jb2] -= W (WD[block jb2 rows, :])^T
+            c0 = starts[jb2]
+            c1 = min(n, c0 + b)
+            WDc = arb_mat(m, c1 - c0, [WD[c0 + cc, i] for i in range(m) for cc in range(c1 - c0)])
+            blocks[jb2] = (blocks[jb2] - W * WDc).mid()
+        del W, WD
     minp = min(float(x) for x in d)
     return {"L": Lm, "d": d, "n_negative": n_neg, "min_pivot": minp, "first_negative": first_neg}
 
@@ -750,8 +765,8 @@ def approx_lambda_min_ldl(M, iters: int = 6, b: int = 64):
     if f["n_negative"]:
         return None
     Lm, d = f["L"], f["d"]
+    del f
     x = [arb(1) / (1 + i) for i in range(n)]
-    Mm = M.mid()
     lam = None
     for _ in range(iters):
         z = [None] * n                          # L z = x
@@ -770,8 +785,8 @@ def approx_lambda_min_ldl(M, iters: int = 6, b: int = 64):
         nrm = sum((v * v for v in y), arb(0)).sqrt()
         x = [(v / nrm).mid() for v in y]
         xm = arb_mat([[v] for v in x])
-        Mx = Mm * xm
-        lam = sum((x[i] * Mx[i, 0] for i in range(n)), arb(0))
+        Mx = M * xm                             # no midpoint copy of M (memory)
+        lam = sum((x[i] * Mx[i, 0] for i in range(n)), arb(0)).mid()
     return lam, arb_mat([[v] for v in x])
 
 
