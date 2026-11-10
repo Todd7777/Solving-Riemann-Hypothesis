@@ -572,8 +572,10 @@ def residual_certify(M, shift) -> dict:
 
 
 def approx_lambda_min(M, iters: int = 6):
-    """Approximate smallest eigenvalue (and vector) of the symmetric arb_mat M by inverse iteration on
-    its midpoint (not rigorous; only used to choose the certified shift)."""
+    """Approximate eigenvalue of the symmetric arb_mat M closest to 0 (and its vector), by inverse
+    iteration on the midpoint.  Not rigorous, and it is lambda_min only if M is positive definite:
+    it is used only to choose the shift that `residual_certify` then checks rigorously (an indefinite
+    M is caught there by a negative pivot)."""
     from flint import arb, arb_mat
     n = M.nrows()
     Mm = M.mid()
@@ -617,6 +619,7 @@ def certify_window(L, parity: str, T, N, dps: int = 40, lam0=None, safety: float
                "quad_error_unit": blk["quad_error_unit"], "beta": float(beta.lower()),
                "comb": blk["comb"], "A_L": float(blk["A"].mid()), "lambda_approx": float(lam_approx.mid()),
                "lambda0": float(arb(lam0).mid()), "ldl_certified": cert["certified"],
+               "ldl_failed_at": cert.get("failed_at"),
                "ldl_min_pivot": cert["min_pivot"],
                "residual_F": float(cert["residual_F"].upper()) if cert["residual_F"] is not None else None,
                "eps_B": tb["eps_B"], "eps_D": tb["eps_D"],

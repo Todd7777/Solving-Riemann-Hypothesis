@@ -32,20 +32,25 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 OUT_JSON = os.path.join(ROOT, "results", "json", "weil_positivity_summary.json")
 FIG = os.path.join(ROOT, "results", "figures", "weil_positivity.png")
 
-# (L, T, N modes per sector, dps).  T > T_1 = 2 pi e^{A_L} is needed for beta > 0:
+# (L, T, dps): T > T_1 = 2 pi e^{A_L} is needed for beta > 0:
 # A_L = 2.942 (n = 2, 3, 4) for L < log(5)/2 = 0.80472, 4.381 (n <= 5) for L < log(7)/2 = 0.97296.
+# The number of Legendre modes per sector follows from T (`modes_for`).  If the envelope form is not
+# positive (its loss exceeds the margin), T is raised by a factor 1.4 and the sector retried.
 WINDOWS = [
-    (0.5, 40.0, 24, 40),
-    (0.8, 200.0, 200, 40),        # Zhu's window (arXiv:2608.24827: c = 8.9e-18, even)
-    (0.8047, 200.0, 200, 40),     # the largest window whose comb is {2, 3, 4}
-    (0.81, 600.0, 420, 40),
-    (0.85, 600.0, 444, 40),
-    (0.9, 600.0, 469, 50),
-    (0.95, 600.0, 495, 50),
-    (0.97, 600.0, 505, 50),
-    (0.9729, 600.0, 505, 50),     # the largest window whose comb is {2, 3, 4, 5} (log(7)/2 = 0.972955)
+    (0.5, 40.0, 40),
+    (0.8, 200.0, 40),           # Zhu's window (arXiv:2608.24827: c = 8.9e-18, even)
+    (0.8047, 200.0, 40),        # the largest window whose comb is {2, 3, 4}
+    (0.81, 600.0, 40),
+    (0.85, 600.0, 40),
+    (0.9, 600.0, 50),
+    (0.95, 600.0, 50),
+    (0.97, 600.0, 50),
+    (0.9729, 600.0, 50),        # the largest window whose comb is {2, 3, 4, 5} (log(7)/2 = 0.972955)
 ]
-QUICK = [(0.5, 40.0, 24, 40), (0.8, 200.0, 200, 40)]
+QUICK = [(0.5, 40.0, 40), (0.8, 200.0, 40)]
+# beyond log(7)/2 the comb adds n = 7 (A_L = 5.852, T_1 ~ 2187): about 1900 modes per sector,
+# ~1 hour per sector here; run with --only 1.0 --merge
+EXTENDED = [(1.0, 2600.0, 55)]
 
 
 def upper_bound(L, parity, J=None, dps=40):
@@ -61,13 +66,19 @@ def upper_bound(L, parity, J=None, dps=40):
             "lower_of_ratio": r["ratio_lower"], "seconds": r["seconds"]}
 
 
+def modes_for(L, T):
+    """Legendre modes per sector: orders up to ~1.25 e L T / 2, where |j_n(LT)| <= (LT)^n/(2n+1)!! is
+    already ~e^{-0.2 n} below 1 and the coupling bounds are negligible."""
+    return int(math.ceil(1.25 * math.e * L * T / 4)) + 20
+
+
 def figure(rows):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(6.4, 4.2))
     for parity, col, mk in (("even", "#c0392b", "o"), ("odd", "#2e86c1", "s")):
-        r = [x for x in rows if x["parity"] == parity and x["certified_lower_bound"]]
+        r = [x for x in rows if x["parity"] == parity and x["positive"]]
         Ls = [x["L"] for x in r]
         ax.semilogy(Ls, [x["certified_lower_bound"] for x in r], mk + "-", color=col, ms=4,
                     label=f"certified lower bound ({parity})")
@@ -93,21 +104,54 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--only", default="")
+    ap.add_argument("--merge", action="store_true",
+                    help="add/replace the computed windows in the stored summary instead of overwriting it")
+    ap.add_argument("--parts", choices=["all", "upper"], default="all",
+                    help="'upper': recompute only the rigorous upper bounds of the stored summary")
     args = ap.parse_args()
+    if args.parts == "upper":
+        with open(OUT_JSON) as f:
+            out = json.load(f)
+        t0 = time.time()
+        for r in out["windows"]:
+            r["upper"] = upper_bound(r["L"], r["parity"], dps=r["dps"])
+            r["certified_interval"] = [r["certified_lower_bound"], r["upper"]["upper"]]
+            print(f"  L={r['L']} {r['parity']}: upper {r['upper']['upper']:.6e} "
+                  f"(J={r['upper']['J']}, {r['upper']['seconds']:.0f}s)", flush=True)
+        out["upper_seconds"] = time.time() - t0
+        with open(OUT_JSON, "w") as f:
+            json.dump(out, f, indent=1, default=str)
+        figure(out["windows"])
+        print(f"updated upper bounds in {OUT_JSON}")
+        return
     windows = QUICK if args.quick else WINDOWS
     if args.only:
         keep = {float(x) for x in args.only.split(",")}
-        windows = [w for w in windows if w[0] in keep]
+        windows = [w for w in WINDOWS + EXTENDED if w[0] in keep]
     t0 = time.time()
     rows = []
-    for (L, T, N, dps) in windows:
+    for (L, T0, dps) in windows:
         for parity in ("even", "odd"):
-            r = we.certify_window(L, parity, T=T, N=N, dps=dps, verbose=True)
+            T, attempts = T0, []
+            for _ in range(4):
+                r = we.certify_window(L, parity, T=T, N=modes_for(L, T), dps=dps, verbose=True)
+                attempts.append({"T": T, "N": r["N"], "lambda_approx": r["lambda_approx"],
+                                 "certified_lower_bound": r["certified_lower_bound"]})
+                if r["positive"]:
+                    break
+                T = round(T * 1.4)
+            r["attempts"] = attempts
             r["upper"] = upper_bound(L, parity, dps=dps)
             r["certified_interval"] = [r["certified_lower_bound"], r["upper"]["upper"]]
             rows.append(r)
-            print(f"  L={L} {parity}: lambda_min in [{r['certified_lower_bound']:.4e}, {r['upper']['upper']:.4e}]",
-                  flush=True)
+            lo = f"{r['certified_lower_bound']:.4e}" if r["positive"] else "NOT CERTIFIED"
+            print(f"  L={L} {parity} (T={r['T']}): lambda_min in [{lo}, {r['upper']['upper']:.4e}]", flush=True)
+    if args.merge and os.path.exists(OUT_JSON):
+        with open(OUT_JSON) as f:
+            old = json.load(f)
+        new_keys = {(r["L"], r["parity"]) for r in rows}
+        rows = sorted([r for r in old["windows"] if (r["L"], r["parity"]) not in new_keys] + rows,
+                      key=lambda r: (r["L"], r["parity"]))
     out = {"description": "E13: certified Weil positivity on whole windows [-L, L] (zeta), envelope reduction",
            "quick": args.quick, "windows": rows, "seconds": time.time() - t0}
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)

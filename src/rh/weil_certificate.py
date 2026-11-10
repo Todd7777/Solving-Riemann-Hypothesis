@@ -215,19 +215,37 @@ def guard_digits(basis: Basis) -> int:
 
 
 def certify_weil_value(series, basis: Basis, parity: str, coeffs: Sequence, dps: int = 30,
-                       eps: float = 1e-12, verbose: bool = False) -> dict:
+                       eps: float = 1e-12, verbose: bool = False, max_attempts: int = 4) -> dict:
     """Certified enclosure of the arithmetic side Q(f) of Weil's form for f = sum coeffs[i] phi_i
     (coeffs exact rationals, or floats taken at their exact binary value).
 
     dps is the target accuracy (integration tolerance 10^-dps); the working precision adds
     `guard_digits(basis)`.  The enclosure is rigorous at any setting: too little precision only
-    widens it.  Returns {'Q': arb, 'norm2': arb (= ||f||^2), 'ratio': arb (Q / ||f||^2), 'upper',
-    'lower', 'negative' (True iff the whole enclosure is < 0), 'pieces': {...}, 'seconds'}."""
+    widens it.  If the pieces come out wider than ~10^-(dps-5) relative to ||f||^2 (the monomial
+    algebra can cancel more than the guard allows, e.g. the pole integral int p(x) e^{kx} dx with
+    small k and high degree), the evaluation is repeated with 1.6x the guard digits.
+    Returns {'Q': arb, 'norm2': arb (= ||f||^2), 'ratio': arb (Q / ||f||^2), 'upper', 'lower',
+    'negative' (True iff the whole enclosure is < 0), 'pieces': {...}, 'seconds', 'working_dps'}."""
+    from flint import arb
+    guard = guard_digits(basis)
+    t0 = time.time()
+    out = None
+    for _ in range(max_attempts):
+        out = _certify_once(series, basis, parity, coeffs, dps, eps, guard)
+        width = max(float(x.rad()) for x in out["pieces"].values() if hasattr(x, "rad"))
+        if width <= 10.0 ** (-(dps - 5)) * max(1.0, float(abs(out["norm2"]).upper())):
+            break
+        guard = int(guard * 1.6) + 20
+    out["seconds"] = time.time() - t0
+    return out
+
+
+def _certify_once(series, basis: Basis, parity: str, coeffs: Sequence, dps: int, eps: float, guard: int) -> dict:
     from flint import acb, arb, ctx
     ser = get_series(series)
     coeffs = [Fraction(c) if isinstance(c, (int, Fraction)) else Fraction(float(c)) for c in coeffs]
     t0 = time.time()
-    work = int(dps) + guard_digits(basis)
+    work = int(dps) + int(guard)
     with _flint_dps(work):
         ev = CorrelationEvaluator(basis, parity, coeffs)
         A = ev.a
