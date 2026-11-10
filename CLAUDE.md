@@ -23,7 +23,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-09: 261 pass, about 2 minutes
+python3 -m pytest                   # 2026-11-10: 273 pass, about 2 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
@@ -40,8 +40,15 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   n <= 42 enter (Machine-checked: rigorous enclosures at a = 1.88, 1.92, 2). For zeta with an off-line pair moved off the line at height gamma, the detection threshold
   is about (1/2) log(gamma / 2 pi) + c(delta) (Numerical, wave-packet bases, upper bounds).
 
+- E13 is complete: `src/rh/weil_envelope.py` certifies Weil positivity on whole windows [-L, L] (envelope
+  reduction in ball arithmetic). Q(f) >= 5.137e-30 ||f||^2 for every real f supported in [-1, 1]
+  (Machine-checked), past the previous certified window L = 0.8 (Zhu 2026). `scripts/run_weil_positivity.py`
+  reproduces L <= 0.9729 in about 30 minutes; L = 1 (`--only 1.0 --merge`) takes about an hour per sector.
+  The method's cost grows doubly exponentially in L, so it ends near L = 1.1 (docs/06, E13).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
-The open threads from E12 are listed in §8.3: certified positivity on whole subspaces (the route past Zhu's
-a = 0.8), whether bases other than wave packets detect earlier, and a theory for c(delta).
+The open threads are listed in §8.3: a bound for the prime comb that is not pointwise in t (needed for windows
+beyond L ~ 1.1), the same certificates for L(s,(n/5)), whether bases other than wave packets detect off-line
+zeros earlier, and a theory for c(delta).

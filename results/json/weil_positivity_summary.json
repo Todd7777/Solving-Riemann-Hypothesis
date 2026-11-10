@@ -867,6 +867,107 @@
     1.1322990340261816e-24,
     1.6137210169222393e-24
    ]
+  },
+  {
+   "L": 1.0,
+   "parity": "even",
+   "T": 2600.0,
+   "N": 1909,
+   "dps": 55,
+   "orders_max": 3816,
+   "n_nodes": 24603,
+   "n_panels": 664,
+   "quad_error_unit": 3.343281757445021e-52,
+   "beta": 0.17292128708370166,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7
+   ],
+   "A_L": 5.852468364352818,
+   "lambda_approx": 5.241721138969968e-30,
+   "lambda0": 5.1368867161905686e-30,
+   "ldl_certified": true,
+   "ldl_min_pivot": 4.7305398250048355e-06,
+   "residual_F": 1.550935249343627e-45,
+   "eps_B": 1.023742809875612e-128,
+   "eps_D": 4.690365970423193e-261,
+   "certified_lower_bound": 5.136886716190567e-30,
+   "positive": true,
+   "seconds": 2715.178558111191,
+   "attempts": [
+    {
+     "T": 2600.0,
+     "N": 1909,
+     "lambda_approx": 5.241721138969968e-30,
+     "certified_lower_bound": 5.136886716190567e-30
+    }
+   ],
+   "upper": {
+    "J": 96,
+    "lambda_J_numerical": "6.282775563e-30",
+    "upper": 6.282824407263942e-30,
+    "lower_of_ratio": 6.282824407263942e-30,
+    "seconds": 212.97920107841492
+   },
+   "certified_interval": [
+    5.136886716190567e-30,
+    6.282824407263942e-30
+   ],
+   "note": "L = 1 rows computed with weil_envelope.certify_window(1.0, parity, T=2600, N=1909, dps=55) and run_weil_positivity.upper_bound; `python3 scripts/run_weil_positivity.py --only 1.0 --merge` reproduces them (it uses modes_for(1.0, 2600) = 2229 modes, more than needed: eps_B ~ 1e-128 already at 1909)"
+  },
+  {
+   "L": 1.0,
+   "parity": "odd",
+   "T": 2600.0,
+   "N": 1909,
+   "dps": 55,
+   "orders_max": 3817,
+   "n_nodes": 24605,
+   "n_panels": 664,
+   "quad_error_unit": 3.3303870735224823e-52,
+   "beta": 0.17292128708370166,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7
+   ],
+   "A_L": 5.852468364352818,
+   "lambda_approx": 1.3218446506855385e-26,
+   "lambda0": 1.2954077576718278e-26,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 2.9432457531575606e-05,
+   "residual_F": 1.5457641574290584e-45,
+   "eps_B": 3.4843727890967616e-129,
+   "eps_D": 5.433431899405448e-262,
+   "certified_lower_bound": 1.2954077576718278e-26,
+   "positive": true,
+   "seconds": 3264.2262876033783,
+   "attempts": [
+    {
+     "T": 2600.0,
+     "N": 1909,
+     "lambda_approx": 1.3218446506855385e-26,
+     "certified_lower_bound": 1.2954077576718278e-26
+    }
+   ],
+   "upper": {
+    "J": 96,
+    "lambda_J_numerical": "1.678661968e-26",
+    "upper": 1.6786629733085887e-26,
+    "lower_of_ratio": 1.6786629733085887e-26,
+    "seconds": 236.56616926193237
+   },
+   "certified_interval": [
+    1.2954077576718278e-26,
+    1.6786629733085887e-26
+   ],
+   "note": "L = 1 rows computed with weil_envelope.certify_window(1.0, parity, T=2600, N=1909, dps=55) and run_weil_positivity.upper_bound; `python3 scripts/run_weil_positivity.py --only 1.0 --merge` reproduces them (it uses modes_for(1.0, 2600) = 2229 modes, more than needed: eps_B ~ 1e-128 already at 1909)"
   }
  ],
  "seconds": 1849.7050337791443,
