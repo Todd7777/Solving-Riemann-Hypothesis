@@ -533,6 +533,19 @@
      "certified_lower_bound": 4.572358349832234e-49
     }
    ],
+   "upper": {
+    "J": 192,
+    "lambda_J_numerical": "7.237734402e-49",
+    "upper": 7.237734439072768e-49,
+    "lower_of_ratio": 7.237734365526322e-49,
+    "seconds": 15038.509135723114,
+    "L": 1.2,
+    "parity": "even"
+   },
+   "certified_interval": [
+    4.572358349832234e-49,
+    7.237734439072768e-49
+   ],
    "lambda_J_numerical": {
     "J": 224,
     "lambda_J": 7.04e-49,
