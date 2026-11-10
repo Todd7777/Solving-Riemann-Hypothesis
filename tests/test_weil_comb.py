@@ -51,7 +51,7 @@ def test_certificate_inequality_on_a_grid(L):
     comb = wcb.prime_comb(L)
     ts = np.linspace(0, 3000, 600001)
     P = sum(float(c.mid()) * np.cos(ts * math.log(n)) for t in comb.values() for n, c in t)
-    H = sum(float(h.mid()) * np.cos(ts * k * math.log(p)) for p, k, h in cert.terms)
+    H = sum(float(h.mid()) * np.cos(ts * math.log(n / d)) for n, d, h in cert.terms)
     v = float(cert.A_prime.mid()) - P + H
     assert v.min() > -1e-9
     assert float(cert.A_L.mid()) - P.max() < 1e-2       # the pointwise constant is nearly attained
@@ -131,4 +131,31 @@ def test_blocked_ldl_residual_and_inertia():
     k = int(np.sum(np.linalg.eigvalsh(M) < 1.0))
     assert we.inertia_count(neg, None) == k
     assert not we.residual_certify(neg, arb(0))["certified"]
+    ctx.dps = 15
+
+
+def test_joint_certificate_is_valid_and_beats_separable():
+    """Joint torus SOS certificate at L = 0.9 (primes 2, 3, 5) with monomials n <= e^5: valid on a grid and in
+    Arb, every frequency of H is log(n/d) >= 2L, A' is close to its barrier dual value and below the separable
+    optimum: the composite constraints (e.g. no mass at frequency log 6 > 2L) are what the separable bound
+    ignores."""
+    L = 0.9
+    cert = wcb.joint_comb_certificate(L, Lam=5.0)
+    d = cert.describe()
+    assert d["kind"] == "joint" and d["n_terms"] > 0
+    assert d["dual"] - 1e-6 < d["A_prime"] < d["dual"] + 5e-3
+    assert d["A_prime"] < d["separable_optimum"] - 0.1 < d["A_L"]
+    assert cert.omega_min >= 2 * L
+    assert all(h.rad() == 0 for _, _, h in cert.terms)
+    assert all(n > dd >= 1 and math.log(n / dd) <= 5.0 + 1e-9 for n, dd, _ in cert.terms)
+    comb = wcb.prime_comb(L)
+    ts = np.linspace(0, 2000, 400001)
+    P = sum(float(c.mid()) * np.cos(ts * math.log(n)) for t in comb.values() for n, c in t)
+    H = sum(float(h.mid()) * np.cos(ts * math.log(n / dd)) for n, dd, h in cert.terms)
+    assert (float(cert.A_prime.mid()) - P + H).min() > -1e-9
+    ctx.dps = 30
+    for t in np.random.default_rng(2).uniform(0, 1e4, 10):
+        tt = arb(float(t))
+        val = cert.A_prime - sum((c * (tt * arb(n).log()).cos() for t_ in comb.values() for n, c in t_), arb(0))
+        assert val + cert.H(tt).real > 0
     ctx.dps = 15

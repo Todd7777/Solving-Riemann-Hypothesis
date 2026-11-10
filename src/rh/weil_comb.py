@@ -271,17 +271,25 @@ class CombCertificate:
     primes: List[PrimeCertificate] = field(default_factory=list)
     A_L: object = None      # arb: the pointwise comb constant
     A_prime: object = None  # arb: the certified non-pointwise constant
-    terms: list = field(default_factory=list)    # [(p, k, h)]: h cos(k log(p) t), h an exact dyadic arb
+    terms: list = field(default_factory=list)    # [(n, d, h)]: h cos(t log(n/d)), n > d >= 1, h exact dyadic
     H_sup: float = 0.0      # upper bound for sup_{t real} |H(t)| (sum |h_j|)
     omega_min: float = 0.0  # lower bound for the smallest frequency of H (> 2L)
+    meta: dict = field(default_factory=dict)     # construction details (joint certificates)
 
     def freqs(self):
-        """[(omega = k log p, h)] with omega computed at the current working precision (cached per precision)."""
+        """[(omega = log(n/d), h)] with omega computed at the current working precision (cached per precision)."""
         from flint import arb, ctx
         cache = self.__dict__.setdefault("_freq_cache", {})
         if ctx.prec not in cache:
-            cache[ctx.prec] = [(k * arb(p).log(), h) for p, k, h in self.terms]
+            cache[ctx.prec] = [(arb(n).log() - arb(d).log(), h) for n, d, h in self.terms]
         return cache[ctx.prec]
+
+    def H_bound(self, b: float) -> float:
+        """Upper bound for sup |H(z)| over the strip |Im z| <= b: sum |h| cosh(omega b)."""
+        tot = 0.0
+        for n, d, h in self.terms:
+            tot += float(abs(h).upper()) * math.cosh(math.log(n / d) * (1 + 1e-12) * b)
+        return tot * (1 + 1e-12) + 1e-300
 
     def H(self, z):
         """H(z) = sum h cos(omega z) (acb) at real or complex z, at the current working precision."""
@@ -293,14 +301,18 @@ class CombCertificate:
         return v
 
     def describe(self) -> dict:
-        return {"L": self.L, "X": self.X, "A_L": float(self.A_L.mid()), "A_prime": float(self.A_prime.upper()),
-                "T1_pointwise": 2 * math.pi * math.exp(float(self.A_L.mid())),
-                "T1_certificate": 2 * math.pi * math.exp(float(self.A_prime.upper())),
-                "separable_optimum": sum(pc.lambda_toeplitz for pc in self.primes),
-                "H_sup": self.H_sup, "n_terms": len(self.terms), "omega_min": self.omega_min,
-                "per_prime": [{"p": pc.p, "K": pc.K, "M": pc.M, "A_p": float(pc.A_p.upper()),
-                               "lambda_toeplitz": pc.lambda_toeplitz, "dual_degree_M": pc.dual,
-                               "sum_c": float(sum(c.mid() for c in pc.c))} for pc in self.primes]}
+        sep = (sum(pc.lambda_toeplitz for pc in self.primes) if self.primes
+               else sum(toeplitz_lambda_max([float(c.mid()) for _, c in t]) for t in prime_comb(self.L).values()))
+        d = {"L": self.L, "X": self.X, "A_L": float(self.A_L.mid()), "A_prime": float(self.A_prime.upper()),
+             "T1_pointwise": 2 * math.pi * math.exp(float(self.A_L.mid())),
+             "T1_certificate": 2 * math.pi * math.exp(float(self.A_prime.upper())),
+             "separable_optimum": sep,
+             "H_sup": self.H_sup, "n_terms": len(self.terms), "omega_min": self.omega_min,
+             "per_prime": [{"p": pc.p, "K": pc.K, "M": pc.M, "A_p": float(pc.A_p.upper()),
+                            "lambda_toeplitz": pc.lambda_toeplitz, "dual_degree_M": pc.dual,
+                            "sum_c": float(sum(c.mid() for c in pc.c))} for pc in self.primes]}
+        d.update(self.meta)
+        return d
 
 
 def comb_certificate(L: float, X: float = 24.0, degrees: dict | None = None) -> CombCertificate:
@@ -325,13 +337,209 @@ def comb_certificate(L: float, X: float = 24.0, degrees: dict | None = None) -> 
             om = k * lp
             if not (om > 2 * LL):          # (K_p + 1) log p > 2L was decided in prime_comb; re-check
                 raise ArithmeticError(f"frequency {k} log {p} not > 2L")
-            cert.terms.append((p, k, h))
+            cert.terms.append((p ** k, 1, h))
             cert.H_sup += float(abs(h).upper())
             omin = min(omin, float(om.lower()))
     cert.A_L = A_L
     cert.A_prime = arb(float(A_prime.upper()) * (1 + 1e-15))
     cert.H_sup *= (1 + 1e-12)
     cert.omega_min = omin
+    return cert
+
+
+# ----------------------------------------------------------------------------
+# Joint (non-separable) certificates on the torus of prime phases
+# ----------------------------------------------------------------------------
+def _smooth_exponents(primes, Lam: float):
+    """Exponent vectors b >= 0 with sum_p b_p log p <= Lam: the integers n = prod p^{b_p} <= e^Lam built from
+    the given primes."""
+    lp = [math.log(p) for p in primes]
+    out = []
+
+    def rec(i, cur, val):
+        if i == len(primes):
+            out.append(tuple(cur))
+            return
+        k = 0
+        while val + k * lp[i] <= Lam + 1e-12:
+            rec(i + 1, cur + [k], val + k * lp[i])
+            k += 1
+    rec(0, [], 0.0)
+    return out
+
+
+def joint_gram(L: float, Lam: float, mu_min: float = 1e-9, verbose: bool = False) -> dict:
+    """Near-optimal Gram matrix (floats) for a joint certificate on the torus of prime phases.
+
+    Monomials: e^{i <b, theta>} for the exponent vectors b of the integers n <= e^Lam built from the primes
+    p < e^{2L}.  Differences b - b' correspond to ratios n/n'.  Dual (moment) problem: maximise
+    sum_{p,k <= K_p} c_{p^k} y_{k e_p} subject to the moment matrix M(y)_{b,b'} = y_{b-b'} >= 0, y_0 = 1, and
+    y_m = 0 whenever |log(n/n')| >= 2L (those monomials may appear in H).  Log-barrier Newton on y.
+    Returns {'B', 'R' (rows of the Gram factor), 'dual', 'gap', 'n_free', ...}."""
+    import numpy as np
+    import scipy.sparse as sps
+    comb = prime_comb(L)
+    primes = sorted(comb)
+    lp = np.array([math.log(p) for p in primes])
+    B = np.array(_smooth_exponents(primes, Lam))
+    nB = len(B)
+    flat = (B[:, None, :] - B[None, :, :]).reshape(nB * nB, -1)
+    first = np.argmax(flat != 0, axis=1)
+    sgn = np.sign(flat[np.arange(nB * nB), first])
+    sgn[sgn == 0] = 1
+    keys, inv = np.unique(flat * sgn[:, None], axis=0, return_inverse=True)
+    inv = inv.ravel()
+    freq = np.abs(keys @ lp)
+    zero = np.all(keys == 0, axis=1)
+    free_idx = np.nonzero((~zero) & (freq < 2 * L - 1e-9))[0]
+    col = -np.ones(len(keys), dtype=int)
+    col[free_idx] = np.arange(len(free_idx))
+    mask = col[inv] >= 0
+    rows = np.arange(nB * nB)
+    S = sps.csr_matrix((np.ones(mask.sum()), (rows[mask], col[inv[mask]])), shape=(nB * nB, len(free_idx)))
+    Sc = S.tocsc()
+    c = np.zeros(len(free_idx))
+    for a, kidx in enumerate(free_idx):
+        nz = np.nonzero(keys[kidx])[0]
+        if len(nz) == 1:
+            p, k = primes[nz[0]], keys[kidx][nz[0]]
+            if k <= len(comb[p]):
+                c[a] = float(comb[p][k - 1][1].mid())
+    nf = len(c)
+    pr = []
+    for a in range(nf):
+        ix = Sc.indices[Sc.indptr[a]:Sc.indptr[a + 1]]
+        pr.append((ix // nB, ix % nB))
+
+    def Mof(y):
+        return np.eye(nB) + (S @ y).reshape(nB, nB)
+
+    def fval(y, mu):
+        try:
+            Lc = np.linalg.cholesky(Mof(y))
+        except np.linalg.LinAlgError:
+            return None
+        return float(c @ y) + mu * 2 * float(np.sum(np.log(np.diag(Lc))))
+
+    y = np.zeros(nf)
+    mu = 1.0
+    while True:
+        for _ in range(80):
+            W = np.linalg.inv(Mof(y))
+            g = c + mu * (S.T @ W.T.ravel())
+            Hs = np.empty((nf, nf))
+            for a in range(nf):
+                r, s_ = pr[a]
+                Hs[a] = S.T @ (W[:, r] @ W[s_, :]).T.ravel()
+            Hs = -mu * (Hs + Hs.T) / 2
+            dy = -np.linalg.solve(Hs, g)
+            dec = float(g @ dy)
+            if dec < 1e-13:
+                break
+            f0, step = fval(y, mu), 1.0
+            while step > 1e-12:
+                f1 = fval(y + step * dy, mu)
+                if f1 is not None and f1 >= f0 + 0.25 * step * dec:
+                    break
+                step *= 0.5
+            y = y + step * dy
+        if verbose:
+            print(f"  joint_gram L={L} Lam={Lam}: mu={mu:.0e} dual {float(c @ y):.6f}", flush=True)
+        if mu <= mu_min:
+            break
+        mu = max(mu / 10.0, mu_min)
+    X = mu * np.linalg.inv(Mof(y))
+    X = (X + X.T) / 2
+    lam, V = np.linalg.eigh(X)
+    keep = lam > 1e-13 * lam[-1]
+    R = np.sqrt(lam[keep])[:, None] * V[:, keep].T
+    return {"B": B, "R": R, "primes": primes, "dual": float(c @ y), "gap": nB * mu, "n_free": nf, "nB": nB,
+            "rank": int(keep.sum())}
+
+
+def joint_comb_certificate(L: float, Lam: float = 5.0, drop: float = 1e-13, mu_min: float = 1e-9,
+                           verbose: bool = False) -> CombCertificate:
+    """Joint SOS certificate (*) on the torus of prime phases (see `joint_gram`); every frequency of H is
+    log(n/n') with 2L <= log(n/n') <= Lam.
+
+    Rigour: the float Gram factor R is rounded to the fixed-point grid 2^-80 (any real R gives a sum of
+    squares S(theta) = sum_i |sum_b R_ib e^{i<b,theta>}|^2 >= 0); X = R^T R is then formed exactly with
+    integer matrices, and its coefficients s_m = 2 sum_{b - b' = m} X_{b b'} are exact dyadic numbers.  Every
+    coefficient whose frequency |log(n/n')| is not certified >= 2L must match the comb (-c_{p^k} on k e_p, 0
+    elsewhere); mismatches are absorbed into A' = s_0 + sum |s_m - target_m|.  The others form H, except
+    that coefficients below `drop` are moved into A' as well (|h cos| <= |h|)."""
+    import numpy as np
+    from flint import arb, ctx, fmpz, fmpz_mat
+    G = joint_gram(L, Lam, mu_min=mu_min, verbose=verbose)
+    B, R, primes = G["B"], G["R"], G["primes"]
+    comb = prime_comb(L)
+    nB = len(B)
+    FB = 80
+    Ri = [[int(round(float(v) * 2.0 ** FB)) for v in row] for row in R]
+    Rm = fmpz_mat(Ri)
+    Xm = Rm.transpose() * Rm                       # exact: X = R^T R on the grid, scaled by 2^{2 FB}
+    sums = {}
+    for a in range(nB):
+        for b in range(nB):
+            m = tuple(int(v) for v in (B[a] - B[b]))
+            if any(m):
+                nz = next(i for i, v in enumerate(m) if v)
+                if m[nz] < 0:
+                    continue                       # count each unordered pair once (orientation +m)
+            sums[m] = sums.get(m, 0) + int(Xm[a, b])
+    old = ctx.prec
+    ctx.prec = 4000
+    try:
+        scale = arb(2) ** (-2 * FB)
+        coef = {m: (arb(v) * scale if not any(m) else arb(v) * scale) for m, v in sums.items()}
+        coef = {m: (v if not any(m) else 2 * v) for m, v in coef.items()}
+        assert all(v.rad() == 0 for v in coef.values())
+    finally:
+        ctx.prec = old
+    LL = arb(L)
+    A = coef[tuple([0] * len(primes))]
+    target = {}
+    for i, p in enumerate(primes):
+        for k, (_, cval) in enumerate(comb[p], start=1):
+            m = [0] * len(primes)
+            m[i] = k
+            target[tuple(m)] = -cval
+    cert = CombCertificate(L=L, X=Lam)
+    A_L = arb(0)
+    for t in comb.values():
+        for _, cval in t:
+            A_L += cval
+    cert.A_L = A_L
+    omin, n_drop = float("inf"), 0
+    for m, v in coef.items():
+        if not any(m):
+            continue
+        num = 1
+        den = 1
+        for p, e in zip(primes, m):
+            if e > 0:
+                num *= p ** e
+            elif e < 0:
+                den *= p ** (-e)
+        om = arb(max(num, den)).log() - arb(min(num, den)).log()
+        if om > 2 * LL or om == 2 * LL:            # certified frequency >= 2L: may stay in H
+            if abs(v) < drop:
+                A += abs(v)
+                n_drop += 1
+                continue
+            cert.terms.append((max(num, den), min(num, den), v))
+            cert.H_sup += float(abs(v).upper())
+            omin = min(omin, float(om.lower()))
+        else:
+            A += abs(v - target.get(m, arb(0)))
+    for m in target:                                # comb monomials absent from the differences (not expected)
+        if m not in coef:
+            A += abs(target[m])
+    cert.A_prime = arb(float(A.upper()) * (1 + 1e-15))
+    cert.H_sup *= (1 + 1e-12)
+    cert.omega_min = omin
+    cert.meta = {"kind": "joint", "Lambda": Lam, "nB": nB, "n_free": G["n_free"], "dual": G["dual"],
+                 "gap": G["gap"], "rank": G["rank"], "n_dropped": n_drop}
     return cert
 
 

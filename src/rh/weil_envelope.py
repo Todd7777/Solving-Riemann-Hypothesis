@@ -296,14 +296,18 @@ class Panel:
 
 
 def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10, comb_cert=None):
-    """Upper bound for sup |Psi_L(z) - beta| on the Bernstein ellipse of the panel [c - h, c + h]
-    with parameter rho (maximum principle: on its boundary).  The boundary is covered by arcs whose
-    images are enclosed in Arb boxes; an arc whose evaluation is not finite (Arb's complex digamma
-    gives up on wide boxes) is bisected, up to max_depth times.  Returns +inf if that fails (e.g. a
-    pole of Omega on the boundary)."""
+    """Upper bound for sup |Psi_L(z) (+ H(z)) - beta| on the Bernstein ellipse of the panel
+    [c - h, c + h] with parameter rho (maximum principle: on its boundary).  The boundary is covered
+    by arcs whose images are enclosed in Arb boxes; an arc whose evaluation is not finite (Arb's
+    complex digamma gives up on wide boxes) is bisected, up to max_depth times.  Returns +inf if that
+    fails (e.g. a pole of Omega on the boundary).  A comb certificate's H is added through the
+    analytic bound sum |h| cosh(omega b_e), b_e = h (rho - 1/rho)/2 the semi-minor axis."""
     from flint import acb, arb
     two_pi = 2 * math.pi
-    best = 0.0
+    # H (a finite cosine sum) is bounded analytically on the ellipse: |Im z| <= b_e there, so
+    # |H(z)| <= sum |h| cosh(omega b_e); the rest of the symbol is enclosed on Arb boxes
+    best = comb_cert.H_bound(h * (rho - 1 / rho) / 2) if comb_cert is not None else 0.0
+    base = best
     stack = [(two_pi * k / n_boxes, two_pi * (k + 1) / n_boxes, 0) for k in range(n_boxes)]
     while stack:
         t0, t1, depth = stack.pop()
@@ -311,9 +315,9 @@ def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10, 
         e = acb(th.cos(), th.sin())                     # e^{i theta} over the arc (ball)
         zeta = (rho * e + e.conjugate() / rho) / 2       # point of the standard ellipse
         z = acb(c) + h * zeta
-        v = symbol(L, z, comb_list, comb_cert) - beta
+        v = symbol(L, z, comb_list) - beta
         if v.is_finite():
-            best = max(best, _up(abs(v)))
+            best = max(best, base + _up(abs(v)))
         elif depth < max_depth:
             tm = (t0 + t1) / 2
             stack.append((t0, tm, depth + 1))
