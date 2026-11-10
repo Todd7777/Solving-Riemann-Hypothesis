@@ -23,7 +23,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-10: 289 pass, about 3 minutes
+python3 -m pytest                   # 2026-11-10: 290 pass, about 3 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
@@ -50,7 +50,7 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   (H has all frequencies >= 2L, so it is invisible to the window). They come in two kinds: separable (per prime)
   and joint (torus sums of squares over the integers n <= e^Lambda). `weil_envelope` accepts them (`comb_cert=`).
   Certified (Machine-checked): Q >= 1.12e-38 ||f||^2 on [-1.1, 1.1], 4.57e-49 on [-1.2, 1.2], 6.54e-78 on
-  [-1.4, 1.4], 2.67e-97 on [-1.5, 1.5] (joint certificate by ADMM, 619 monomials). `scripts/run_weil_comb.py` reproduces them. Run numpy-heavy jobs with OPENBLAS_NUM_THREADS=1;
+  [-1.4, 1.4], 2.67e-97 on [-1.5, 1.5] and 3.54e-121 on [-1.6, 1.6] (joint certificates by ADMM, 619 and 1239 monomials). `scripts/run_weil_comb.py` reproduces them. Run numpy-heavy jobs with OPENBLAS_NUM_THREADS=1;
   multithreaded BLAS made the joint solver 10x slower here. The next barrier is the operator norm of the comb
   (A* >= sum c_n (1 - log n / 2L), about 0.3 A_L), so the envelope approach ends near L = 1.7-2 (docs/06, E14).
 
@@ -58,7 +58,7 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- joint comb certificates closer to the operator norm, and a prolate basis, to reach L ~ 1.6-1.7;
+- joint comb certificates closer to the operator norm, and a prolate basis, to reach L ~ 1.7;
 - a treatment of the frequencies above T that does not bound the comb by a constant (needed beyond L ~ 1.7-2);
 - the same certificates for L(s,(n/5));
 - whether bases other than wave packets detect off-line zeros earlier;

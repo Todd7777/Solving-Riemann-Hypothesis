@@ -48,16 +48,21 @@ WINDOWS = [
     (1.2, 800.0, 72, 192, ("sep", X_BUDGET)),
     (1.3, 800.0, 85, 160, ("joint", 5.5)),
     (1.4, 850.0, 100, 160, ("joint", 6.5)),
-    (1.5, None, 130, 160, ("joint-admm", 8.0, 25000)),   # T = 1.25 T_1''; ADMM for the 619-monomial SOS
+    (1.5, None, 130, 160, ("joint-admm", 8.0, 25000)),   # T = 1.3 T_1''; ADMM for the 619-monomial SOS
+    # L = 1.6: 1239-monomial SOS (ADMM, ~2.5 h with 3 BLAS threads); T = 1.2 T_1'', 1.1 e L T / 4 modes per
+    # sector, both sectors from one shared assembly (~5.4 h at 160 digits, ~9-10 GB peak memory)
+    (1.6, None, 160, 160, ("joint-admm", 9.0, 40000), {"ratio": 1.2, "modes_factor": 1.1, "paired": True}),
 ]
+DEFAULT_OPTS = {"ratio": 1.3, "modes_factor": 1.25, "paired": False}
 QUICK = [(1.0, 170.0, 50, 64, ("sep", X_BUDGET))]
-CONSTANT_LS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
+CONSTANT_LS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6]
 JOINT_LAMBDA = 6.0       # joint certificates in the constants table (monomials n <= e^6)
 
 
-def modes_for(L, T):
-    """Legendre modes per sector (as in E13): orders up to ~1.25 e L T / 2."""
-    return int(math.ceil(1.25 * math.e * L * T / 4)) + 20
+def modes_for(L, T, factor=1.25):
+    """Legendre modes per sector (as in E13): orders up to ~factor e L T / 2 (the coupling bounds stay far below
+    the margins down to factor ~1.1 at these sizes)."""
+    return int(math.ceil(factor * math.e * L * T / 4)) + 20
 
 
 def constants(Ls, X=X_BUDGET, J=100, Lam=JOINT_LAMBDA):
@@ -125,14 +130,41 @@ def certificate_record(cert, spec):
                     "every log(n/d) >= 2L"}
 
 
-def certify(L, T0, dps, parity, spec=("sep", X_BUDGET)):
+def _cert_summary(cert, spec):
+    d = cert.describe()
+    out = {k: d[k] for k in ("A_L", "A_prime", "separable_optimum", "T1_pointwise", "T1_certificate", "H_sup",
+                             "n_terms", "omega_min", "X")}
+    out["per_prime"] = d["per_prime"]
+    out["kind"] = spec[0]
+    out.update({k: d[k] for k in ("dual", "nB", "n_free", "n_dropped") if k in d})
+    return out
+
+
+def certify_pair(L, T0, dps, spec, opts):
+    """Both sectors from one shared-node assembly (`certify_windows`); no automatic retry."""
+    cert = comb_cert(L, spec)
+    if T0 is None:
+        T0 = float(round(opts["ratio"] * 2 * math.pi * math.exp(float(cert.A_prime.upper()))))
+    N = modes_for(L, T0, opts["modes_factor"])
+    res = we.certify_windows(L, T0, {"even": N, "odd": N}, dps=dps, verbose=True, comb_cert=cert, wmax=8.0,
+                             chunk=1000)
+    for r in res.values():
+        r["attempts"] = [{"T": T0, "N": N, "lambda_approx": r["lambda_approx"],
+                          "certified_lower_bound": r["certified_lower_bound"]}]
+        r["comb_certificate"] = _cert_summary(cert, spec)
+        r["modes_factor"] = opts["modes_factor"]
+    return res
+
+
+def certify(L, T0, dps, parity, spec=("sep", X_BUDGET), opts=None):
+    opts = dict(DEFAULT_OPTS, **(opts or {}))
     cert = comb_cert(L, spec)
     if T0 is None:                                   # a fixed multiple of the cutoff 2 pi e^{A'}
-        T0 = float(round(1.25 * 2 * math.pi * math.exp(float(cert.A_prime.upper()))))
+        T0 = float(round(opts["ratio"] * 2 * math.pi * math.exp(float(cert.A_prime.upper()))))
     T, attempts = T0, []
     for _ in range(4):
-        r = we.certify_window(L, parity, T=T, N=modes_for(L, T), dps=dps, verbose=True, comb_cert=cert, wmax=8.0,
-                              chunk=2000)
+        r = we.certify_window(L, parity, T=T, N=modes_for(L, T, opts["modes_factor"]), dps=dps, verbose=True,
+                              comb_cert=cert, wmax=8.0, chunk=2000)
         attempts.append({"T": T, "N": r["N"], "lambda_approx": r["lambda_approx"],
                          "certified_lower_bound": r["certified_lower_bound"]})
         if r["positive"]:
@@ -193,7 +225,7 @@ def main():
     elif args.parts == "upper":
         out = old
         for r in out["windows"]:
-            J = next((w[3] for w in WINDOWS + QUICK if w[0] == r["L"]), 96)
+            J = next((w[3] for w in WINDOWS + QUICK if w[0] == r["L"]), 96)  # noqa: E501
             r["upper"] = upper_bound(r["L"], r["parity"], J, r["dps"])
             r["certified_interval"] = [r["certified_lower_bound"], r["upper"]["upper"]]
             print(f"  L={r['L']} {r['parity']}: upper {r['upper']['upper']:.6e} (J={J})", flush=True)
@@ -204,9 +236,12 @@ def main():
             windows = [w for w in WINDOWS + QUICK if w[0] in keep]
         rows = []
         records = {}
-        for (L, T, dps, J, spec) in windows:
+        for w in windows:
+            L, T, dps, J, spec = w[:5]
+            opts = dict(DEFAULT_OPTS, **(w[5] if len(w) > 5 else {}))
+            pair = certify_pair(L, T, dps, spec, opts) if opts["paired"] else None
             for parity in ("even", "odd"):
-                r = certify(L, T, dps, parity, spec)
+                r = pair[parity] if pair else certify(L, T, dps, parity, spec, opts)
                 records[str(L)] = certificate_record(comb_cert(L, spec), spec)
                 if not args.no_upper:
                     r["upper"] = upper_bound(L, parity, J, dps)
