@@ -463,7 +463,7 @@ The upper bounds are rigorous enclosures (`rh.weil_certificate`) of $Q(f)/\lVert
 | $A_L$ | 2.94 | 4.38 | 5.85 | 7.08 | 8.52 | 13.0 | 24.4 |
 | order $\approx eLT_1/2$ | 130 | 660 | 3000 | $1.1\times10^4$ | $5\times10^4$ | $6\times10^6$ | $7\times10^{11}$ |
 
-Zhu shows that $A_L$ is the best pointwise bound for the prime comb (Weyl equidistribution). So no implementation of this reduction gets past $L\approx1.1$–$1.2$; larger windows need an argument that is not pointwise in $t$. The margins themselves also collapse, from $\approx10^{-17}$ at $L=0.8$ to $\approx10^{-27}$ at $0.97$ (even sector).
+Zhu shows that $A_L$ is the best pointwise bound for the prime comb (Weyl equidistribution). So no implementation of this reduction gets past $L\approx1.1$–$1.2$; larger windows need an argument that is not pointwise in $t$. (E14 supplies one and certifies up to $L=1.4$.) The margins themselves also collapse, from $\approx10^{-17}$ at $L=0.8$ to $\approx10^{-27}$ at $0.97$ (even sector).
 
 **Interpretation.**
 * This is a theorem-level, zero-free certificate for a finite piece of Weil's criterion. On $[-1,1]$ it uses only $n\in\{2,3,4,5,7\}$ and the Gamma factor. It extends the largest certified window from 0.8 to 1, a quarter longer, as far as we could find. We could not survey the literature exhaustively.
@@ -472,6 +472,98 @@ Zhu shows that $A_L$ is the best pointwise bound for the prime comb (Weyl equidi
 
 ---
 
+## E14. A non-pointwise bound for the prime comb: certified windows past the pointwise barrier (2026-11-10)
+
+`OPENBLAS_NUM_THREADS=1 python3 scripts/run_weil_comb.py` reproduces the table. `--parts constants` recomputes the comb constants and `--parts upper` recomputes the upper bounds. Results are in `weil_comb_summary.json`. The certificates themselves are in `weil_comb_certificates.json`: $A'$ and the exact coefficients of $H$, so $(*)$ can be re-checked without this code. The new module is `weil_comb.py`; `weil_envelope.py` gains comb certificates and a blocked $LDL^T$. There are 14 tests in `tests/test_weil_comb.py`.
+
+**Statement (Machine-checked).** For each window $L$ in the table below and every real $f\in L^2$ supported in $[-L,L]$, the arithmetic side of Weil's form (as in E13) satisfies $Q(f)\ge c\,\lVert f\rVert^2$, with $c=\min(c_{\rm even},c_{\rm odd})>0$. The certified constants are:
+
+| window | $c$ | certificate |
+|---|---|---|
+| $[-1.1,1.1]$ | $1.1235\times10^{-38}$ | separable |
+| $[-1.2,1.2]$ | $4.5724\times10^{-49}$ | separable |
+| $[-1.3,1.3]$ | $4.6852\times10^{-62}$ | joint |
+| $[-1.4,1.4]$ | $6.5434\times10^{-78}$ | joint |
+
+**The largest window certified is now $[-1.4,1.4]$.** Only $n\in\{2,3,4,5,7,8,9,11,13,16\}$ and the Gamma factor enter. Earlier records were $[-1,1]$ (E13) and $[-0.8,0.8]$ (Zhu 2026). The pointwise envelope of E13 would need $T>T_1=7427$ at $L=1.1$, $3.2\times10^4$ at $1.2$, $1.3\times10^5$ at $1.3$ and $1.9\times10^5$ at $1.4$.
+
+**The idea: the comb only has to be bounded against test functions, not pointwise.** E13 bounded the prime comb $P_L(t)=\sum_{\log n<2L}c_n\cos(t\log n)$ by its maximum $A_L=\sum c_n$ for $t\ge T$. That forced $T>2\pi e^{A_L}$, which is doubly exponential in $L$. Suppose instead we have a constant $A'$ and a function $H$ whose frequencies all have modulus at least $2L$, with
+$$A'-P_L(t)+H(t)\ \ge\ 0\qquad\text{for all real }t.\tag{$*$}$$
+For real $f$ supported in $[-L,L]$, $|F|^2$ is the Fourier transform of the autocorrelation of $f$, which vanishes outside $(-2L,2L)$. So $\int_0^\infty H|F|^2=0$: **$H$ is invisible to every admissible test function.** On $[T,\infty)$ we then have $\Psi_L+H\ge\Omega(T)-A'=:\beta''$, and
+$$Q(f)\ \ge\ \beta''\lVert f\rVert^2+\text{pole}+\frac1\pi\int_0^T\bigl(\Psi_L+H-\beta''\bigr)|F|^2\,dt.$$
+This has the structure of E13, with $A_L$ replaced by $A'$. The rest of E13 carries over unchanged: the Legendre block, the tail and coupling bounds, and the residual-certified $LDL^T$. By Kronecker, $(*)$ is the same as a nonnegativity statement for a trigonometric polynomial on the torus of prime phases $\theta_p=t\log p$.
+
+**Certificates for $(*)$: sums of squares.**
+* *Separable (used for $L\le1.2$).* Write $P_L=\sum_pP_p(t\log p)$. For each prime, take a nonnegative trigonometric polynomial $S_p(\theta)=\sum_i|q_i(e^{i\theta})|^2$ of degree $M_p$ whose low coefficients match $-c_{p^k}/2$. Then $H_p$ is its part of frequency $>K_p$, and $A_p=s_0+\sum_k|2s_k+c_{p^k}|$ absorbs any mismatch.
+  * The best $A_p$ for degree $M$ solves a small semidefinite program, which we solve with a log-barrier Newton method. For one cosine it reproduces the Fejér–Egerváry–Szász value $c/(2\cos\frac{\pi}{M+2})$. As $M\to\infty$ it tends to the Toeplitz eigenvalue $\lambda_{\max}[c_{p^{|j-l|}}/2]$, the best separable constant.
+  * We take $M_p=\lfloor24/\log p\rfloor$, so the frequencies of $H$ are at most 24. This gives $A'\approx0.53A_L$.
+* *Joint (used for $L=1.3$ and $1.4$).* These are sums of squares on the torus whose monomials are the integers $n\le e^\Lambda$ built from the primes $p<e^{2L}$. $H$ may use every ratio $n/n'$ with $|\log(n/n')|\ge2L$.
+  * The separable bound ignores the constraints coming from composite frequencies, such as "no mass at $\log12$" when $12>e^{2L}$; the joint certificate exploits them.
+  * The dual is a moment problem on these monomials, solved by the same barrier method.
+  * Its $H$ has small amplitude and frequencies at most $\Lambda$, which keeps the quadrature cheap.
+  * At $L=1.3$ with $\Lambda=5.5$, $A'=4.578$, against the separable optimum 5.20 and $A_L=9.94$.
+  * At $L=1.4$ with $\Lambda=6.5$, $A'=4.606$, against 5.47 and 10.29.
+
+**Rigour.**
+* The coefficients of $H$ are exact dyadic numbers, from integer Gram matrices or 4000-bit sums, checked to have radius zero. Its frequencies $\log(n/n')$ are recomputed at the working precision, and each is certified $\ge2L$ in Arb.
+* $|H|\le\sum|h|\cosh(\omega b_e)$ bounds $H$ on every Bernstein ellipse analytically.
+* The tail and coupling bounds use $\sup|\Psi_L+H-\beta''|\le\max(\Omega(T)-\Omega(0),\,A'+A_L+\sup|H|)$.
+* Everything else is as in E13. The $LDL^T$ behind the residual certificate is now blocked and right-looking, with the Schur updates done as FLINT matrix products. This makes $N\approx900$ a matter of minutes.
+* Two lessons from the process:
+  * An $H$ with 53-bit coefficients gave matrix entries of radius $10^{-12}$. The midpoint matrix was then inconsistent at the $10^{-21}$ level, and its approximate spectrum showed spurious negative eigenvalues. The ball certificate would have refused, not lied.
+  * `mpmath.quadosc` gets the slowly oscillating tails $\int_T^\infty\cos(\omega t)G_0^2$ wrong. The sine-integral formula settles them.
+
+**Validation.**
+* $Q_A-R''_A$ is positive semidefinite against the independent $u$-space matrices of `rh.weil_form` (at $L=0.5$ and $L=1$).
+* The band-limit identity $\int_0^\infty\cos(\omega t)G_0(t)^2dt=0$ for $\omega\ge2L$ holds to $10^{-29}$.
+* The certificate inequality is checked on $6\times10^5$-point grids and in Arb at random points. The separable certificates match the closed form; the joint ones match their barrier duals to $2\times10^{-3}$.
+* At $L=0.5$ the comb certificate beats the pointwise one ($6.8\times10^{-7}$ vs $5.7\times10^{-7}$ at $T=40$).
+* At $L=1$ it certifies at $T=300$ with $N=275$ modes, in 25 s per sector: $c=4.09\times10^{-30}$ (even) and $1.04\times10^{-26}$ (odd). E13 needed $T=2600$, $N=1909$ and about an hour per sector for $5.14\times10^{-30}$ and $1.30\times10^{-26}$.
+
+**Results.**
+
+| $ | prime powers <e^{2L}$ | $ | comb certificate | '$ | $: pointwise / comb | $ | $ | even: certified $ | even: upper | odd: certified $ | odd: upper |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1.0 | 2, 3, 4, 5, 7 | 5.852 | separable, =24$ | 3.022 | 2187 / 129 | 300 | 275 | .0904\times10^{-30}$ | .2828\times10^{-30}$ | .0422\times10^{-26}$ | .6787\times10^{-26}$ |
+| 1.1 | 2, 3, 4, 5, 7, 8, 9 | 7.075 | separable, =24$ | 3.825 | 7427 / 288 | 400 | 394 | .1235\times10^{-38}$ | (.00\times10^{-38}$) | .5640\times10^{-35}$ | (.63\times10^{-35}$) |
+| 1.2 | 2, 3, 4, 5, 7, 8, 9, 11 | 8.521 | separable, =24$ | 4.574 | 31535 / 609 | 800 | 836 | .5724\times10^{-49}$ | (.04\times10^{-49}$) | .9165\times10^{-45}$ | (.35\times10^{-45}$) |
+| 1.3 | 2, 3, 4, 5, 7, 8, 9, 11, 13 | 9.944 | joint, $\Lambda=5.5$ | 4.578 | .3\times10^5$ / 612 | 800 | 904 | .6852\times10^{-62}$ | (.6\times10^{-59}$) | .3485\times10^{-58}$ | (.4\times10^{-55}$) |
+| 1.4 | 2, 3, 4, 5, 7, 8, 9, 11, 13, 16 | 10.290 | joint, $\Lambda=6.5$ | 4.606 | .9\times10^5$ / 629 | 850 | 1031 | .5434\times10^{-78}$ | (.3\times10^{-67}$) | $1.0931\times10^{-73}$ | ($4.8\times10^{-64}$) |
+
+At $L=1$ the upper bounds are E13's rigorous enclosures (`rh.weil_certificate`, Legendre minimiser of degree $<96$), so that window is enclosed two-sidedly. The bracketed values for $L\ge1.1$ are numerical: the smallest eigenvalue $\lambda_J$ of the form on Legendre polynomials of degree $<J$ (`rh.weil_form`; $J=160$, $224$ at $L=1.2$). They estimate the infimum from above but are not rigorous; at this degree the rigorous enclosures of `rh.weil_certificate` take hours. The $\lambda_J$ still fall with $J$: at $L=1.2$ they are $7.94$, $7.24$ and $7.04\times10^{-49}$ at $J=160$, $192$ and $224$, and at $L=1.4$ they are $2.6\times10^{-61}$ and $1.3\times10^{-67}$ at $J=128$ and $160$. So at $L=1.3$ and $1.4$ the true margins sit near the certified lower bounds. The residuals ($5\times10^{-48}$ at $L=1$ down to $10^{-92}$ at $L=1.4$, at 55–100 digits) and the coupling bounds ($\le2\times10^{-71}$) lie at least 14 orders of magnitude below the certified margins. One sector takes 25 s at $L=1$ and about 10 min at $L=1.2$–$1.4$ on one core.
+
+**Comb constants and the next barrier.**
+
+| $L$ | 0.8 | 0.9 | 1.0 | 1.1 | 1.2 | 1.3 | 1.4 | 1.5 |
+|---|---|---|---|---|---|---|---|---|
+| $A_L$ (pointwise) | 2.94 | 4.38 | 5.85 | 7.08 | 8.52 | 9.94 | 10.29 | 13.02 |
+| $A'$ separable, $X=24$ (certified) | 1.53 | 2.27 | 3.02 | 3.83 | 4.57 | 5.32 | 5.59 | 7.02 |
+| separable optimum | 1.52 | 2.24 | 2.98 | 3.77 | 4.49 | 5.20 | 5.47 | 6.83 |
+| $A'$ joint, $\Lambda=6$ (certified) | 1.36 | 1.99 | 2.47 | 2.99 | 3.65 | 4.38 | 4.78 | 6.14 |
+| $A^*$ (operator norm) | 1.22 | 1.55 | 1.93 | 2.29 | 2.70 | 3.20 | 3.70 | 4.29 |
+| Fejér lower bound for $A^*$ | 1.05 | 1.41 | 1.75 | 2.15 | 2.56 | 3.04 | 3.53 | 4.09 |
+| $T_1$ pointwise | 119 | 502 | 2187 | 7427 | $3.2\times10^{4}$ | $1.3\times10^{5}$ | $1.9\times10^{5}$ | $2.8\times10^{6}$ |
+| $T_1$ separable / joint / $A^*$ | 29 / 24 / 21 | 61 / 46 / 30 | 129 / 74 / 43 | 288 / 124 / 62 | 609 / 242 / 93 | 1278 / 499 / 154 | 1680 / 746 / 255 | 7041 / 2918 / 457 |
+
+* Any $(*)$ implies $A'\ge A^*$, the norm of the comb operator on $L^2[-L,L]$: integrate $(*)$ against $|F|^2$.
+* A Fejér window centred where all phases align (Kronecker) gives $A^*\ge\sum_{n<e^{2L}}c_n(1-\frac{\log n}{2L})\approx0.3A_L$. By the prime number theorem this is $(4+o(1))e^L/L$ (**Theorem** for the inequality; **Numerical** for the values).
+* Consequently **every** certificate of the form $(*)$ leaves the cutoff $T_1\ge2\pi e^{A^*}$ doubly exponential in $L$; only the exponent shrinks, by about a factor 3 for $L\le2$. The Fejér bound alone gives $T_1\ge1.8\times10^3$ at $L=1.75$ and $1.2\times10^4$ at $L=2$.
+* The separable certificate runs out near $L\approx1.3$. Joint certificates of feasible size close much of the gap to $A^*$; at $\Lambda=6$ they sit about 0.5–1.1 above $A^*$. At $L=1.5$ the joint certificate still needs $T_1\approx2900$ (about 3700 Legendre modes per sector at roughly 120 digits), which we did not attempt. The envelope approach with any comb certificate ends near $L\approx1.7$–$2$.
+* The margins keep collapsing (even sector): $\lambda^*\in[1.1,2.0]\times10^{-38}$ at $L=1.1$ and $[4.6,7.0]\times10^{-49}$ at $1.2$. At $1.3$ and $1.4$ they are about $10^{-61}$ and $10^{-77}$ (certified lower bounds; upper ends numerical).
+
+**Interpretation.**
+* The barrier of E13 came from bounding the comb pointwise. Bounding it only against band-limited test functions moves it, and the certified window grows from $[-1,1]$ to $[-1.4,1.4]$.
+* The new limit is the operator norm of the comb, which still grows exponentially in $L$. Certificates of this envelope type cannot go far beyond $L\approx2$. Going further would need a treatment of the frequencies above $T$ that does not bound the comb by a constant there.
+* The window $[-1.4,1.4]$ "sees" (heuristically, E12) zeros up to height $\sim2\pi e^{2.8}\approx100$. The certificate is a zero-free proof of a finite piece of Weil's criterion, not new information about zeros.
+* *What this does not show.* RH, or positivity on any larger window.
+* Labels:
+  * **Machine-checked:** the certified constants, and the upper bounds at $L=1$.
+  * **Theorem:** $A'\ge A^*\ge\sum c_n(1-\log n/2L)$.
+  * **Numerical:** $A^*$, the joint dual values and the numerical $\lambda_J$.
+  * **Heuristic:** the remarks about heights.
+
+---
+
 ## Summary of the state of the evidence after all experiments
 
-Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ (E13). This is a zero-free proof of a finite piece of Weil's criterion, and the method behind it cannot go much further. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.
+Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ with the pointwise envelope (E13), and up to $[-1.4,1.4]$ with a non-pointwise bound for the prime comb (E14). These are zero-free proofs of finite pieces of Weil's criterion. Any certificate of this envelope type is limited by the operator norm of the comb, which still grows exponentially in $L$. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.

@@ -23,13 +23,13 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-10: 273 pass, about 2 minutes
+python3 -m pytest                   # 2026-11-10: 287 pass, about 3 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
 `data/zeros/` already holds 10^6 rigorous zero ordinates. Full experiment runs take hours.
 
-## State on 2026-11-09
+## State on 2026-11-10
 
 - E12 is complete (`docs/06_experiment_log.md`, E12; synthesis in `docs/08_findings_and_outlook.md`, item 1b).
   `src/rh/weil_form_general.py` was reviewed and is covered by `tests/test_weil_form_general.py`; a float64
@@ -46,9 +46,20 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   reproduces L <= 0.9729 in about 30 minutes; L = 1 (`--only 1.0 --merge`) takes about an hour per sector.
   The method's cost grows doubly exponentially in L, so it ends near L = 1.1 (docs/06, E13).
 
+- E14 is complete: `src/rh/weil_comb.py` gives non-pointwise certificates A' - P_L + H >= 0 for the prime comb
+  (H has all frequencies >= 2L, so it is invisible to the window). They come in two kinds: separable (per prime)
+  and joint (torus sums of squares over the integers n <= e^Lambda). `weil_envelope` accepts them (`comb_cert=`).
+  Certified (Machine-checked): Q >= 1.12e-38 ||f||^2 on [-1.1, 1.1], 4.57e-49 on [-1.2, 1.2], 6.54e-78 on
+  [-1.4, 1.4]. `scripts/run_weil_comb.py` reproduces them. Run numpy-heavy jobs with OPENBLAS_NUM_THREADS=1;
+  multithreaded BLAS made the joint solver 10x slower here. The next barrier is the operator norm of the comb
+  (A* >= sum c_n (1 - log n / 2L), about 0.3 A_L), so the envelope approach ends near L = 1.7-2 (docs/06, E14).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
-The open threads are listed in §8.3: a bound for the prime comb that is not pointwise in t (needed for windows
-beyond L ~ 1.1), the same certificates for L(s,(n/5)), whether bases other than wave packets detect off-line
-zeros earlier, and a theory for c(delta).
+The open threads are listed in §8.3:
+- joint comb certificates closer to the operator norm, and a prolate basis, to reach L ~ 1.5;
+- a treatment of the frequencies above T that does not bound the comb by a constant (needed beyond L ~ 1.7-2);
+- the same certificates for L(s,(n/5));
+- whether bases other than wave packets detect off-line zeros earlier;
+- a theory for c(delta).

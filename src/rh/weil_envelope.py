@@ -682,7 +682,7 @@ def approx_lambda_min(M, iters: int = 6):
     x = arb_mat([[arb(1) / (1 + i)] for i in range(n)])
     lam = None
     for _ in range(iters):
-        y = Mm.solve(x)
+        y = Mm.solve(x, algorithm="approx")
         nrm = sum((y[i, 0] ** 2 for i in range(n)), arb(0)).sqrt()
         x = arb_mat([[y[i, 0] / nrm] for i in range(n)])
         Mx = Mm * x

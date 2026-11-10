@@ -30,14 +30,16 @@
 | Weil quadratic form on $[-a,a]$ in ball arithmetic, minimiser zeros | `rh.weil_form` |
 | Weil form for ζ, $L(s,(n/5))$ and Davenport–Heilbronn; wave-packet bases; zero side with off-line quadruples; hypothetical zeros | `rh.weil_form_general` |
 | certified enclosure of Weil's form at one explicit test function (every error bounded) | `rh.weil_certificate` |
-| certified positivity of Weil's form on a whole window $[-L,L]$ (envelope reduction; rigorous spherical Bessel functions to high order; residual-certified Cholesky) | `rh.weil_envelope` |
+| certified positivity of Weil's form on a whole window $[-L,L]$ (envelope reduction; rigorous spherical Bessel functions to high order; residual-certified blocked $LDL^T$; optional comb certificate) | `rh.weil_envelope` |
+| non-pointwise comb certificates $A'-P_L+H\ge0$ with $H$ of spectrum outside $(-2L,2L)$: separable (per prime, Fejér–Egerváry–Szász / Toeplitz) and joint (torus sums of squares over smooth numbers); exact dyadic coefficients | `rh.weil_comb` |
 | explicit formula for real periodic Dirichlet series (no Euler product needed) | `rh.explicit_formula_general` |
 | Nyman–Beurling distances for periodic-coefficient Dirichlet series | `rh.nyman_beurling_periodic` |
 | zero dynamics under the heat flow | `rh.debruijn_newman` |
 
 ## Ideas not yet implemented
 
-* Weil form beyond the envelope reduction's reach ($L\gtrsim1.1$, E13): the pointwise comb bound $A_L$ makes the cost grow doubly exponentially in $L$. A bound that uses the oscillation of the prime comb in $t$ (rather than $|\cos|\le1$), or a different finite reduction, is needed. The same machinery can certify positivity for $L(s,(n/5))$ (comb $\chi(n)\Lambda(n)$) and quantify how the margins depend on the conductor.
+* Weil form beyond the reach of comb certificates (E14). Any certificate $A'-P_L+H\ge0$ has $A'\ge A^*$, the operator norm of the comb on $L^2[-L,L]$, and $A^*\gtrsim0.3A_L\sim4e^L/L$, so the envelope cutoff $2\pi e^{A'}$ stays doubly exponential: the approach ends near $L\approx1.7$–$2$. Going further needs a treatment of the frequencies above $T$ that does not bound the comb by a constant there. Cheaper steps: larger joint certificates (bigger $\Lambda$, or the separable cross of high prime powers added to the smooth-number monomials) to close more of the gap between the separable constant and $A^*$; a prolate (band-limited) basis instead of Legendre polynomials, which needs about $2LT/\pi$ modes instead of $\approx1.7LT$.
+* The same certificates for $L(s,(n/5))$ (comb $\chi(n)\Lambda(n)$; the per-prime certificates take signed coefficients unchanged) to quantify how the margins depend on the conductor.
 * Nyman–Beurling with the Mellin-side weight modified (Báez-Duarte's and Burnol's generalisations with $|s|^{-2}$ replaced by other weights; the constant in the lower bound changes to $\sum_\rho w(\rho)$).
 * Li coefficients and $c_k$ for Dirichlet $L$-functions (python-flint has `acb.dirichlet_l` and `dirichlet_char`); GRH versions of every experiment.
 * Higher moments of $\zeta$ on the line against the CFKRS conjecture, using the zero dataset for the comparison of $S(T)$ statistics.

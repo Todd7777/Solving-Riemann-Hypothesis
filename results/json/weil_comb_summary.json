@@ -1,0 +1,1053 @@
+{
+ "description": "E14: certified Weil positivity on whole windows (zeta), envelope reduction with the non-pointwise comb certificates of rh.weil_comb",
+ "quick": false,
+ "X_budget": 24.0,
+ "windows": [
+  {
+   "L": 1.0,
+   "parity": "even",
+   "T": 300.0,
+   "N": 275,
+   "dps": 55,
+   "orders_max": 548,
+   "n_nodes": 4702,
+   "n_panels": 54,
+   "quad_error_unit": 5.7224493337529345e-53,
+   "beta": 0.8438648487623276,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7
+   ],
+   "A_L": 5.852468364352818,
+   "lambda_approx": 4.173870043782814e-30,
+   "A_prime": 3.022040096520665,
+   "comb_X": 24.0,
+   "lambda0": 4.0903926429071576e-30,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 4.4223772226060774e-06,
+   "residual_F": 5.51640366482129e-48,
+   "eps_B": 2.269341073103525e-71,
+   "eps_D": 3.965794301014122e-146,
+   "certified_lower_bound": 4.0903926429071576e-30,
+   "positive": true,
+   "seconds": 24.046452045440674,
+   "comb_certificate": {
+    "A_L": 5.852468364352817,
+    "A_prime": 3.022040096520665,
+    "separable_optimum": 2.977298075189082,
+    "T1_pointwise": 2187.129933716407,
+    "T1_certificate": 129.01351456318642,
+    "H_sup": 38.34665344312156,
+    "n_terms": 76,
+    "omega_min": 2.079441541679835,
+    "X": 24.0,
+    "per_prime": [
+     {
+      "p": 2,
+      "K": 2,
+      "M": 34,
+      "A_p": 0.893218254973777,
+      "lambda_toeplitz": 0.8877665550269194,
+      "dual_degree_M": 0.8930871451820273,
+      "sum_c": 1.6734053240284925
+     },
+     {
+      "p": 3,
+      "K": 1,
+      "M": 21,
+      "A_p": 0.6403422642588987,
+      "lambda_toeplitz": 0.6342841005975639,
+      "dual_degree_M": 0.6402473993259208,
+      "sum_c": 1.2685682011951278
+     },
+     {
+      "p": 5,
+      "K": 1,
+      "M": 14,
+      "A_p": 0.7340801719298157,
+      "lambda_toeplitz": 0.7197625155536005,
+      "dual_degree_M": 0.7338634967682383,
+      "sum_c": 1.439525031107201
+     },
+     {
+      "p": 7,
+      "K": 1,
+      "M": 12,
+      "A_p": 0.7543994053581693,
+      "lambda_toeplitz": 0.7354849040109983,
+      "dual_degree_M": 0.7543992686264765,
+      "sum_c": 1.4709698080219966
+     }
+    ],
+    "kind": "sep"
+   },
+   "attempts": [
+    {
+     "T": 300.0,
+     "N": 275,
+     "lambda_approx": 4.173870043782814e-30,
+     "certified_lower_bound": 4.0903926429071576e-30
+    }
+   ],
+   "upper": {
+    "J": 96,
+    "lambda_J_numerical": "6.282775563e-30",
+    "upper": 6.282824407263942e-30,
+    "lower_of_ratio": 6.282824407263942e-30,
+    "seconds": 212.97920107841492,
+    "source": "E13 (rh.weil_certificate, J = 96)"
+   },
+   "certified_interval": [
+    4.0903926429071576e-30,
+    6.282824407263942e-30
+   ]
+  },
+  {
+   "L": 1.0,
+   "parity": "odd",
+   "T": 300.0,
+   "N": 275,
+   "dps": 55,
+   "orders_max": 549,
+   "n_nodes": 4702,
+   "n_panels": 54,
+   "quad_error_unit": 5.7224493337529345e-53,
+   "beta": 0.8438648487623276,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7
+   ],
+   "A_L": 5.852468364352818,
+   "lambda_approx": 1.0634840469346052e-26,
+   "A_prime": 3.022040096520665,
+   "comb_X": 24.0,
+   "lambda0": 1.042214365995913e-26,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 2.763895678843522e-05,
+   "residual_F": 5.536593307429718e-48,
+   "eps_B": 6.172156500606779e-72,
+   "eps_D": 2.933624312174346e-147,
+   "certified_lower_bound": 1.042214365995913e-26,
+   "positive": true,
+   "seconds": 26.94796371459961,
+   "comb_certificate": {
+    "A_L": 5.852468364352817,
+    "A_prime": 3.022040096520665,
+    "separable_optimum": 2.977298075189082,
+    "T1_pointwise": 2187.129933716407,
+    "T1_certificate": 129.01351456318642,
+    "H_sup": 38.34665344312156,
+    "n_terms": 76,
+    "omega_min": 2.079441541679835,
+    "X": 24.0,
+    "per_prime": [
+     {
+      "p": 2,
+      "K": 2,
+      "M": 34,
+      "A_p": 0.893218254973777,
+      "lambda_toeplitz": 0.8877665550269194,
+      "dual_degree_M": 0.8930871451820273,
+      "sum_c": 1.6734053240284925
+     },
+     {
+      "p": 3,
+      "K": 1,
+      "M": 21,
+      "A_p": 0.6403422642588987,
+      "lambda_toeplitz": 0.6342841005975639,
+      "dual_degree_M": 0.6402473993259208,
+      "sum_c": 1.2685682011951278
+     },
+     {
+      "p": 5,
+      "K": 1,
+      "M": 14,
+      "A_p": 0.7340801719298157,
+      "lambda_toeplitz": 0.7197625155536005,
+      "dual_degree_M": 0.7338634967682383,
+      "sum_c": 1.439525031107201
+     },
+     {
+      "p": 7,
+      "K": 1,
+      "M": 12,
+      "A_p": 0.7543994053581693,
+      "lambda_toeplitz": 0.7354849040109983,
+      "dual_degree_M": 0.7543992686264765,
+      "sum_c": 1.4709698080219966
+     }
+    ],
+    "kind": "sep"
+   },
+   "attempts": [
+    {
+     "T": 300.0,
+     "N": 275,
+     "lambda_approx": 1.0634840469346052e-26,
+     "certified_lower_bound": 1.042214365995913e-26
+    }
+   ],
+   "upper": {
+    "J": 96,
+    "lambda_J_numerical": "1.678661968e-26",
+    "upper": 1.6786629733085887e-26,
+    "lower_of_ratio": 1.6786629733085887e-26,
+    "seconds": 236.56616926193237,
+    "source": "E13 (rh.weil_certificate, J = 96)"
+   },
+   "certified_interval": [
+    1.042214365995913e-26,
+    1.6786629733085887e-26
+   ]
+  },
+  {
+   "L": 1.1,
+   "parity": "even",
+   "T": 400.0,
+   "N": 394,
+   "dps": 62,
+   "orders_max": 786,
+   "n_nodes": 6533,
+   "n_panels": 67,
+   "quad_error_unit": 3.91226718095e-60,
+   "beta": 0.3283850186196304,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9
+   ],
+   "A_L": 7.075005628532498,
+   "lambda_approx": 1.1464126923997361e-38,
+   "A_prime": 3.8252022016620546,
+   "comb_X": 24.0,
+   "lambda0": 1.1234844385517413e-38,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 1.8740319029768112e-06,
+   "residual_F": 8.54811627762903e-55,
+   "eps_B": 2.9250145139801835e-94,
+   "eps_D": 4.320134594041791e-192,
+   "certified_lower_bound": 1.1234844385517413e-38,
+   "positive": true,
+   "seconds": 68.28958582878113,
+   "comb_certificate": {
+    "A_L": 7.075005628532497,
+    "A_prime": 3.8252022016620546,
+    "separable_optimum": 3.767083794768939,
+    "T1_pointwise": 7427.0401599217785,
+    "T1_certificate": 288.03421295741384,
+    "H_sup": 39.36442928057581,
+    "n_terms": 74,
+    "omega_min": 2.7725887222397803,
+    "X": 24.0,
+    "per_prime": [
+     {
+      "p": 2,
+      "K": 3,
+      "M": 34,
+      "A_p": 1.2240286987898112,
+      "lambda_toeplitz": 1.213224086536231,
+      "dual_degree_M": 1.2237169375324746,
+      "sum_c": 2.163534395762766
+     },
+     {
+      "p": 3,
+      "K": 2,
+      "M": 21,
+      "A_p": 1.1126939255842534,
+      "lambda_toeplitz": 1.0986122886681096,
+      "dual_degree_M": 1.1126939001607443,
+      "sum_c": 2.000976393640534
+     },
+     {
+      "p": 5,
+      "K": 1,
+      "M": 14,
+      "A_p": 0.7340801719298157,
+      "lambda_toeplitz": 0.7197625155536005,
+      "dual_degree_M": 0.7338634967682383,
+      "sum_c": 1.439525031107201
+     },
+     {
+      "p": 7,
+      "K": 1,
+      "M": 12,
+      "A_p": 0.7543994053581693,
+      "lambda_toeplitz": 0.7354849040109983,
+      "dual_degree_M": 0.7543992686264765,
+      "sum_c": 1.4709698080219966
+     }
+    ],
+    "kind": "sep"
+   },
+   "attempts": [
+    {
+     "T": 400.0,
+     "N": 394,
+     "lambda_approx": 1.1464126923997361e-38,
+     "certified_lower_bound": 1.1234844385517413e-38
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 160,
+    "lambda_J": 1.998e-38,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.1,
+   "parity": "odd",
+   "T": 400.0,
+   "N": 394,
+   "dps": 62,
+   "orders_max": 787,
+   "n_nodes": 6533,
+   "n_panels": 67,
+   "quad_error_unit": 3.91226718095e-60,
+   "beta": 0.3283850186196304,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9
+   ],
+   "A_L": 7.075005628532498,
+   "lambda_approx": 4.65714323152568e-35,
+   "A_prime": 3.8252022016620546,
+   "comb_X": 24.0,
+   "lambda0": 4.564000366895166e-35,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 7.321044512600866e-06,
+   "residual_F": 8.569753209290342e-55,
+   "eps_B": 8.150644312863354e-95,
+   "eps_D": 3.354479246423416e-193,
+   "certified_lower_bound": 4.564000366895166e-35,
+   "positive": true,
+   "seconds": 70.32179355621338,
+   "comb_certificate": {
+    "A_L": 7.075005628532497,
+    "A_prime": 3.8252022016620546,
+    "separable_optimum": 3.767083794768939,
+    "T1_pointwise": 7427.0401599217785,
+    "T1_certificate": 288.03421295741384,
+    "H_sup": 39.36442928057581,
+    "n_terms": 74,
+    "omega_min": 2.7725887222397803,
+    "X": 24.0,
+    "per_prime": [
+     {
+      "p": 2,
+      "K": 3,
+      "M": 34,
+      "A_p": 1.2240286987898112,
+      "lambda_toeplitz": 1.213224086536231,
+      "dual_degree_M": 1.2237169375324746,
+      "sum_c": 2.163534395762766
+     },
+     {
+      "p": 3,
+      "K": 2,
+      "M": 21,
+      "A_p": 1.1126939255842534,
+      "lambda_toeplitz": 1.0986122886681096,
+      "dual_degree_M": 1.1126939001607443,
+      "sum_c": 2.000976393640534
+     },
+     {
+      "p": 5,
+      "K": 1,
+      "M": 14,
+      "A_p": 0.7340801719298157,
+      "lambda_toeplitz": 0.7197625155536005,
+      "dual_degree_M": 0.7338634967682383,
+      "sum_c": 1.439525031107201
+     },
+     {
+      "p": 7,
+      "K": 1,
+      "M": 12,
+      "A_p": 0.7543994053581693,
+      "lambda_toeplitz": 0.7354849040109983,
+      "dual_degree_M": 0.7543992686264765,
+      "sum_c": 1.4709698080219966
+     }
+    ],
+    "kind": "sep"
+   },
+   "attempts": [
+    {
+     "T": 400.0,
+     "N": 394,
+     "lambda_approx": 4.65714323152568e-35,
+     "certified_lower_bound": 4.564000366895166e-35
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 160,
+    "lambda_J": 7.625e-35,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.2,
+   "parity": "even",
+   "T": 800.0,
+   "N": 836,
+   "dps": 72,
+   "orders_max": 1670,
+   "n_nodes": 13577,
+   "n_panels": 117,
+   "quad_error_unit": 5.925876593857153e-70,
+   "beta": 0.27281490801198754,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11
+   ],
+   "A_L": 8.520990884248699,
+   "lambda_approx": 4.6656717855431024e-49,
+   "A_prime": 4.57391968814241,
+   "comb_X": 24.0,
+   "lambda0": 4.57235834983224e-49,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 3.6220990659060546e-07,
+   "residual_F": 6.338876601079018e-64,
+   "eps_B": 7.325081708194273e-180,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 4.572358349832234e-49,
+   "positive": true,
+   "seconds": 440.3796248435974,
+   "comb_certificate": {
+    "A_L": 8.520990884248697,
+    "A_prime": 4.57391968814241,
+    "separable_optimum": 4.490076422627039,
+    "T1_pointwise": 31535.461409629326,
+    "T1_certificate": 608.9868986276182,
+    "H_sup": 44.367932321270786,
+    "n_terms": 83,
+    "omega_min": 2.7725887222397803,
+    "X": 24.0,
+    "per_prime": [
+     {
+      "p": 2,
+      "K": 3,
+      "M": 34,
+      "A_p": 1.2240286987898112,
+      "lambda_toeplitz": 1.213224086536231,
+      "dual_degree_M": 1.2237169375324746,
+      "sum_c": 2.163534395762766
+     },
+     {
+      "p": 3,
+      "K": 2,
+      "M": 21,
+      "A_p": 1.1126939255842534,
+      "lambda_toeplitz": 1.0986122886681096,
+      "dual_degree_M": 1.1126939001607443,
+      "sum_c": 2.000976393640534
+     },
+     {
+      "p": 5,
+      "K": 1,
+      "M": 14,
+      "A_p": 0.7340801719298157,
+      "lambda_toeplitz": 0.7197625155536005,
+      "dual_degree_M": 0.7338634967682383,
+      "sum_c": 1.439525031107201
+     },
+     {
+      "p": 7,
+      "K": 1,
+      "M": 12,
+      "A_p": 0.7543994053581693,
+      "lambda_toeplitz": 0.7354849040109983,
+      "dual_degree_M": 0.7543992686264765,
+      "sum_c": 1.4709698080219966
+     },
+     {
+      "p": 11,
+      "K": 1,
+      "M": 10,
+      "A_p": 0.7487174864803533,
+      "lambda_toeplitz": 0.7229926278580998,
+      "dual_degree_M": 0.7484970461335922,
+      "sum_c": 1.4459852557161996
+     }
+    ],
+    "kind": "sep"
+   },
+   "attempts": [
+    {
+     "T": 800.0,
+     "N": 836,
+     "lambda_approx": 4.6656717855431024e-49,
+     "certified_lower_bound": 4.572358349832234e-49
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 224,
+    "lambda_J": 7.04e-49,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.2,
+   "parity": "odd",
+   "T": 800.0,
+   "N": 836,
+   "dps": 72,
+   "orders_max": 1671,
+   "n_nodes": 13577,
+   "n_panels": 117,
+   "quad_error_unit": 5.925876593857153e-70,
+   "beta": 0.27281490801198754,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11
+   ],
+   "A_L": 8.520990884248699,
+   "lambda_approx": 2.976031961645671e-45,
+   "A_prime": 4.57391968814241,
+   "comb_X": 24.0,
+   "lambda0": 2.9165113224127575e-45,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 2.152724023983245e-06,
+   "residual_F": 6.34642858763153e-64,
+   "eps_B": 2.1009923363089983e-180,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 2.9165113224127575e-45,
+   "positive": true,
+   "seconds": 487.2056794166565,
+   "comb_certificate": {
+    "A_L": 8.520990884248697,
+    "A_prime": 4.57391968814241,
+    "separable_optimum": 4.490076422627039,
+    "T1_pointwise": 31535.461409629326,
+    "T1_certificate": 608.9868986276182,
+    "H_sup": 44.367932321270786,
+    "n_terms": 83,
+    "omega_min": 2.7725887222397803,
+    "X": 24.0,
+    "per_prime": [
+     {
+      "p": 2,
+      "K": 3,
+      "M": 34,
+      "A_p": 1.2240286987898112,
+      "lambda_toeplitz": 1.213224086536231,
+      "dual_degree_M": 1.2237169375324746,
+      "sum_c": 2.163534395762766
+     },
+     {
+      "p": 3,
+      "K": 2,
+      "M": 21,
+      "A_p": 1.1126939255842534,
+      "lambda_toeplitz": 1.0986122886681096,
+      "dual_degree_M": 1.1126939001607443,
+      "sum_c": 2.000976393640534
+     },
+     {
+      "p": 5,
+      "K": 1,
+      "M": 14,
+      "A_p": 0.7340801719298157,
+      "lambda_toeplitz": 0.7197625155536005,
+      "dual_degree_M": 0.7338634967682383,
+      "sum_c": 1.439525031107201
+     },
+     {
+      "p": 7,
+      "K": 1,
+      "M": 12,
+      "A_p": 0.7543994053581693,
+      "lambda_toeplitz": 0.7354849040109983,
+      "dual_degree_M": 0.7543992686264765,
+      "sum_c": 1.4709698080219966
+     },
+     {
+      "p": 11,
+      "K": 1,
+      "M": 10,
+      "A_p": 0.7487174864803533,
+      "lambda_toeplitz": 0.7229926278580998,
+      "dual_degree_M": 0.7484970461335922,
+      "sum_c": 1.4459852557161996
+     }
+    ],
+    "kind": "sep"
+   },
+   "attempts": [
+    {
+     "T": 800.0,
+     "N": 836,
+     "lambda_approx": 2.976031961645671e-45,
+     "certified_lower_bound": 2.9165113224127575e-45
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 224,
+    "lambda_J": 4.352e-45,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.3,
+   "parity": "even",
+   "T": 800.0,
+   "N": 904,
+   "dps": 85,
+   "orders_max": 1806,
+   "n_nodes": 8491,
+   "n_panels": 117,
+   "quad_error_unit": 9.852761132627503e-84,
+   "beta": 0.26864300484529285,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11,
+    13
+   ],
+   "A_L": 9.943768796140388,
+   "lambda_approx": 4.7808218031969685e-62,
+   "A_prime": 4.5780915913091045,
+   "comb_X": 5.5,
+   "lambda0": 4.685205367133029e-62,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 3.2551027385747384e-08,
+   "residual_F": 1.334922366042348e-77,
+   "eps_B": 2.3014315107918503e-193,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 4.685205367133028e-62,
+   "positive": true,
+   "seconds": 516.5178174972534,
+   "comb_certificate": {
+    "A_L": 9.943768796140386,
+    "A_prime": 4.5780915913091045,
+    "separable_optimum": 5.201465378572884,
+    "T1_pointwise": 130828.92890503696,
+    "T1_certificate": 611.5328400163219,
+    "H_sup": 14.127318990438384,
+    "n_terms": 351,
+    "omega_min": 2.602689685444382,
+    "X": 5.5,
+    "per_prime": [],
+    "kind": "joint",
+    "dual": 4.576626002274709,
+    "nB": 109,
+    "n_free": 1462,
+    "n_dropped": 0,
+    "Lambda": 5.5
+   },
+   "attempts": [
+    {
+     "T": 800.0,
+     "N": 904,
+     "lambda_approx": 4.7808218031969685e-62,
+     "certified_lower_bound": 4.685205367133028e-62
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 160,
+    "lambda_J": 6.598e-59,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.3,
+   "parity": "odd",
+   "T": 800.0,
+   "N": 904,
+   "dps": 85,
+   "orders_max": 1807,
+   "n_nodes": 8491,
+   "n_panels": 117,
+   "quad_error_unit": 9.852761132627503e-84,
+   "beta": 0.26864300484529285,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11,
+    13
+   ],
+   "A_L": 9.943768796140388,
+   "lambda_approx": 4.437256332569697e-58,
+   "A_prime": 4.5780915913091045,
+   "comb_X": 5.5,
+   "lambda0": 4.348511205918303e-58,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 9.817252410047594e-08,
+   "residual_F": 1.3364541438780383e-77,
+   "eps_B": 6.613624363456373e-194,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 4.348511205918303e-58,
+   "positive": true,
+   "seconds": 613.431138753891,
+   "comb_certificate": {
+    "A_L": 9.943768796140386,
+    "A_prime": 4.5780915913091045,
+    "separable_optimum": 5.201465378572884,
+    "T1_pointwise": 130828.92890503696,
+    "T1_certificate": 611.5328400163219,
+    "H_sup": 14.127318990438384,
+    "n_terms": 351,
+    "omega_min": 2.602689685444382,
+    "X": 5.5,
+    "per_prime": [],
+    "kind": "joint",
+    "dual": 4.576626002274709,
+    "nB": 109,
+    "n_free": 1462,
+    "n_dropped": 0,
+    "Lambda": 5.5
+   },
+   "attempts": [
+    {
+     "T": 800.0,
+     "N": 904,
+     "lambda_approx": 4.437256332569697e-58,
+     "certified_lower_bound": 4.348511205918303e-58
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 160,
+    "lambda_J": 1.356e-55,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.4,
+   "parity": "even",
+   "T": 850.0,
+   "N": 1031,
+   "dps": 100,
+   "orders_max": 2060,
+   "n_nodes": 10483,
+   "n_panels": 123,
+   "quad_error_unit": 6.541188130128153e-99,
+   "beta": 0.301467126625787,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11,
+    13,
+    16
+   ],
+   "A_L": 10.290342386420361,
+   "lambda_approx": 6.6769404906543765e-78,
+   "A_prime": 4.605892098779089,
+   "comb_X": 6.5,
+   "lambda0": 6.543401680841289e-78,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 7.158798120432795e-09,
+   "residual_F": 1.244360074265063e-92,
+   "eps_B": 1.8769284625896156e-217,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 6.543401680841276e-78,
+   "positive": true,
+   "seconds": 574.9762516021729,
+   "comb_certificate": {
+    "A_L": 10.290342386420358,
+    "A_prime": 4.605892098779089,
+    "separable_optimum": 5.470223808292362,
+    "T1_pointwise": 185020.04560824853,
+    "T1_certificate": 628.7722856681494,
+    "H_sup": 23.611155913321603,
+    "n_terms": 955,
+    "omega_min": 2.8007595992064753,
+    "X": 6.5,
+    "per_prime": [],
+    "kind": "joint",
+    "dual": 4.6043843809242855,
+    "nB": 194,
+    "n_free": 3443,
+    "n_dropped": 0,
+    "Lambda": 6.5
+   },
+   "attempts": [
+    {
+     "T": 850.0,
+     "N": 1031,
+     "lambda_approx": 6.6769404906543765e-78,
+     "certified_lower_bound": 6.543401680841276e-78
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 128,
+    "lambda_J": 2.554e-61,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.4,
+   "parity": "odd",
+   "T": 850.0,
+   "N": 1031,
+   "dps": 100,
+   "orders_max": 2061,
+   "n_nodes": 10483,
+   "n_panels": 123,
+   "quad_error_unit": 6.541188130128153e-99,
+   "beta": 0.301467126625787,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11,
+    13,
+    16
+   ],
+   "A_L": 10.290342386420361,
+   "lambda_approx": 1.1154169753681785e-73,
+   "A_prime": 4.605892098779089,
+   "comb_X": 6.5,
+   "lambda0": 1.0931086358608149e-73,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 3.236725268843596e-08,
+   "residual_F": 1.245557083405383e-92,
+   "eps_B": 5.411993794909822e-218,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 1.0931086358608149e-73,
+   "positive": true,
+   "seconds": 486.5384027957916,
+   "comb_certificate": {
+    "A_L": 10.290342386420358,
+    "A_prime": 4.605892098779089,
+    "separable_optimum": 5.470223808292362,
+    "T1_pointwise": 185020.04560824853,
+    "T1_certificate": 628.7722856681494,
+    "H_sup": 23.611155913321603,
+    "n_terms": 955,
+    "omega_min": 2.8007595992064753,
+    "X": 6.5,
+    "per_prime": [],
+    "kind": "joint",
+    "dual": 4.6043843809242855,
+    "nB": 194,
+    "n_free": 3443,
+    "n_dropped": 0,
+    "Lambda": 6.5
+   },
+   "attempts": [
+    {
+     "T": 850.0,
+     "N": 1031,
+     "lambda_approx": 1.1154169753681785e-73,
+     "certified_lower_bound": 1.0931086358608149e-73
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 128,
+    "lambda_J": 9.865e-58,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  }
+ ],
+ "constants": [
+  {
+   "L": 0.8,
+   "X": 24.0,
+   "A_L": 2.94197352522362,
+   "A_prime": 1.5335605192326776,
+   "T1_pointwise": 119.08655618767563,
+   "T1_certificate": 29.120359992795386,
+   "separable_optimum": 1.5220506556244833,
+   "H_sup": 24.799079655012868,
+   "n_terms": 52,
+   "omega_min": 2.079441541679835,
+   "A_star": 1.2191239970804693,
+   "T1_operator": 21.263692982354865,
+   "A_joint": 1.3555128177681617,
+   "joint_Lambda": 6.0,
+   "T1_joint": 24.37090210978575,
+   "joint_dual": 1.3550792671366274,
+   "A_fejer_lower": 1.045702393317921
+  },
+  {
+   "L": 0.9,
+   "X": 24.0,
+   "A_L": 4.381498556330821,
+   "A_prime": 2.2676406911624944,
+   "T1_pointwise": 502.389453521994,
+   "T1_certificate": 60.674150917514,
+   "separable_optimum": 2.2418131711780838,
+   "H_sup": 32.08287843739932,
+   "n_terms": 65,
+   "omega_min": 2.079441541679835,
+   "A_star": 1.5538896637135031,
+   "T1_operator": 29.71841032783813,
+   "A_joint": 1.9855021652593141,
+   "joint_Lambda": 6.0,
+   "T1_joint": 45.75857618131554,
+   "joint_dual": 1.9848597777037233,
+   "A_fejer_lower": 1.408798571880307
+  },
+  {
+   "L": 1.0,
+   "X": 24.0,
+   "A_L": 5.852468364352817,
+   "A_prime": 3.022040096520665,
+   "T1_pointwise": 2187.129933716407,
+   "T1_certificate": 129.01351456318642,
+   "separable_optimum": 2.977298075189082,
+   "H_sup": 38.34665344312156,
+   "n_terms": 76,
+   "omega_min": 2.079441541679835,
+   "A_star": 1.9252202673412464,
+   "T1_operator": 43.0816578132977,
+   "A_joint": 2.4692722104803835,
+   "joint_Lambda": 6.0,
+   "T1_joint": 74.22858190583094,
+   "joint_dual": 2.468399111781568,
+   "A_fejer_lower": 1.7458508391553804
+  },
+  {
+   "L": 1.1,
+   "X": 24.0,
+   "A_L": 7.075005628532497,
+   "A_prime": 3.8252022016620546,
+   "T1_pointwise": 7427.0401599217785,
+   "T1_certificate": 288.03421295741384,
+   "separable_optimum": 3.767083794768939,
+   "H_sup": 39.36442928057581,
+   "n_terms": 74,
+   "omega_min": 2.7725887222397803,
+   "A_star": 2.285444441081709,
+   "T1_operator": 61.764051698493056,
+   "A_joint": 2.985489866233304,
+   "joint_Lambda": 6.0,
+   "T1_joint": 124.38317632850054,
+   "joint_dual": 2.9844780555359187,
+   "A_fejer_lower": 2.1469624085199794
+  },
+  {
+   "L": 1.2,
+   "X": 24.0,
+   "A_L": 8.520990884248697,
+   "A_prime": 4.57391968814241,
+   "T1_pointwise": 31535.461409629326,
+   "T1_certificate": 608.9868986276182,
+   "separable_optimum": 4.490076422627039,
+   "H_sup": 44.367932321270786,
+   "n_terms": 83,
+   "omega_min": 2.7725887222397803,
+   "A_star": 2.6950355027960207,
+   "T1_operator": 93.0291206310945,
+   "A_joint": 3.6508399417556765,
+   "joint_Lambda": 6.0,
+   "T1_joint": 241.9465921402718,
+   "joint_dual": 3.649615412573551,
+   "A_fejer_lower": 2.558900762063047
+  },
+  {
+   "L": 1.3,
+   "X": 24.0,
+   "A_L": 9.943768796140386,
+   "A_prime": 5.315504653345532,
+   "T1_pointwise": 130828.92890503696,
+   "T1_certificate": 1278.4219180271705,
+   "separable_optimum": 5.201465378572884,
+   "H_sup": 48.72508793020876,
+   "n_terms": 91,
+   "omega_min": 2.7725887222397803,
+   "A_star": 3.1996069321520904,
+   "T1_operator": 154.08185675401788,
+   "A_joint": 4.3754890332838166,
+   "joint_Lambda": 6.0,
+   "T1_joint": 499.3793861160905,
+   "joint_dual": 4.3739343944512585,
+   "A_fejer_lower": 3.036703571462458
+  },
+  {
+   "L": 1.4,
+   "X": 24.0,
+   "A_L": 10.290342386420358,
+   "A_prime": 5.58864064583309,
+   "T1_pointwise": 185020.04560824853,
+   "T1_certificate": 1679.9473157659168,
+   "separable_optimum": 5.470223808292362,
+   "H_sup": 48.86447602272029,
+   "n_terms": 90,
+   "omega_min": 3.2188758248681997,
+   "A_star": 3.7016052913589648,
+   "T1_operator": 254.54620148559403,
+   "A_joint": 4.777362418527972,
+   "joint_Lambda": 6.0,
+   "T1_joint": 746.3834565290231,
+   "joint_dual": 4.77579636087963,
+   "A_fejer_lower": 3.5334582392778526
+  },
+  {
+   "L": 1.5,
+   "X": 24.0,
+   "A_L": 13.015653983429376,
+   "A_prime": 7.021626855820738,
+   "T1_pointwise": 2823622.0957031124,
+   "T1_certificate": 7040.988999931395,
+   "separable_optimum": 6.8328796067968725,
+   "H_sup": 56.129861218908495,
+   "n_terms": 104,
+   "omega_min": 3.2188758248681997,
+   "A_star": 4.286383487340512,
+   "T1_operator": 456.80680427307647,
+   "A_joint": 6.140665012389468,
+   "joint_Lambda": 6.0,
+   "T1_joint": 2917.6742226584347,
+   "joint_dual": 6.138708067408423,
+   "A_fejer_lower": 4.085343727307429
+  }
+ ]
+}

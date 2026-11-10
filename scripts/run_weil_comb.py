@@ -46,9 +46,12 @@ WINDOWS = [
     (1.0, 300.0, 55, 96, ("sep", X_BUDGET)),
     (1.1, 400.0, 62, 160, ("sep", X_BUDGET)),
     (1.2, 800.0, 72, 192, ("sep", X_BUDGET)),
+    (1.3, 800.0, 85, 160, ("joint", 5.5)),
+    (1.4, 850.0, 100, 160, ("joint", 6.5)),
 ]
 QUICK = [(1.0, 170.0, 50, 64, ("sep", X_BUDGET))]
 CONSTANT_LS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
+JOINT_LAMBDA = 6.0       # joint certificates in the constants table (monomials n <= e^6)
 
 
 def modes_for(L, T):
@@ -56,14 +59,22 @@ def modes_for(L, T):
     return int(math.ceil(1.25 * math.e * L * T / 4)) + 20
 
 
-def constants(Ls, X=X_BUDGET, J=100):
+def constants(Ls, X=X_BUDGET, J=100, Lam=JOINT_LAMBDA):
+    """Comb constants: pointwise A_L, separable A' (budget X), separable optimum, joint A' (monomials
+    n <= e^Lam; needs a single-threaded BLAS to be fast), the Fejer lower bound and the operator norm A*."""
     rows = []
     for L in Ls:
         d = wcb.comb_constants(L, X=X, J=J)
         d.pop("per_prime", None)
+        jc = wcb.joint_comb_certificate(L, Lam).describe()
+        d.update({"A_joint": jc["A_prime"], "joint_Lambda": Lam, "T1_joint": jc["T1_certificate"],
+                  "joint_dual": jc["dual"]})
+        comb = wcb.prime_comb(L)
+        d["A_fejer_lower"] = sum(float(c.mid()) * (1 - math.log(n) / (2 * L)) for t in comb.values() for n, c in t)
         rows.append(d)
-        print(f"  L={L}: A_L={d['A_L']:.3f} A'={d['A_prime']:.3f} (separable optimum {d['separable_optimum']:.3f}) "
-              f"A*={d['A_star']:.3f}; T_1 = {d['T1_pointwise']:.4g} / {d['T1_certificate']:.4g} / "
+        print(f"  L={L}: A_L={d['A_L']:.3f} separable A'={d['A_prime']:.3f} (optimum {d['separable_optimum']:.3f}) "
+              f"joint A'={d['A_joint']:.3f} A*={d['A_star']:.3f} (Fejer >= {d['A_fejer_lower']:.3f}); "
+              f"T_1 = {d['T1_pointwise']:.4g} / {d['T1_certificate']:.4g} / {d['T1_joint']:.4g} / "
               f"{d['T1_operator']:.4g}", flush=True)
     return rows
 
