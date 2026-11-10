@@ -72,8 +72,8 @@ from dataclasses import dataclass, field
 from typing import List
 
 __all__ = ["prime_comb", "toeplitz_lambda_max", "fes_constant", "sos_gram", "PrimeCertificate",
-           "CombCertificate", "prime_certificate", "comb_certificate", "comb_operator_norm",
-           "comb_constants"]
+           "CombCertificate", "prime_certificate", "comb_certificate", "joint_gram", "joint_gram_admm",
+           "joint_comb_certificate", "comb_operator_norm", "comb_constants"]
 
 
 def _primes_upto(x: float) -> List[int]:
@@ -292,7 +292,29 @@ class CombCertificate:
         return tot * (1 + 1e-12) + 1e-300
 
     def H(self, z):
-        """H(z) = sum h cos(omega z) (acb) at real or complex z, at the current working precision."""
+        """H(z) = sum h cos(z log(n/d)) (acb) at real or complex z, at the current working precision.
+        All frequencies are logs of ratios of a few integers, so H is evaluated from the powers
+        E_n = e^{i z log n}: cos(z log(n/d)) = (E_n / E_d + E_d / E_n) / 2, one exponential per integer and
+        two products per term (instead of one cosine per term)."""
+        from flint import acb, arb, ctx
+        z = acb(z)
+        cache = self.__dict__.setdefault("_log_cache", {})
+        if ctx.prec not in cache:
+            ints = sorted({n for n, _, _ in self.terms} | {d for _, d, _ in self.terms})
+            cache[ctx.prec] = {n: arb(n).log() for n in ints}
+        logs = cache[ctx.prec]
+        if len(self.terms) < 3 * len(logs):           # few terms per integer: cosines are cheaper
+            return self.H_direct(z)
+        iz = acb(0, 1) * z
+        E = {n: (iz * ln).exp() for n, ln in logs.items()}
+        Ei = {n: 1 / e for n, e in E.items()}
+        v = acb(0)
+        for n, d, h in self.terms:
+            v += h * (E[n] * Ei[d] + Ei[n] * E[d])
+        return v / 2
+
+    def H_direct(self, z):
+        """H(z) term by term with one cosine per term (reference for `H`)."""
         from flint import acb
         z = acb(z)
         v = acb(0)
@@ -457,8 +479,110 @@ def joint_gram(L: float, Lam: float, mu_min: float = 1e-9, verbose: bool = False
             "rank": int(keep.sum())}
 
 
+def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, tol: float = 1e-9,
+                    verbose: bool = False, report: int = 1000, alpha: float = 1.0, warm: dict | None = None) -> dict:
+    """Near-optimal Gram matrix for the joint certificate by ADMM on the primal SOS problem (for monomial sets
+    too large for the barrier method of `joint_gram`, whose Newton systems have one unknown per free moment).
+
+    Primal: minimise tr X over symmetric X >= 0 with, for every free monomial m (|log(n/n')| < 2L), the sum of
+    X over the pairs b - b' = m equal to t_m / 2 (t_m = -c_{p^k} on k e_p, 0 elsewhere).  Different monomials
+    constrain disjoint sets of entries, so the projection onto the constraints is a uniform shift per
+    monomial, and one ADMM step costs one eigendecomposition.  The iterate Z is positive semidefinite by
+    construction; its value as a certificate is tr Z + sum_m |s_m(Z) - t_m| (mismatches are absorbed into A'
+    by `joint_comb_certificate`), and the best Z seen is returned.  alpha > 1 is over-relaxation; `warm` (the
+    result for a smaller Lambda, whose monomials are a subset) embeds its Gram matrix as the starting point."""
+    import numpy as np
+    comb = prime_comb(L)
+    primes = sorted(comb)
+    lp = np.array([math.log(p) for p in primes])
+    B = np.array(_smooth_exponents(primes, Lam))
+    nB = len(B)
+    flat = (B[:, None, :] - B[None, :, :]).reshape(nB * nB, -1)
+    first = np.argmax(flat != 0, axis=1)
+    sgn = np.sign(flat[np.arange(nB * nB), first])
+    plus = sgn > 0                                   # one orientation of every nonzero difference
+    keys, inv = np.unique(flat[plus], axis=0, return_inverse=True)
+    inv = inv.ravel()
+    freq = np.abs(keys @ lp)
+    free = freq < 2 * L - 1e-9
+    fidx = np.nonzero(free)[0]
+    col = -np.ones(len(keys), dtype=int)
+    col[fidx] = np.arange(len(fidx))
+    pos = np.nonzero(plus)[0]                        # flat indices (a nB + b) of the '+' entries
+    kf = col[inv]
+    sel = kf >= 0
+    ent = pos[sel]                                   # entries constrained, one orientation
+    kid = kf[sel]                                    # their free-monomial id
+    entT = (ent % nB) * nB + ent // nB               # transposed entries
+    cnt = np.bincount(kid, minlength=len(fidx)).astype(float)
+    target = np.zeros(len(fidx))                     # t_m / 2
+    for a, kidx in enumerate(fidx):
+        nz = np.nonzero(keys[kidx])[0]
+        if len(nz) == 1:
+            p, k = primes[nz[0]], keys[kidx][nz[0]]
+            if k <= len(comb[p]):
+                target[a] = -float(comb[p][k - 1][1].mid()) / 2
+
+    def proj_aff(V):
+        v = V.ravel().copy()
+        r = np.bincount(kid, weights=v[ent], minlength=len(fidx)) - target
+        sh = (r / cnt)[kid]
+        v[ent] -= sh
+        v[entT] -= sh
+        return v.reshape(nB, nB)
+
+    def proj_psd(V):
+        V = (V + V.T) / 2
+        lam, Q = np.linalg.eigh(V)
+        lam = np.maximum(lam, 0.0)
+        return (Q * lam) @ Q.T
+
+    def value(Zm):
+        r = np.bincount(kid, weights=Zm.ravel()[ent], minlength=len(fidx)) - target
+        return float(np.trace(Zm) + 2 * np.sum(np.abs(r))), float(2 * np.sum(np.abs(r)))
+
+    I = np.eye(nB)
+    Z = np.zeros((nB, nB))
+    if warm is not None:
+        pos_of = {tuple(b): i for i, b in enumerate(B.tolist())}
+        idx = np.array([pos_of[tuple(b)] for b in warm["B"].tolist()])
+        Z[np.ix_(idx, idx)] = warm["R"].T @ warm["R"]
+    U = np.zeros((nB, nB))
+    best = (float("inf"), None, None)
+    for it in range(1, iters + 1):
+        X = proj_aff(Z - U - I / rho)
+        Zold = Z
+        Xh = alpha * X + (1 - alpha) * Z
+        Z = proj_psd(Xh + U)
+        U = U + Xh - Z
+        if it % 20 == 0 or it == iters:
+            rp = np.linalg.norm(X - Z)
+            rd = rho * np.linalg.norm(Z - Zold)
+            val, mis = value(Z)
+            if val < best[0]:
+                best = (val, Z.copy(), mis)
+            if rp > 10 * rd:
+                rho *= 2.0
+                U /= 2.0
+            elif rd > 10 * rp:
+                rho /= 2.0
+                U *= 2.0
+            if verbose and it % report == 0:
+                print(f"  admm L={L} Lam={Lam} it={it}: value {val:.6f} (trace {val - mis:.6f}, mismatch {mis:.2e})"
+                      f" r_p {rp:.1e} r_d {rd:.1e} rho {rho:.2g}", flush=True)
+            if mis < tol and rp < tol and rd < tol:
+                break
+    val, Zb, mis = best
+    lam, Q = np.linalg.eigh((Zb + Zb.T) / 2)
+    keep = lam > 1e-14 * lam[-1]
+    R = np.sqrt(lam[keep])[:, None] * Q[:, keep].T
+    return {"B": B, "R": R, "primes": primes, "dual": float("nan"), "admm_value": val, "admm_mismatch": mis,
+            "gap": float("nan"), "n_free": int(len(fidx)), "nB": nB, "rank": int(keep.sum()), "iters": it}
+
+
 def joint_comb_certificate(L: float, Lam: float = 5.0, drop: float = 1e-13, mu_min: float = 1e-9,
-                           verbose: bool = False) -> CombCertificate:
+                           verbose: bool = False, solver: str = "barrier", admm_iters: int = 20000,
+                           gram: dict | None = None) -> CombCertificate:
     """Joint SOS certificate (*) on the torus of prime phases (see `joint_gram`); every frequency of H is
     log(n/n') with 2L <= log(n/n') <= Lam.
 
@@ -470,7 +594,13 @@ def joint_comb_certificate(L: float, Lam: float = 5.0, drop: float = 1e-13, mu_m
     that coefficients below `drop` are moved into A' as well (|h cos| <= |h|)."""
     import numpy as np
     from flint import arb, ctx, fmpz, fmpz_mat
-    G = joint_gram(L, Lam, mu_min=mu_min, verbose=verbose)
+    if gram is not None:                            # a precomputed (float) Gram factor; only its quality matters
+        G = gram
+        solver = "admm" if "admm_value" in gram else solver
+    elif solver == "admm":
+        G = joint_gram_admm(L, Lam, iters=admm_iters, verbose=verbose)
+    else:
+        G = joint_gram(L, Lam, mu_min=mu_min, verbose=verbose)
     B, R, primes = G["B"], G["R"], G["primes"]
     comb = prime_comb(L)
     nB = len(B)
@@ -539,7 +669,9 @@ def joint_comb_certificate(L: float, Lam: float = 5.0, drop: float = 1e-13, mu_m
     cert.H_sup *= (1 + 1e-12)
     cert.omega_min = omin
     cert.meta = {"kind": "joint", "Lambda": Lam, "nB": nB, "n_free": G["n_free"], "dual": G["dual"],
-                 "gap": G["gap"], "rank": G["rank"], "n_dropped": n_drop}
+                 "gap": G["gap"], "rank": G["rank"], "n_dropped": n_drop, "solver": solver}
+    if solver == "admm":
+        cert.meta.update({"admm_value": G["admm_value"], "admm_mismatch": G["admm_mismatch"], "admm_iters": G["iters"]})
     return cert
 
 

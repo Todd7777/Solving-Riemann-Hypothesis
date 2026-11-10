@@ -376,11 +376,30 @@ def sector_orders(parity: str, N: int) -> list:
     return [first + 2 * j for j in range(N)]
 
 
+def _bessel_cutoff(x: float, L: float, n_max: int, log10_tau: float) -> int:
+    """Smallest order n >= x with sqrt(2L(2n+1)) x^n / (2n+1)!! <= 10^log10_tau (decided in floats with a
+    margin of 5 decades), capped at n_max.  For n >= x the bound decreases in n, so it holds for every
+    higher order: |G_n(t)| = sqrt(2L(2n+1)) |j_n(Lt)| <= 10^log10_tau there (|j_n(x)| <= x^n/(2n+1)!!)."""
+    n = max(0, int(math.ceil(x)))
+    lx = math.log10(x) if x > 0 else -1e300
+    while n < n_max:
+        ldf = (math.lgamma(2 * n + 2) - n * math.log(2) - math.lgamma(n + 1)) / math.log(10)
+        if 0.5 * math.log10(2 * L * (2 * n + 1)) + n * lx - ldf <= log10_tau - 5:
+            return n
+        n += 1
+    return n_max
+
+
 def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] = None,
-                   chunk: int = 4000, verbose: bool = False, comb_cert=None, wmax: float = 4.0) -> dict:
+                   chunk: int = 4000, verbose: bool = False, comb_cert=None, wmax: float = 4.0,
+                   truncate: bool = True) -> dict:
     """R_A = beta I + s 2 p_A p_A^T + C_AA (arb_mat, orthonormal Legendre modes of the sector) with
     rigorous quadrature error radii.  With a comb certificate (`rh.weil_comb`), beta'' = Omega(T) - A'
     and the symbol on [0, T] is Psi_L + H - beta''.
+    truncate: at each node only the orders n <= n_cut(t) with |G_n(t)| possibly above 10^-(dps+40) are
+    computed (`_bessel_cutoff`); the rest are dropped and covered by a rigorous radius added to every entry,
+    10^-(dps+40) sqrt(2L(2 n_max+1)) sum_k |w_k sigma_k| / pi.  Each chunk of nodes (in increasing t) then
+    updates only the leading block of C.
     Returns {'R', 'beta', 'A', 'panels', 'n_nodes', 'orders', ...}."""
     from flint import arb, arb_mat, ctx
     from .weil_form import _gl_nodes
@@ -400,14 +419,24 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
         rows_G, rows_W = [], []
         n_nodes = 0
         err_unit_total = 0.0
+        log10_tau = -(dps + 40)
+        sum_abs_wsig = 0.0                      # sum_k |w_k sigma_k| (float upper bound), for the drop radius
+        partial = {}                            # leading-block size -> accumulated block
 
         def flush():
             nonlocal C, rows_G, rows_W
             if not rows_G:
                 return
-            Gm = arb_mat(rows_G)
-            Wm = arb_mat(rows_W)
-            C += Gm.transpose() * Wm
+            k = max(len(r) for r in rows_G)
+            Gm = arb_mat([r + [0] * (k - len(r)) for r in rows_G])
+            Wm = arb_mat([r + [0] * (k - len(r)) for r in rows_W])
+            blk = Gm.transpose() * Wm
+            if k == N:
+                C += blk
+            elif k in partial:
+                partial[k] += blk
+            else:
+                partial[k] = blk
             rows_G, rows_W = [], []
 
         inv_pi = 1 / arb.pi()
@@ -426,9 +455,13 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
                 ctx.prec = work
             for (t, wh), xx in zip(pts, xs):
                 sig = symbol(L, +t, comb_list, comb_cert).real - beta
-                js = sph_bessel_j_all(xx, n_max)
-                g = [scale[i] * js[n] for i, n in enumerate(orders)]
+                ncut = _bessel_cutoff(float(xx.mid()) * (1 + 1e-12), L, n_max, log10_tau) if truncate else n_max
+                js = sph_bessel_j_all(xx, ncut)
+                k = sum(1 for n in orders if n <= ncut)
+                g = [scale[i] * js[orders[i]] for i in range(k)]
                 wk = (+wh) * sig * inv_pi
+                if truncate:
+                    sum_abs_wsig += _up(abs(wk))
                 rows_G.append(g)
                 rows_W.append([gi * wk for gi in g])
                 n_nodes += 1
@@ -436,6 +469,15 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
                     flush()
             err_unit_total += P.err_unit
         flush()
+        for k, blk in partial.items():          # embed the leading blocks
+            for i in range(k):
+                for j in range(k):
+                    C[i, j] += blk[i, j]
+        if truncate:
+            drop = 10.0 ** log10_tau * math.sqrt(2 * L * (2 * n_max + 1)) * sum_abs_wsig * (1 + 1e-9)
+            for i in range(N):
+                for j in range(N):
+                    C[i, j] += arb(0, drop)
         # quadrature error radii: |E_mn| <= err_unit_total * 2L sqrt((2m+1)(2n+1)) / pi
         for i, m in enumerate(orders):
             for j, n in enumerate(orders):
