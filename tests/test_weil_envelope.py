@@ -96,3 +96,14 @@ def test_reproduces_zhu_at_0_8():
     itself instead of the bound log(T/2pi) - 1/T)."""
     r = we.certify_window(0.8, "even", T=200.0, N=200, dps=40)
     assert r["positive"] and 1.0e-17 < r["certified_lower_bound"] < 1.64e-17
+
+
+def test_paired_sectors_match_separate_assembly():
+    """envelope_blocks shares nodes, symbol and Bessel values between the two sectors; the result must
+    agree (ball overlap, every entry) with assembling each sector on its own."""
+    both = we.envelope_blocks(0.5, 40.0, {"even": 12, "odd": 12}, dps=40, chunk=50)
+    for parity in ("even", "odd"):
+        one = we.envelope_block(0.5, 40.0, 12, parity, dps=40, chunk=50)
+        A, B = both[parity]["R"], one["R"]
+        assert all(A[i, j].overlaps(B[i, j]) for i in range(12) for j in range(12))
+        assert both[parity]["orders"] == one["orders"]
