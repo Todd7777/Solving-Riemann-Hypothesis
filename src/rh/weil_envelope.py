@@ -68,7 +68,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 __all__ = ["comb", "omega", "symbol", "beta_star", "sph_bessel_j_all", "pole_vector", "panels",
-           "envelope_block", "tail_bounds", "bessel_guard_digits", "ldl_certify", "ldl_mid_blocked",
+           "envelope_block", "envelope_blocks", "certify_windows", "approx_lambda_min_ldl", "tail_bounds", "bessel_guard_digits", "ldl_certify", "ldl_mid_blocked",
            "residual_certify", "inertia_count", "lambda_min_estimate", "approx_lambda_min", "certify_window"]
 
 
@@ -400,12 +400,23 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
     computed (`_bessel_cutoff`); the rest are dropped and covered by a rigorous radius added to every entry,
     10^-(dps+40) sqrt(2L(2 n_max+1)) sum_k |w_k sigma_k| / pi.  Each chunk of nodes (in increasing t) then
     updates only the leading block of C.
-    Returns {'R', 'beta', 'A', 'panels', 'n_nodes', 'orders', ...}."""
+    Returns {'R', 'beta', 'A', 'panels', 'n_nodes', 'orders', ...}.  (One sector of `envelope_blocks`.)"""
+    return envelope_blocks(L, T, {parity: N}, dps=dps, target=target, chunk=chunk, verbose=verbose,
+                           comb_cert=comb_cert, wmax=wmax, truncate=truncate)[parity]
+
+
+def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = None, chunk: int = 4000,
+                    verbose: bool = False, comb_cert=None, wmax: float = 4.0, truncate: bool = True) -> dict:
+    """`envelope_block` for several parity sectors at once, Ns = {parity: N}.  The sectors share the panels
+    (chosen for the largest order of all), the nodes, the symbol (with H) and the Bessel values at every
+    node; only the accumulation is per sector.  Returns {parity: info}."""
     from flint import arb, arb_mat, ctx
     from .weil_form import _gl_nodes
-    orders = sector_orders(parity, N)
-    n_max = orders[-1]
     t0 = time.time()
+    sectors = {}
+    for parity, N in Ns.items():
+        sectors[parity] = {"N": N, "orders": sector_orders(parity, N)}
+    n_max = max(sec["orders"][-1] for sec in sectors.values())
     with _ctx(dps):
         if target is None:
             target = 10.0 ** (-(dps - 5))
@@ -413,27 +424,27 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
         beta = beta_star(L, T, comb_cert)
         LL = arb(L)
         pans = panels(L, T, n_max, target=target, wmax=wmax, comb_cert=comb_cert)
-        # quadrature: accumulate C = sum_k w_k sigma_k G(t_k) G(t_k)^T / pi in chunks of nodes
-        C = arb_mat(N, N)
-        scale = [((2 * LL * (2 * n + 1)).sqrt()) * (1 if (n // 2) % 2 == 0 else -1) for n in orders]
-        rows_G, rows_W = [], []
+        for sec in sectors.values():
+            sec["C"] = arb_mat(sec["N"], sec["N"])
+            sec["scale"] = [((2 * LL * (2 * n + 1)).sqrt()) * (1 if (n // 2) % 2 == 0 else -1) for n in sec["orders"]]
+            sec["rows_G"], sec["rows_W"] = [], []
         n_nodes = 0
         err_unit_total = 0.0
         log10_tau = -(dps + 40)
         sum_abs_wsig = 0.0                      # sum_k |w_k sigma_k| (float upper bound), for the drop radius
 
-        def flush():
-            nonlocal C, rows_G, rows_W
-            if not rows_G:
+        def flush(sec):
+            if not sec["rows_G"]:
                 return
-            k = max(len(r) for r in rows_G)
-            Gm = arb_mat([r + [0] * (k - len(r)) for r in rows_G])
-            Wm = arb_mat([r + [0] * (k - len(r)) for r in rows_W])
+            k = max(len(r) for r in sec["rows_G"])
+            Gm = arb_mat([r + [0] * (k - len(r)) for r in sec["rows_G"]])
+            Wm = arb_mat([r + [0] * (k - len(r)) for r in sec["rows_W"]])
             blk = Gm.transpose() * Wm
             del Gm, Wm
-            rows_G, rows_W = [], []
-            if k == N:
-                C += blk
+            sec["rows_G"], sec["rows_W"] = [], []
+            C = sec["C"]
+            if k == sec["N"]:
+                sec["C"] = C + blk
             else:                               # fold the leading block in now (bounded memory)
                 for i in range(k):
                     for j in range(k):
@@ -457,43 +468,50 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
                 sig = symbol(L, +t, comb_list, comb_cert).real - beta
                 ncut = _bessel_cutoff(float(xx.mid()) * (1 + 1e-12), L, n_max, log10_tau) if truncate else n_max
                 js = sph_bessel_j_all(xx, ncut)
-                k = sum(1 for n in orders if n <= ncut)
-                g = [scale[i] * js[orders[i]] for i in range(k)]
                 wk = (+wh) * sig * inv_pi
                 if truncate:
                     sum_abs_wsig += _up(abs(wk))
-                rows_G.append(g)
-                rows_W.append([gi * wk for gi in g])
+                for sec in sectors.values():
+                    orders, scale = sec["orders"], sec["scale"]
+                    k = sum(1 for n in orders if n <= ncut)
+                    g = [scale[i] * js[orders[i]] for i in range(k)]
+                    sec["rows_G"].append(g)
+                    sec["rows_W"].append([gi * wk for gi in g])
+                    if len(sec["rows_G"]) >= chunk:
+                        flush(sec)
                 n_nodes += 1
-                if len(rows_G) >= chunk:
-                    flush()
             err_unit_total += P.err_unit
-        flush()
-        if truncate:
-            drop = 10.0 ** log10_tau * math.sqrt(2 * L * (2 * n_max + 1)) * sum_abs_wsig * (1 + 1e-9)
+        out = {}
+        for parity, sec in sectors.items():
+            flush(sec)
+            N, orders, C = sec["N"], sec["orders"], sec["C"]
+            if truncate:
+                drop = 10.0 ** log10_tau * math.sqrt(2 * L * (2 * n_max + 1)) * sum_abs_wsig * (1 + 1e-9)
+                for i in range(N):
+                    for j in range(N):
+                        C[i, j] += arb(0, drop)
+            # quadrature error radii: |E_mn| <= err_unit_total * 2L sqrt((2m+1)(2n+1)) / pi
+            for i, m in enumerate(orders):
+                for j, n in enumerate(orders):
+                    r = err_unit_total * 2 * L * math.sqrt((2 * m + 1) * (2 * n + 1)) / math.pi * (1 + 1e-9)
+                    C[i, j] += arb(0, r)
+            p = pole_vector(L, orders, parity)
+            s = 1 if parity == "even" else -1
+            R = arb_mat(N, N)
             for i in range(N):
                 for j in range(N):
-                    C[i, j] += arb(0, drop)
-        # quadrature error radii: |E_mn| <= err_unit_total * 2L sqrt((2m+1)(2n+1)) / pi
-        for i, m in enumerate(orders):
-            for j, n in enumerate(orders):
-                r = err_unit_total * 2 * L * math.sqrt((2 * m + 1) * (2 * n + 1)) / math.pi * (1 + 1e-9)
-                C[i, j] += arb(0, r)
-        p = pole_vector(L, orders, parity)
-        s = 1 if parity == "even" else -1
-        R = arb_mat(N, N)
-        for i in range(N):
-            for j in range(N):
-                R[i, j] = C[i, j] + s * 2 * p[i] * p[j]
-            R[i, i] += beta
-        info = {"R": R, "beta": beta, "A": A, "panels": pans, "n_nodes": n_nodes, "orders": orders,
-                "A_prime": comb_cert.A_prime if comb_cert is not None else None,
-                "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
-                "seconds": time.time() - t0, "dps": dps}
+                    R[i, j] = C[i, j] + s * 2 * p[i] * p[j]
+                R[i, i] += beta
+            del C
+            sec.pop("C")
+            out[parity] = {"R": R, "beta": beta, "A": A, "panels": pans, "n_nodes": n_nodes, "orders": orders,
+                           "A_prime": comb_cert.A_prime if comb_cert is not None else None,
+                           "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
+                           "seconds": time.time() - t0, "dps": dps}
     if verbose:
-        print(f"envelope_block L={L} T={T} N={N} {parity}: {n_nodes} nodes in {len(pans)} panels, "
-              f"quad err unit {err_unit_total:.1e}, {info['seconds']:.0f}s", flush=True)
-    return info
+        print(f"envelope_blocks L={L} T={T} {Ns}: {n_nodes} nodes in {len(pans)} panels, "
+              f"quad err unit {err_unit_total:.1e}, {time.time() - t0:.0f}s", flush=True)
+    return out
 
 
 # ----------------------------------------------------------------------------
@@ -722,6 +740,41 @@ def lambda_min_estimate(M, lo_exp: int = -60, hi_exp: int = 0, digits: float = 0
     return {"lambda_min": -(10.0 ** ((a + b) / 2)), "n_negative": k}
 
 
+def approx_lambda_min_ldl(M, iters: int = 6, b: int = 64):
+    """As `approx_lambda_min`, but the inverse iteration reuses one blocked LDL^T of the midpoint of M
+    (`ldl_mid_blocked`, O(N^3) at C speed) and triangular solves (O(N^2) each), instead of one full LU
+    solve per iteration.  Returns (lambda, x) or None if M has negative pivots (not positive definite)."""
+    from flint import arb, arb_mat
+    n = M.nrows()
+    f = ldl_mid_blocked(M, None, b=b)
+    if f["n_negative"]:
+        return None
+    Lm, d = f["L"], f["d"]
+    x = [arb(1) / (1 + i) for i in range(n)]
+    Mm = M.mid()
+    lam = None
+    for _ in range(iters):
+        z = [None] * n                          # L z = x
+        for i in range(n):
+            acc = x[i]
+            for j in range(i):
+                acc -= Lm[i, j] * z[j]
+            z[i] = acc.mid()
+        w = [(z[i] / d[i]).mid() for i in range(n)]
+        y = [None] * n                          # L^T y = w
+        for i in range(n - 1, -1, -1):
+            acc = w[i]
+            for j in range(i + 1, n):
+                acc -= Lm[j, i] * y[j]
+            y[i] = acc.mid()
+        nrm = sum((v * v for v in y), arb(0)).sqrt()
+        x = [(v / nrm).mid() for v in y]
+        xm = arb_mat([[v] for v in x])
+        Mx = Mm * xm
+        lam = sum((x[i] * Mx[i, 0] for i in range(n)), arb(0))
+    return lam, arb_mat([[v] for v in x])
+
+
 def approx_lambda_min(M, iters: int = 6):
     """Approximate eigenvalue of the symmetric arb_mat M closest to 0 (and its vector), by inverse
     iteration on the midpoint.  Not rigorous, and it is lambda_min only if M is positive definite:
@@ -749,12 +802,32 @@ def certify_window(L, parity: str, T, N, dps: int = 40, lam0=None, safety: float
     """Certified lower bound c with Q(f) >= c ||f||^2 for every real f of the sector supported in
     [-L, L]:  c = min(lam0, beta - eps_D) - eps_B, valid when R_A - lam0 I is certified positive
     definite.  lam0 defaults to safety x (approximate lambda_min(R_A))."""
-    from flint import arb
     t0 = time.time()
     blk = envelope_block(L, T, N, parity, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk)
+    return _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, t0)
+
+
+def certify_windows(L, T, Ns: dict, dps: int = 40, safety: float = 0.98, verbose: bool = False, comb_cert=None,
+                    wmax: float = 4.0, chunk: int = 4000) -> dict:
+    """`certify_window` for several sectors (Ns = {parity: N}) from one shared-node assembly
+    (`envelope_blocks`); the sectors are then certified one after the other, each block released after its
+    certificate.  Returns {parity: result}."""
+    t0 = time.time()
+    blks = envelope_blocks(L, T, Ns, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk)
+    out = {}
+    for parity in list(blks):
+        blk = blks.pop(parity)
+        out[parity] = _certify_block(blk, L, parity, T, Ns[parity], dps, None, safety, verbose, comb_cert, t0)
+        del blk
+    return out
+
+
+def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, t0) -> dict:
+    from flint import arb
     with _ctx(dps):
         R = blk["R"]
-        lam_approx, _ = approx_lambda_min(R)
+        est = approx_lambda_min_ldl(R)
+        lam_approx = est[0] if est is not None else approx_lambda_min(R)[0]
         if lam0 is None:
             lam0 = lam_approx * safety if lam_approx > 0 else lam_approx
         cert = residual_certify(R, arb(lam0))
