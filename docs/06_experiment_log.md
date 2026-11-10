@@ -522,13 +522,13 @@ This has the structure of E13, with $A_L$ replaced by $A'$. The rest of E13 carr
 
 **Results.**
 
-| $ | prime powers <e^{2L}$ | $ | comb certificate | '$ | $: pointwise / comb | $ | $ | even: certified $ | even: upper | odd: certified $ | odd: upper |
+| $L$ | prime powers $n<e^{2L}$ | $A_L$ | comb certificate | $A'$ | $T_1$: pointwise / comb | $T$ | $N$ | even: certified $c$ | even: upper | odd: certified $c$ | odd: upper |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1.0 | 2, 3, 4, 5, 7 | 5.852 | separable, =24$ | 3.022 | 2187 / 129 | 300 | 275 | .0904\times10^{-30}$ | .2828\times10^{-30}$ | .0422\times10^{-26}$ | .6787\times10^{-26}$ |
-| 1.1 | 2, 3, 4, 5, 7, 8, 9 | 7.075 | separable, =24$ | 3.825 | 7427 / 288 | 400 | 394 | .1235\times10^{-38}$ | (.00\times10^{-38}$) | .5640\times10^{-35}$ | (.63\times10^{-35}$) |
-| 1.2 | 2, 3, 4, 5, 7, 8, 9, 11 | 8.521 | separable, =24$ | 4.574 | 31535 / 609 | 800 | 836 | .5724\times10^{-49}$ | (.04\times10^{-49}$) | .9165\times10^{-45}$ | (.35\times10^{-45}$) |
-| 1.3 | 2, 3, 4, 5, 7, 8, 9, 11, 13 | 9.944 | joint, $\Lambda=5.5$ | 4.578 | .3\times10^5$ / 612 | 800 | 904 | .6852\times10^{-62}$ | (.6\times10^{-59}$) | .3485\times10^{-58}$ | (.4\times10^{-55}$) |
-| 1.4 | 2, 3, 4, 5, 7, 8, 9, 11, 13, 16 | 10.290 | joint, $\Lambda=6.5$ | 4.606 | .9\times10^5$ / 629 | 850 | 1031 | .5434\times10^{-78}$ | (.3\times10^{-67}$) | $1.0931\times10^{-73}$ | ($4.8\times10^{-64}$) |
+| 1.0 | 2, 3, 4, 5, 7 | 5.852 | separable, $X=24$ | 3.022 | 2187 / 129 | 300 | 275 | $4.0904\times10^{-30}$ | $6.2828\times10^{-30}$ | $1.0422\times10^{-26}$ | $1.6787\times10^{-26}$ |
+| 1.1 | 2, 3, 4, 5, 7, 8, 9 | 7.075 | separable, $X=24$ | 3.825 | 7427 / 288 | 400 | 394 | $1.1235\times10^{-38}$ | ($2.00\times10^{-38}$) | $4.5640\times10^{-35}$ | ($7.63\times10^{-35}$) |
+| 1.2 | 2, 3, 4, 5, 7, 8, 9, 11 | 8.521 | separable, $X=24$ | 4.574 | 31535 / 609 | 800 | 836 | $4.5724\times10^{-49}$ | ($7.04\times10^{-49}$) | $2.9165\times10^{-45}$ | ($4.35\times10^{-45}$) |
+| 1.3 | 2, 3, 4, 5, 7, 8, 9, 11, 13 | 9.944 | joint, $\Lambda=5.5$ | 4.578 | $1.3\times10^5$ / 612 | 800 | 904 | $4.6852\times10^{-62}$ | ($6.6\times10^{-59}$) | $4.3485\times10^{-58}$ | ($1.4\times10^{-55}$) |
+| 1.4 | 2, 3, 4, 5, 7, 8, 9, 11, 13, 16 | 10.290 | joint, $\Lambda=6.5$ | 4.606 | $1.9\times10^5$ / 629 | 850 | 1031 | $6.5434\times10^{-78}$ | ($1.3\times10^{-67}$) | $1.0931\times10^{-73}$ | ($4.8\times10^{-64}$) |
 
 At $L=1$ the upper bounds are E13's rigorous enclosures (`rh.weil_certificate`, Legendre minimiser of degree $<96$), so that window is enclosed two-sidedly. The bracketed values for $L\ge1.1$ are numerical: the smallest eigenvalue $\lambda_J$ of the form on Legendre polynomials of degree $<J$ (`rh.weil_form`; $J=160$, $224$ at $L=1.2$). They estimate the infimum from above but are not rigorous; at this degree the rigorous enclosures of `rh.weil_certificate` take hours. The $\lambda_J$ still fall with $J$: at $L=1.2$ they are $7.94$, $7.24$ and $7.04\times10^{-49}$ at $J=160$, $192$ and $224$, and at $L=1.4$ they are $2.6\times10^{-61}$ and $1.3\times10^{-67}$ at $J=128$ and $160$. So at $L=1.3$ and $1.4$ the true margins sit near the certified lower bounds. The residuals ($5\times10^{-48}$ at $L=1$ down to $10^{-92}$ at $L=1.4$, at 55–100 digits) and the coupling bounds ($\le2\times10^{-71}$) lie at least 14 orders of magnitude below the certified margins. One sector takes 25 s at $L=1$ and about 10 min at $L=1.2$–$1.4$ on one core.
 

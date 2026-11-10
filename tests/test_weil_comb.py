@@ -159,3 +159,21 @@ def test_joint_certificate_is_valid_and_beats_separable():
         val = cert.A_prime - sum((c * (tt * arb(n).log()).cos() for t_ in comb.values() for n, c in t_), arb(0))
         assert val + cert.H(tt).real > 0
     ctx.dps = 15
+
+
+def test_admm_joint_certificate_matches_barrier_and_is_valid():
+    """The ADMM route (used for the large monomial sets at L = 1.5) reaches the barrier optimum on a small
+    case, and the certificate built from it is valid: the mismatches it leaves are absorbed into A'."""
+    L, Lam = 0.9, 5.0
+    bar = wcb.joint_comb_certificate(L, Lam).describe()
+    cert = wcb.joint_comb_certificate(L, Lam, solver="admm", admm_iters=4000)
+    d = cert.describe()
+    assert d["solver"] == "admm"
+    assert abs(d["A_prime"] - bar["A_prime"]) < 2e-3
+    assert abs(d["A_prime"] - d["admm_value"]) < 1e-9      # the exact certificate reproduces the ADMM value
+    comb = wcb.prime_comb(L)
+    ts = np.linspace(0, 2000, 400001)
+    P = sum(float(c.mid()) * np.cos(ts * math.log(n)) for t in comb.values() for n, c in t)
+    H = sum(float(h.mid()) * np.cos(ts * math.log(n / dd)) for n, dd, h in cert.terms)
+    assert (float(cert.A_prime.mid()) - P + H).min() > -1e-9
+    assert cert.omega_min >= 2 * L

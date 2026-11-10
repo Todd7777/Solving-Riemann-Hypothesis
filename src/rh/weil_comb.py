@@ -580,9 +580,67 @@ def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, 
             "gap": float("nan"), "n_free": int(len(fidx)), "nB": nB, "rank": int(keep.sum()), "iters": it}
 
 
+def admm_polish(L: float, Lam: float, G: dict) -> dict:
+    """Second candidate from an ADMM Gram factor: project Z = R^T R exactly onto the constraints (zero
+    mismatch) and add eps I with eps = max(0, -lambda_min), costing eps |B| in the trace instead of the L1
+    mismatch.  Returns G with the better factor (values compared as tr X + sum |mismatch|)."""
+    import numpy as np
+    comb = prime_comb(L)
+    primes = sorted(comb)
+    lp = np.array([math.log(p) for p in primes])
+    B = G["B"]
+    nB = len(B)
+    flat = (B[:, None, :] - B[None, :, :]).reshape(nB * nB, -1)
+    first = np.argmax(flat != 0, axis=1)
+    sgn = np.sign(flat[np.arange(nB * nB), first])
+    plus = sgn > 0
+    keys, inv = np.unique(flat[plus], axis=0, return_inverse=True)
+    inv = inv.ravel()
+    free = np.abs(keys @ lp) < 2 * L - 1e-9
+    fidx = np.nonzero(free)[0]
+    col = -np.ones(len(keys), dtype=int)
+    col[fidx] = np.arange(len(fidx))
+    pos = np.nonzero(plus)[0]
+    kf = col[inv]
+    sel = kf >= 0
+    ent, kid = pos[sel], kf[sel]
+    entT = (ent % nB) * nB + ent // nB
+    cnt = np.bincount(kid, minlength=len(fidx)).astype(float)
+    target = np.zeros(len(fidx))
+    for a, kidx in enumerate(fidx):
+        nz = np.nonzero(keys[kidx])[0]
+        if len(nz) == 1:
+            p, k = primes[nz[0]], keys[kidx][nz[0]]
+            if k <= len(comb[p]):
+                target[a] = -float(comb[p][k - 1][1].mid()) / 2
+    Z = G["R"].T @ G["R"]
+    r = np.bincount(kid, weights=Z.ravel()[ent], minlength=len(fidx)) - target
+    val_l1 = float(np.trace(Z) + 2 * np.sum(np.abs(r)))
+    v = Z.ravel().copy()
+    sh = (r / cnt)[kid]
+    v[ent] -= sh
+    v[entT] -= sh
+    X = v.reshape(nB, nB)
+    X = (X + X.T) / 2
+    lmin = float(np.linalg.eigvalsh(X)[0])
+    eps = max(0.0, -lmin) * (1 + 1e-6) + 1e-14
+    X = X + eps * np.eye(nB)
+    val_proj = float(np.trace(X))
+    out = dict(G)
+    out["polish"] = {"value_l1": val_l1, "value_projected": val_proj, "eps": eps}
+    if val_proj < val_l1:
+        lam, Q = np.linalg.eigh(X)
+        keep = lam > 0
+        out["R"] = np.sqrt(lam[keep])[:, None] * Q[:, keep].T
+        out["rank"] = int(keep.sum())
+        out["admm_value"] = val_proj
+        out["admm_mismatch"] = 0.0
+    return out
+
+
 def joint_comb_certificate(L: float, Lam: float = 5.0, drop: float = 1e-13, mu_min: float = 1e-9,
                            verbose: bool = False, solver: str = "barrier", admm_iters: int = 20000,
-                           gram: dict | None = None) -> CombCertificate:
+                           gram: dict | None = None, admm_alpha: float = 1.6) -> CombCertificate:
     """Joint SOS certificate (*) on the torus of prime phases (see `joint_gram`); every frequency of H is
     log(n/n') with 2L <= log(n/n') <= Lam.
 
@@ -598,7 +656,7 @@ def joint_comb_certificate(L: float, Lam: float = 5.0, drop: float = 1e-13, mu_m
         G = gram
         solver = "admm" if "admm_value" in gram else solver
     elif solver == "admm":
-        G = joint_gram_admm(L, Lam, iters=admm_iters, verbose=verbose)
+        G = admm_polish(L, Lam, joint_gram_admm(L, Lam, iters=admm_iters, verbose=verbose, alpha=admm_alpha))
     else:
         G = joint_gram(L, Lam, mu_min=mu_min, verbose=verbose)
     B, R, primes = G["B"], G["R"], G["primes"]

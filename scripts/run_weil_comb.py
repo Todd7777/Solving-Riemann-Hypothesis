@@ -48,6 +48,7 @@ WINDOWS = [
     (1.2, 800.0, 72, 192, ("sep", X_BUDGET)),
     (1.3, 800.0, 85, 160, ("joint", 5.5)),
     (1.4, 850.0, 100, 160, ("joint", 6.5)),
+    (1.5, None, 130, 160, ("joint-admm", 8.0, 25000)),   # T = 1.25 T_1''; ADMM for the 619-monomial SOS
 ]
 QUICK = [(1.0, 170.0, 50, 64, ("sep", X_BUDGET))]
 CONSTANT_LS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
@@ -99,8 +100,13 @@ def comb_cert(L, spec):
     """The comb certificate for window L ('sep', X) or ('joint', Lambda), built once per run."""
     key = (L, tuple(spec))
     if key not in _CERTS:
-        kind, par = spec
-        _CERTS[key] = wcb.comb_certificate(L, par) if kind == "sep" else wcb.joint_comb_certificate(L, par)
+        kind, par = spec[0], spec[1]
+        if kind == "sep":
+            _CERTS[key] = wcb.comb_certificate(L, par)
+        elif kind == "joint-admm":
+            _CERTS[key] = wcb.joint_comb_certificate(L, par, solver="admm", admm_iters=spec[2])
+        else:
+            _CERTS[key] = wcb.joint_comb_certificate(L, par)
     return _CERTS[key]
 
 
@@ -121,9 +127,12 @@ def certificate_record(cert, spec):
 
 def certify(L, T0, dps, parity, spec=("sep", X_BUDGET)):
     cert = comb_cert(L, spec)
+    if T0 is None:                                   # a fixed multiple of the cutoff 2 pi e^{A'}
+        T0 = float(round(1.25 * 2 * math.pi * math.exp(float(cert.A_prime.upper()))))
     T, attempts = T0, []
     for _ in range(4):
-        r = we.certify_window(L, parity, T=T, N=modes_for(L, T), dps=dps, verbose=True, comb_cert=cert, wmax=8.0)
+        r = we.certify_window(L, parity, T=T, N=modes_for(L, T), dps=dps, verbose=True, comb_cert=cert, wmax=8.0,
+                              chunk=2000)
         attempts.append({"T": T, "N": r["N"], "lambda_approx": r["lambda_approx"],
                          "certified_lower_bound": r["certified_lower_bound"]})
         if r["positive"]:

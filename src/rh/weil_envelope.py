@@ -736,13 +736,13 @@ def approx_lambda_min(M, iters: int = 6):
 # 7. The certificate
 # ----------------------------------------------------------------------------
 def certify_window(L, parity: str, T, N, dps: int = 40, lam0=None, safety: float = 0.98,
-                   verbose: bool = False, comb_cert=None, wmax: float = 4.0) -> dict:
+                   verbose: bool = False, comb_cert=None, wmax: float = 4.0, chunk: int = 4000) -> dict:
     """Certified lower bound c with Q(f) >= c ||f||^2 for every real f of the sector supported in
     [-L, L]:  c = min(lam0, beta - eps_D) - eps_B, valid when R_A - lam0 I is certified positive
     definite.  lam0 defaults to safety x (approximate lambda_min(R_A))."""
     from flint import arb
     t0 = time.time()
-    blk = envelope_block(L, T, N, parity, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax)
+    blk = envelope_block(L, T, N, parity, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk)
     with _ctx(dps):
         R = blk["R"]
         lam_approx, _ = approx_lambda_min(R)
