@@ -23,7 +23,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-10: 287 pass, about 3 minutes
+python3 -m pytest                   # 2026-11-10: 288 pass, about 3 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
