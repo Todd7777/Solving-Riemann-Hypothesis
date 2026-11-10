@@ -301,6 +301,19 @@
      "certified_lower_bound": 1.1234844385517413e-38
     }
    ],
+   "upper": {
+    "J": 160,
+    "lambda_J_numerical": "1.998306765e-38",
+    "upper": 1.9983067651554053e-38,
+    "lower_of_ratio": 1.9983067651411987e-38,
+    "seconds": 6663.732136964798,
+    "L": 1.1,
+    "parity": "even"
+   },
+   "certified_interval": [
+    1.1234844385517413e-38,
+    1.9983067651554053e-38
+   ],
    "lambda_J_numerical": {
     "J": 160,
     "lambda_J": 1.998e-38,
@@ -398,6 +411,19 @@
      "lambda_approx": 4.65714323152568e-35,
      "certified_lower_bound": 4.564000366895166e-35
     }
+   ],
+   "upper": {
+    "J": 160,
+    "lambda_J_numerical": "7.624551458e-35",
+    "upper": 7.62455145800534e-35,
+    "lower_of_ratio": 7.62455145730255e-35,
+    "seconds": 7075.484588623047,
+    "L": 1.1,
+    "parity": "odd"
+   },
+   "certified_interval": [
+    4.564000366895166e-35,
+    7.62455145800534e-35
    ],
    "lambda_J_numerical": {
     "J": 160,
@@ -821,8 +847,8 @@
     }
    ],
    "lambda_J_numerical": {
-    "J": 128,
-    "lambda_J": 2.554e-61,
+    "J": 160,
+    "lambda_J": 1.307e-67,
     "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
    }
   },
@@ -890,8 +916,150 @@
     }
    ],
    "lambda_J_numerical": {
-    "J": 128,
-    "lambda_J": 9.865e-58,
+    "J": 160,
+    "lambda_J": 4.841e-64,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.5,
+   "parity": "even",
+   "T": 1684.0,
+   "N": 2166,
+   "dps": 130,
+   "orders_max": 4330,
+   "n_nodes": 24970,
+   "n_panels": 227,
+   "quad_error_unit": 8.179116668716406e-129,
+   "beta": 0.26236691920442123,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11,
+    13,
+    16,
+    17,
+    19
+   ],
+   "A_L": 13.015653983429381,
+   "lambda_approx": 2.724004675837332e-97,
+   "A_prime": 5.328683194495704,
+   "comb_X": 8.0,
+   "lambda0": 2.6695245823205853e-97,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 1.3836481282352583e-10,
+   "residual_F": 7.45650871774963e-122,
+   "eps_B": 1e-300,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 2.6695245823205853e-97,
+   "positive": true,
+   "seconds": 2342.106528043747,
+   "comb_certificate": {
+    "A_L": 13.015653983429376,
+    "A_prime": 5.328683194495704,
+    "separable_optimum": 6.8328796067968725,
+    "T1_pointwise": 2823622.0957031124,
+    "T1_certificate": 1295.3811574510244,
+    "H_sup": 41.739023238667954,
+    "n_terms": 8008,
+    "omega_min": 3.0001866239033688,
+    "X": 8.0,
+    "per_prime": [],
+    "kind": "joint",
+    "dual": NaN,
+    "nB": 619,
+    "n_free": 32181,
+    "n_dropped": 0,
+    "Lambda": 8.0
+   },
+   "attempts": [
+    {
+     "T": 1684.0,
+     "N": 2166,
+     "lambda_approx": 2.724004675837332e-97,
+     "certified_lower_bound": 2.6695245823205853e-97
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 224,
+    "lambda_J": 5.786e-87,
+    "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
+   }
+  },
+  {
+   "L": 1.5,
+   "parity": "odd",
+   "T": 1684.0,
+   "N": 2166,
+   "dps": 130,
+   "orders_max": 4331,
+   "n_nodes": 24970,
+   "n_panels": 227,
+   "quad_error_unit": 8.179116668716406e-129,
+   "beta": 0.26236691920442123,
+   "comb": [
+    2,
+    3,
+    4,
+    5,
+    7,
+    8,
+    9,
+    11,
+    13,
+    16,
+    17,
+    19
+   ],
+   "A_L": 13.015653983429381,
+   "lambda_approx": 5.975096322726217e-93,
+   "A_prime": 5.328683194495704,
+   "comb_X": 8.0,
+   "lambda0": 5.855594396271694e-93,
+   "ldl_certified": true,
+   "ldl_failed_at": null,
+   "ldl_min_pivot": 4.4188101654673624e-10,
+   "residual_F": 7.459834938429491e-122,
+   "eps_B": 1e-300,
+   "eps_D": 1e-300,
+   "certified_lower_bound": 5.855594396271694e-93,
+   "positive": true,
+   "seconds": 2348.3121569156647,
+   "comb_certificate": {
+    "A_L": 13.015653983429376,
+    "A_prime": 5.328683194495704,
+    "separable_optimum": 6.8328796067968725,
+    "T1_pointwise": 2823622.0957031124,
+    "T1_certificate": 1295.3811574510244,
+    "H_sup": 41.739023238667954,
+    "n_terms": 8008,
+    "omega_min": 3.0001866239033688,
+    "X": 8.0,
+    "per_prime": [],
+    "kind": "joint",
+    "dual": NaN,
+    "nB": 619,
+    "n_free": 32181,
+    "n_dropped": 0,
+    "Lambda": 8.0
+   },
+   "attempts": [
+    {
+     "T": 1684.0,
+     "N": 2166,
+     "lambda_approx": 5.975096322726217e-93,
+     "certified_lower_bound": 5.855594396271694e-93
+    }
+   ],
+   "lambda_J_numerical": {
+    "J": 224,
+    "lambda_J": 1.02e-83,
     "note": "numerical smallest eigenvalue of the Weil form on Legendre polynomials of degree < J (rh.weil_form, mpmath); an upper estimate of the infimum, not rigorous"
    }
   }
