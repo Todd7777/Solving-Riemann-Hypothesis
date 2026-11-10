@@ -68,7 +68,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 __all__ = ["comb", "omega", "symbol", "beta_star", "sph_bessel_j_all", "pole_vector", "panels",
-           "envelope_block", "tail_bounds", "bessel_guard_digits", "ldl_certify", "approx_lambda_min", "certify_window"]
+           "envelope_block", "tail_bounds", "bessel_guard_digits", "ldl_certify", "ldl_mid_blocked",
+           "residual_certify", "inertia_count", "lambda_min_estimate", "approx_lambda_min", "certify_window"]
 
 
 def _ctx(dps):
@@ -131,8 +132,9 @@ def omega(z):
     return ((q + h).digamma() + (q - h).digamma()) / 2 - arb.pi().log()
 
 
-def symbol(L, z, comb_list=None):
-    """Psi_L(z) (acb; real part is the symbol for real z)."""
+def symbol(L, z, comb_list=None, comb_cert=None):
+    """Psi_L(z) (acb; real part is the symbol for real z), plus H(z) when a comb certificate
+    (`rh.weil_comb.CombCertificate`) is given."""
     from flint import acb, arb
     if comb_list is None:
         comb_list, _ = comb(L)
@@ -140,12 +142,18 @@ def symbol(L, z, comb_list=None):
     s = omega(z)
     for n, c in comb_list:
         s -= c * (z * arb(n).log()).cos()
+    if comb_cert is not None:
+        s += comb_cert.H(z)
     return s
 
 
-def beta_star(L, T):
-    """beta = Omega(T) - A_L (arb): Psi_L(t) >= beta for all t >= T."""
+def beta_star(L, T, comb_cert=None):
+    """beta = Omega(T) - A_L (arb): Psi_L(t) >= beta for all t >= T.  With a comb certificate
+    (A' - P_L + H >= 0 everywhere, H of spectrum outside (-2L, 2L)): beta'' = Omega(T) - A', and
+    Psi_L(t) + H(t) >= beta'' for all t >= T."""
     from flint import acb
+    if comb_cert is not None:
+        return omega(acb(T)).real - comb_cert.A_prime
     _, A = comb(L)
     return omega(acb(T)).real - A
 
@@ -287,7 +295,7 @@ class Panel:
     err_unit: float        # bound on |I - I_nu| for the integrand sigma G_m G_n divided by 2L sqrt((2m+1)(2n+1))
 
 
-def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10):
+def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10, comb_cert=None):
     """Upper bound for sup |Psi_L(z) - beta| on the Bernstein ellipse of the panel [c - h, c + h]
     with parameter rho (maximum principle: on its boundary).  The boundary is covered by arcs whose
     images are enclosed in Arb boxes; an arc whose evaluation is not finite (Arb's complex digamma
@@ -303,7 +311,7 @@ def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10):
         e = acb(th.cos(), th.sin())                     # e^{i theta} over the arc (ball)
         zeta = (rho * e + e.conjugate() / rho) / 2       # point of the standard ellipse
         z = acb(c) + h * zeta
-        v = symbol(L, z, comb_list) - beta
+        v = symbol(L, z, comb_list, comb_cert) - beta
         if v.is_finite():
             best = max(best, _up(abs(v)))
         elif depth < max_depth:
@@ -315,7 +323,7 @@ def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10):
     return best
 
 
-def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3, 4, 6, 8)):
+def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3, 4, 6, 8), comb_cert=None):
     """Composite rule on [0, T]: widths w0 near t = 0 (the poles of Omega sit at +-i/2), growing to
     wmax.  For each panel the (rho, nu) with the fewest nodes meeting `target` for the worst entry
     (orders <= n_max) is chosen; err_unit is the rigorous per-entry bound divided by
@@ -323,7 +331,7 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
     resulting radii by a relative 1e-9, which covers the float rounding)."""
     from flint import arb
     comb_list, A = comb(L)
-    beta = beta_star(L, T)            # the exact ball: sup |Psi_L - beta| is bounded with it
+    beta = beta_star(L, T, comb_cert)  # the exact ball: sup |Psi_L (+ H) - beta| is bounded with it
     edges = [0.0]
     t = 0.0
     while t < T - 1e-12:
@@ -341,7 +349,7 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
             ae, be = h * (rho + 1 / rho) / 2, h * (rho - 1 / rho) / 2
             if (c / ae) ** 2 + (0.5 / be) ** 2 <= 1.05:
                 continue
-            M = _ellipse_sup_sigma(L, comb_list, beta, c, h, rho)
+            M = _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, comb_cert=comb_cert)
             if not math.isfinite(M):
                 continue
             growth = math.exp(2 * L * be)               # e^{2L |Im z|}
@@ -365,9 +373,11 @@ def sector_orders(parity: str, N: int) -> list:
 
 
 def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] = None,
-                   chunk: int = 4000, verbose: bool = False) -> dict:
+                   chunk: int = 4000, verbose: bool = False, comb_cert=None, wmax: float = 4.0) -> dict:
     """R_A = beta I + s 2 p_A p_A^T + C_AA (arb_mat, orthonormal Legendre modes of the sector) with
-    rigorous quadrature error radii.  Returns {'R', 'beta', 'A', 'panels', 'n_nodes', 'orders', ...}."""
+    rigorous quadrature error radii.  With a comb certificate (`rh.weil_comb`), beta'' = Omega(T) - A'
+    and the symbol on [0, T] is Psi_L + H - beta''.
+    Returns {'R', 'beta', 'A', 'panels', 'n_nodes', 'orders', ...}."""
     from flint import arb, arb_mat, ctx
     from .weil_form import _gl_nodes
     orders = sector_orders(parity, N)
@@ -377,9 +387,9 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
         if target is None:
             target = 10.0 ** (-(dps - 5))
         comb_list, A = comb(L)
-        beta = beta_star(L, T)
+        beta = beta_star(L, T, comb_cert)
         LL = arb(L)
-        pans = panels(L, T, n_max, target=target)
+        pans = panels(L, T, n_max, target=target, wmax=wmax, comb_cert=comb_cert)
         # quadrature: accumulate C = sum_k w_k sigma_k G(t_k) G(t_k)^T / pi in chunks of nodes
         C = arb_mat(N, N)
         scale = [((2 * LL * (2 * n + 1)).sqrt()) * (1 if (n // 2) % 2 == 0 else -1) for n in orders]
@@ -411,7 +421,7 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
             finally:
                 ctx.prec = work
             for (t, wh), xx in zip(pts, xs):
-                sig = symbol(L, +t, comb_list).real - beta
+                sig = symbol(L, +t, comb_list, comb_cert).real - beta
                 js = sph_bessel_j_all(xx, n_max)
                 g = [scale[i] * js[n] for i, n in enumerate(orders)]
                 wk = (+wh) * sig * inv_pi
@@ -435,6 +445,7 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
                 R[i, j] = C[i, j] + s * 2 * p[i] * p[j]
             R[i, i] += beta
         info = {"R": R, "beta": beta, "A": A, "panels": pans, "n_nodes": n_nodes, "orders": orders,
+                "A_prime": comb_cert.A_prime if comb_cert is not None else None,
                 "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
                 "seconds": time.time() - t0, "dps": dps}
     if verbose:
@@ -446,7 +457,7 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
 # ----------------------------------------------------------------------------
 # 5. Tail and coupling bounds
 # ----------------------------------------------------------------------------
-def tail_bounds(L, T, N, parity: str, n_extra: int = 4000, dps: int = 30) -> dict:
+def tail_bounds(L, T, N, parity: str, n_extra: int = 4000, dps: int = 30, comb_cert=None) -> dict:
     """Rigorous eps_B >= ||R_AD||_2 and eps_D >= ||R_D - beta I||_2 (D = all modes of the sector beyond
     the first N), from eta_n^2 = (1/pi) int_0^T G_n^2 <= (2L/pi) (LT)^{2n} T / ((2n+1)!!)^2 and
     |p_n| <= sqrt((2n+1)/(2L)) 2L (L/2)^n e^{L/2} / (2n+1)!!.  The sums over n >= N-th order are
@@ -455,10 +466,15 @@ def tail_bounds(L, T, N, parity: str, n_extra: int = 4000, dps: int = 30) -> dic
     with _ctx(dps):
         LL, TT = arb(L), arb(T)
         _, A = comb(L)
-        beta = beta_star(L, T)
+        beta = beta_star(L, T, comb_cert)
         Om0 = omega(acb(0)).real
         OmT = omega(acb(T)).real
-        sigma_max = max(_up(OmT - Om0), _up(2 * A))
+        if comb_cert is None:
+            # Psi_L - beta = (Omega - Omega(T)) + (A_L - P_L), the second term in [0, 2 A_L]
+            sigma_max = max(_up(OmT - Om0), _up(2 * A))
+        else:
+            # Psi_L + H - beta'' = (Omega - Omega(T)) + (A' - P_L + H), the second in [0, A' + A_L + sup|H|]
+            sigma_max = max(_up(OmT - Om0), _up(comb_cert.A_prime + A) + comb_cert.H_sup)
         orders = sector_orders(parity, N + n_extra)
         tail = orders[N:]
 
@@ -527,40 +543,92 @@ def ldl_certify(M, shift=None) -> dict:
     return {"certified": True, "failed_at": None, "min_pivot": minp}
 
 
-def residual_certify(M, shift) -> dict:
+def ldl_mid_blocked(M, shift=None, b: int = 64) -> dict:
+    """Approximate LDL^T (no pivoting) of the midpoint of the symmetric arb_mat M - shift I, in
+    exact dyadic (midpoint) arithmetic at the working precision: blocked and right-looking, so the
+    Schur-complement updates are FLINT matrix products (O(N^3) at C speed) and only the b x b diagonal
+    blocks are factored in Python.  Negative pivots do not stop it.
+    Returns {'L': unit lower triangular arb_mat (exact entries), 'd': pivots (exact arb),
+    'n_negative', 'min_pivot', 'first_negative'}."""
+    from flint import arb, arb_mat
+    n = M.nrows()
+    S = M.mid()
+    if shift is not None:
+        sh = arb(shift).mid()
+        for i in range(n):
+            S[i, i] = S[i, i] - sh
+    Lm = arb_mat(n, n)
+    d = [None] * n
+    n_neg, first_neg = 0, None
+    for k0 in range(0, n, b):
+        k1 = min(n, k0 + b)
+        m = k1 - k0
+        B = [[S[k0 + i, k0 + j] for j in range(m)] for i in range(m)]
+        Lk = [[arb(0)] * m for _ in range(m)]
+        dk = [None] * m
+        for i in range(m):
+            sv = B[i][i]
+            Li = Lk[i]
+            for j in range(i):
+                sv -= Li[j] * Li[j] * dk[j]
+            sv = sv.mid()
+            dk[i] = sv
+            if not (sv > 0):
+                n_neg += 1
+                if first_neg is None:
+                    first_neg = k0 + i
+            Li[i] = arb(1)
+            for r in range(i + 1, m):
+                Lr = Lk[r]
+                t = B[r][i]
+                for j in range(i):
+                    t -= Lr[j] * Li[j] * dk[j]
+                Lr[i] = (t / sv).mid()
+        for i in range(m):
+            d[k0 + i] = dk[i]
+            for j in range(i + 1):
+                Lm[k0 + i, k0 + j] = Lk[i][j]
+        nb = n - k1
+        if nb == 0:
+            break
+        # panel below the diagonal block: X (Lk Dk)^T = S[k1:, k0:k1]  <=>  (Lk Dk) X^T = S[k0:k1, k1:]
+        LD = arb_mat(m, m, [Lk[i][j] * dk[j] if j <= i else 0 for i in range(m) for j in range(m)])
+        SbT = arb_mat(m, nb, [S[k0 + i, k1 + r] for i in range(m) for r in range(nb)])
+        XT = LD.solve(SbT, algorithm="approx").mid()
+        W = arb_mat(n, m)
+        WD = arb_mat(n, m)
+        for r in range(nb):
+            for i in range(m):
+                x = XT[i, r]
+                Lm[k1 + r, k0 + i] = x
+                W[k1 + r, i] = x
+                WD[k1 + r, i] = x * dk[i]
+        S = (S - W * WD.transpose()).mid()
+    minp = min(float(x) for x in d)
+    return {"L": Lm, "d": d, "n_negative": n_neg, "min_pivot": minp, "first_negative": first_neg}
+
+
+def residual_certify(M, shift, b: int = 64) -> dict:
     """Certified lower bound for lambda_min(M), M a symmetric arb_mat, by an approximate LDL^T of the
-    midpoint of A = M - shift I (exact dyadic numbers, no balls: no wrapping effect) and a rigorous
-    residual: if A = Lt Dt Lt^T + E with Lt, Dt exact and Dt >= 0, then Lt Dt Lt^T is positive
-    semidefinite, so lambda_min(M) >= shift - ||E||_2 >= shift - ||E||_F.  E is computed in ball
-    arithmetic (it contains A - Lt Dt Lt^T for every A in the balls).
+    midpoint of A = M - shift I (exact dyadic numbers, no balls: no wrapping effect; `ldl_mid_blocked`)
+    and a rigorous residual: if A = Lt Dt Lt^T + E with Lt, Dt exact and Dt >= 0, then Lt Dt Lt^T is
+    positive semidefinite, so lambda_min(M) >= shift - ||E||_2 >= shift - ||E||_F.  E is computed in
+    ball arithmetic (it contains A - Lt Dt Lt^T for every A in the balls).
     Returns {'certified', 'lower_bound' (arb), 'residual_F' (arb upper bound), 'min_pivot'}."""
     from flint import arb, arb_mat
     n = M.nrows()
-    A = M - arb_mat(n, n, [shift if i == j else 0 for i in range(n) for j in range(n)]) if shift is not None \
-        else M
-    Am = A.mid().tolist()
-    L = [[arb(0)] * n for _ in range(n)]
-    d = [arb(0)] * n
-    for k in range(n):
-        Lk = L[k]
-        s = Am[k][k]
-        for j in range(k):
-            s -= Lk[j] * Lk[j] * d[j]
-        s = s.mid()
-        d[k] = s
-        if not (s > 0):
-            return {"certified": False, "failed_at": k, "lower_bound": None, "residual_F": None,
-                    "min_pivot": float(s)}
-        Lk[k] = arb(1)
-        for i in range(k + 1, n):
-            Li = L[i]
-            t = Am[i][k]
-            for j in range(k):
-                t -= Li[j] * Lk[j] * d[j]
-            Li[k] = (t / s).mid()
-    Lt = arb_mat(L)
-    LD = arb_mat([[L[i][j] * d[j] for j in range(n)] for i in range(n)])
-    E = A - LD * Lt.transpose()
+    f = ldl_mid_blocked(M, shift, b=b)
+    if f["n_negative"]:
+        return {"certified": False, "failed_at": f["first_negative"], "lower_bound": None, "residual_F": None,
+                "min_pivot": f["min_pivot"], "n_negative": f["n_negative"]}
+    Lt = f["L"]
+    Dm = arb_mat(n, n)
+    for i in range(n):
+        Dm[i, i] = f["d"][i]
+    A = M
+    if shift is not None:
+        A = M - arb_mat(n, n, [shift if i == j else 0 for i in range(n) for j in range(n)])
+    E = A - (Lt * Dm) * Lt.transpose()
     fro2 = arb(0)
     for i in range(n):
         for j in range(n):
@@ -569,7 +637,34 @@ def residual_certify(M, shift) -> dict:
     res = fro2.sqrt()
     lower = (arb(shift) if shift is not None else arb(0)) - res
     return {"certified": bool(lower > 0), "lower_bound": lower, "residual_F": res,
-            "min_pivot": float(min(x.mid() for x in d)), "failed_at": None}
+            "min_pivot": f["min_pivot"], "failed_at": None, "n_negative": 0}
+
+
+def inertia_count(M, shift) -> int:
+    """Number of eigenvalues of the symmetric arb_mat M below `shift`, from the negative pivots of the
+    midpoint LDL^T of M - shift I (Sylvester's law of inertia; floating-point, not rigorous)."""
+    return ldl_mid_blocked(M, shift)["n_negative"]
+
+
+def lambda_min_estimate(M, lo_exp: int = -60, hi_exp: int = 0, digits: float = 0.05) -> dict:
+    """Approximate lambda_min of the symmetric arb_mat M (not rigorous; a diagnostic).  Positive
+    definite M: inverse iteration (`approx_lambda_min`).  Otherwise bisection on the inertia of
+    M + 10^x I in x (log scale) gives -lambda_min to within `digits` decades."""
+    from flint import arb
+    if inertia_count(M, None) == 0:
+        lam, _ = approx_lambda_min(M)
+        return {"lambda_min": float(lam.mid()), "n_negative": 0}
+    k = inertia_count(M, None)
+    a, b = float(lo_exp), float(hi_exp)        # find x with M + 10^x I positive definite iff x > x*
+    if inertia_count(M, arb(-(10.0 ** b))) > 0:
+        return {"lambda_min": -float("inf"), "n_negative": k}
+    while b - a > digits:
+        x = (a + b) / 2
+        if inertia_count(M, arb(-(10.0 ** x))) > 0:
+            a = x
+        else:
+            b = x
+    return {"lambda_min": -(10.0 ** ((a + b) / 2)), "n_negative": k}
 
 
 def approx_lambda_min(M, iters: int = 6):
@@ -595,20 +690,20 @@ def approx_lambda_min(M, iters: int = 6):
 # 7. The certificate
 # ----------------------------------------------------------------------------
 def certify_window(L, parity: str, T, N, dps: int = 40, lam0=None, safety: float = 0.98,
-                   verbose: bool = False) -> dict:
+                   verbose: bool = False, comb_cert=None, wmax: float = 4.0) -> dict:
     """Certified lower bound c with Q(f) >= c ||f||^2 for every real f of the sector supported in
     [-L, L]:  c = min(lam0, beta - eps_D) - eps_B, valid when R_A - lam0 I is certified positive
     definite.  lam0 defaults to safety x (approximate lambda_min(R_A))."""
     from flint import arb
     t0 = time.time()
-    blk = envelope_block(L, T, N, parity, dps=dps, verbose=verbose)
+    blk = envelope_block(L, T, N, parity, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax)
     with _ctx(dps):
         R = blk["R"]
         lam_approx, _ = approx_lambda_min(R)
         if lam0 is None:
             lam0 = lam_approx * safety if lam_approx > 0 else lam_approx
         cert = residual_certify(R, arb(lam0))
-        tb = tail_bounds(L, T, N, parity)
+        tb = tail_bounds(L, T, N, parity, comb_cert=comb_cert)
         beta = blk["beta"]
         c = None
         if cert["certified"]:
@@ -619,6 +714,8 @@ def certify_window(L, parity: str, T, N, dps: int = 40, lam0=None, safety: float
                "orders_max": blk["orders"][-1], "n_nodes": blk["n_nodes"], "n_panels": len(blk["panels"]),
                "quad_error_unit": blk["quad_error_unit"], "beta": float(beta.lower()),
                "comb": blk["comb"], "A_L": float(blk["A"].mid()), "lambda_approx": float(lam_approx.mid()),
+               "A_prime": float(comb_cert.A_prime.upper()) if comb_cert is not None else None,
+               "comb_X": comb_cert.X if comb_cert is not None else None,
                "lambda0": float(arb(lam0).mid()), "ldl_certified": cert["certified"],
                "ldl_failed_at": cert.get("failed_at"),
                "ldl_min_pivot": cert["min_pivot"],
