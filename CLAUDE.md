@@ -23,7 +23,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-11: 303 pass, about 5 minutes
+python3 -m pytest                   # 2026-11-11: 304 pass, about 5 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
@@ -90,8 +90,10 @@ Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md`
 The open threads are listed in §8.3:
 - L = 1.8: the joint certificate (ADMM, Lambda = 9, ~20000 iterations, ~4.5 h on one core), gap_certificate, the
   dips lifted with fix_dips (W = 8), the trajectory check, then the certification (~240 digits; check the tail
-  bound first). The floor is higher than at L = 1.7: with H = 0 and beta = 0.2 the envelope form is indefinite
-  at T = 1250 = 2 t0 in both sectors (Numerical, 1702 modes), so T must be larger (1500 is being probed);
+  bound first). With H = 0 and beta = 0.2 the envelope form is indefinite at T = 1250 and 1500 (2.0 and 2.4 t0)
+  in both sectors (Numerical, 1702 / 2039 modes, 240 digits). H = 0 may be a poor proxy here: the cutoff drops
+  the large values of Psi in the comb's troughs above T, which a gapped H flattens. Probe with the gapped H
+  of the L = 1.8 certificate next;
 - the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
   side above T;
 - sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T
