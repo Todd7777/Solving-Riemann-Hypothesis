@@ -86,6 +86,30 @@ def test_fix_dips_sequential_groups():
     assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
 
 
+def test_fix_dips_buffer_and_coarse_far_grid():
+    """The options for many dips: a fine grid only within core_pad of the packet centres (coarse beyond), and a
+    buffer on each program's own points for the tails of later packets. Three dips in sequence, one program each:
+    the margin must still hold on a fine grid over the whole stretch, the far zones included."""
+    L, beta, gap = 1.0, 0.05, 0.3
+
+    def Om(ts):
+        return np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
+
+    def G(ts):                                   # three narrow dips 40 apart (deepest in the middle)
+        bumps = sum(a * np.exp(-((ts - c) / 0.3) ** 2) for c, a in ((300.0, 0.8), (340.0, 1.0), (380.0, 0.7)))
+        return Om(ts) - beta - 0.5 + bumps
+    loc = wl.fix_dips(G, Om, L, 150.0, [300.0, 340.0, 380.0], beta, gap=gap, max_group=1, W=6.0,
+                      core_pad=20.0, far_step=0.1, buffer=0.03)
+    taus = sorted({tau for tau, _, _, _ in loc.atoms})
+    assert taus[0] < 320.0 and any(325.0 < x < 355.0 for x in taus) and taus[-1] > 360.0
+    assert all(w - loc.b >= 2 * L + gap for _, w, _, _ in loc.atoms)
+    ts = np.arange(150.0, 540.0, 0.01)
+    ctx.prec = 128
+    vals, errs = loc.eval_float([arb(150.0)], 0.01, len(ts))
+    ctx.prec = 53
+    assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
+
+
 def test_packets_are_invisible_to_the_window():
     """int_0^inf (psi(t - tau) + psi(-t - tau)) G_0(t)^2 dt = 0 when w - b >= 2L (G_0^2 has spectrum in
     [-2L, 2L]); a packet with w - b < 2L gives a clearly nonzero integral. Direct quadrature to t = 3000,

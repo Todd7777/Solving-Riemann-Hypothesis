@@ -338,7 +338,8 @@ def fit_local_correction(G_of_t, Om_of_t, L: float, T: float, T_end: float, beta
 def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 1.0, m: int = 6, W: float = 4.0,
              dw: float = 0.5, dtau: float = 1.0, half_width: float = 12.0, gap: float = 0.0, target: float = 0.01,
              step: float = 0.02, amax: float = 4.0, max_group: int | None = None,
-             method: str = "highs") -> LocalCorrection:
+             method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
+             buffer: float = 0.0) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -349,7 +350,14 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     together), and the programs are solved in increasing t with the packets already fitted added to the
     residual. Each grid point belongs to the group of its nearest dip; a program constrains the points of its
     own and earlier groups that its packets reach, so later programs keep the earlier margins and fix the
-    later dips."""
+    later dips.
+
+    For many dips (E17): with core_pad the grid has the given step only within core_pad of the program's
+    packet centres and far_step beyond (out to the reach, where the packets are small), which keeps the
+    programs small; buffer > 0 asks target + buffer on a program's own points in that core, so that the
+    later programs have room for the tails of their packets at the earlier points (which keep target).
+    Dense dips can need carriers well above 2L + b (W = 8 rather than 4): the deep notches of
+    Omega - beta - G sit between large peaks, and only high carriers fit into them with small amplitudes."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -365,13 +373,15 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
         return u ** m
 
     def cols(taus, t):
-        out = []
+        out = np.empty((len(t), 2 * len(taus) * len(omegas)))
+        j = 0
         for tau in taus:
             e1, e2 = env(t - tau), env(t + tau)
             for w in omegas:
-                out.append(e1 * np.cos(w * (t - tau)) + e2 * np.cos(w * (t + tau)))
-                out.append(e1 * np.sin(w * (t - tau)) - e2 * np.sin(w * (t + tau)))
-        return np.array(out).T
+                out[:, j] = e1 * np.cos(w * (t - tau)) + e2 * np.cos(w * (t + tau))
+                out[:, j + 1] = e1 * np.sin(w * (t - tau)) - e2 * np.sin(w * (t + tau))
+                j += 2
+        return out
 
     atoms = []
     groups = []
@@ -397,11 +407,21 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     dip_group = np.array([k for k, grp in enumerate(groups) for _ in grp])
     for k, grp in enumerate(groups):
         taus = np.unique(np.concatenate([np.arange(d - half_width, d + half_width + 1e-9, dtau) for d in grp]))
-        ts = np.arange(max(T, grp[0] - half_width - reach), grp[-1] + half_width + reach, step)
+        lo, hi = max(T, grp[0] - half_width - reach), grp[-1] + half_width + reach
+        if core_pad is None:
+            clo, chi = lo, hi
+            ts = np.arange(lo, hi, step)
+        else:
+            clo, chi = max(T, taus[0] - core_pad), taus[-1] + core_pad
+            fs = step if far_step is None else far_step
+            ts = np.unique(np.concatenate([np.arange(lo, clo, fs), np.arange(clo, chi, step),
+                                           np.arange(chi, hi, fs)]))
         j = np.searchsorted(all_dips, ts)
         jl, jr = np.clip(j - 1, 0, len(all_dips) - 1), np.clip(j, 0, len(all_dips) - 1)
         nearest = np.where(np.abs(ts - all_dips[jl]) <= np.abs(ts - all_dips[jr]), jl, jr)
-        ts = ts[dip_group[nearest] <= k]              # the points of this and earlier groups
+        own = (dip_group[nearest] == k) & (ts >= clo) & (ts < chi)
+        keep = dip_group[nearest] <= k                # the points of this and earlier groups
+        ts, own = ts[keep], own[keep]
         r = Om_of_t(ts) - beta - G_of_t(ts)
         if atoms:
             r = r + fitted(ts)
@@ -410,13 +430,16 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
         C[np.abs(C) < 1e-13] = 0.0                    # far from its centre an atom is negligible here
         Cs = sp.csr_matrix(C)
         del C
-        res = linprog(np.ones(2 * n), A_ub=sp.hstack([-Cs, Cs]).tocsr(), b_ub=r - target,
+        A = sp.hstack([-Cs, Cs]).tocsr()
+        del Cs
+        res = linprog(np.ones(2 * n), A_ub=A, b_ub=r - target - buffer * own,
                       bounds=[(0, amax)] * (2 * n), method=method)
+        del A
         if res.status != 0:
             raise RuntimeError(f"LP failed at dips {grp}: {res.message}")
         av = res.x[:n] - res.x[n:]
         av = np.array([math.ldexp(round(math.ldexp(x, 40)), -40) if abs(x) > 1e-9 else 0.0 for x in av])
-        for j in np.nonzero(av)[0]:
-            k, q = divmod(j, 2 * len(omegas))
-            atoms.append((float(taus[k]), float(omegas[q // 2]), int(q % 2), float(av[j])))
+        for jj in np.nonzero(av)[0]:
+            kk, q = divmod(jj, 2 * len(omegas))
+            atoms.append((float(taus[kk]), float(omegas[q // 2]), int(q % 2), float(av[jj])))
     return LocalCorrection(L=L, b=b, m=m, atoms=atoms)
