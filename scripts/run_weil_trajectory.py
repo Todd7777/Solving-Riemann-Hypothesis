@@ -10,6 +10,8 @@ the torus bound applies. This script:
   * trajectory: the smallest certified T (beta = 0.05) for the stored joint certificates of E14 (L = 1.5,
     1.6) and for the L = 1.7 certificate (Lambda = 9, ADMM after 10000 steps; Gram factor stored in
     results/json/weil_trajectory_gram_L1.7.npz), against T_1'' (Machine-checked);
+  * packets: the L = 1.7 certificate plus 893 stored wave packets (rh.weil_local), certified from T = 1000
+    (Machine-checked);
   * local: the local comb operator norm lambda(t0) = max over K in PW_L of int P_L(t0 + s)|K(s)|^2 / int |K|^2,
     which bounds from below what any certificate can reach near height t0 (Numerical: piecewise-constant
     k on [-L, L], a lower bound that converges as the cells shrink);
@@ -18,7 +20,7 @@ the torus bound applies. This script:
   * certify (hours): Q(f) >= c ||f||^2 for every real f supported in [-1.7, 1.7], both parities, from the
     stored Gram factor, with the trajectory constant (Machine-checked; ~6 h at 195 digits, ~10 GB).
 
-Usage: python3 scripts/run_weil_trajectory.py [--quick] [--parts trajectory,local,loss] [--certify]
+Usage: python3 scripts/run_weil_trajectory.py [--quick] [--parts trajectory,packets,local,loss] [--certify]
 Writes results/json/weil_trajectory_summary.json and results/figures/weil_trajectory.png.
 """
 import argparse
@@ -167,6 +169,25 @@ def local_norm(L, t_max, step, h=0.025):
     return ts, out
 
 
+PACKETS_17 = os.path.join(ROOT, "results", "json", "weil_trajectory_packets_L1.7.json")
+
+
+def part_packets():
+    """The L = 1.7 certificate plus the stored wave packets (LP on [1000, 2500]): trajectory check from T = 1000."""
+    from rh import weil_local as wl
+    with open(PACKETS_17) as f:
+        P = json.load(f)
+    loc = wl.LocalCorrection(L=P["L"], b=P["b"], m=P["m"], atoms=[tuple(x) for x in P["atoms_tau_w_kind_a"]])
+    cert = wcb.attach_local(cert_17(), loc)
+    r = wcb.trajectory_check(cert, P["T"], P["beta"])
+    print(f"  L=1.7 with {len(loc.atoms)} wave packets: certified={r['certified']} from T={r['T']} (margin "
+          f"{r['min_margin']}, error bound {r['eval_error']:.1e}, {r['seconds']:.0f}s)", flush=True)
+    return {"L": 1.7, "T": r["T"], "beta": r["beta"], "certified": r["certified"], "n_packets": len(loc.atoms),
+            "sum_abs_a": loc.sum_abs(), "m": loc.m, "b": loc.b, "T2": r["T2"], "min_margin": r["min_margin"],
+            "eval_error": r["eval_error"], "cells_per_level": r["cells_per_level"], "seconds": r["seconds"],
+            "modes": int(math.ceil(1.1 * math.e * 1.7 * r["T"] / 4)) + 20}
+
+
 def part_local(quick):
     rows = []
     for L, tmax, step in ([(1.2, 600.0, 0.25)] if quick else [(1.6, 3000.0, 0.05), (1.7, 3000.0, 0.05)]):
@@ -280,7 +301,7 @@ def figure(out):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true")
-    ap.add_argument("--parts", default="trajectory,local,loss")
+    ap.add_argument("--parts", default="trajectory,packets,local,loss")
     ap.add_argument("--certify", action="store_true", help="also run the L = 1.7 window certification (hours)")
     args = ap.parse_args()
     t0 = time.time()
@@ -292,6 +313,9 @@ def main():
     if "trajectory" in parts:
         print("trajectory checks (beta = 0.05):", flush=True)
         out["trajectory"] = part_trajectory(args.quick)
+    if "packets" in parts and not args.quick:
+        print("wave packets at L = 1.7:", flush=True)
+        out["packets"] = part_packets()
     if "local" in parts:
         print("local comb operator norm:", flush=True)
         out["local"] = part_local(args.quick)
