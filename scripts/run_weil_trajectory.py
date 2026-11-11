@@ -17,10 +17,12 @@ the torus bound applies. This script:
     k on [-L, L], a lower bound that converges as the cells shrink);
   * loss: lambda_min of the envelope form against T at L = 1.0 (Numerical). Below about
     t0 = 2 pi e^{1 + 2L} the envelope form is indefinite even though beta > 0;
+  * floor: where the envelope form turns indefinite at L = 1.0, 1.2, 1.4, with H = 0 and with a joint
+    certificate's H (probes with beta = 0.05 imposed; Numerical, about 25 minutes);
   * certify (hours): Q(f) >= c ||f||^2 for every real f supported in [-1.7, 1.7], both parities, from the
     stored Gram factor, with the trajectory constant (Machine-checked; ~6 h at 195 digits, ~10 GB).
 
-Usage: python3 scripts/run_weil_trajectory.py [--quick] [--parts trajectory,packets,local,loss] [--certify]
+Usage: python3 scripts/run_weil_trajectory.py [--quick] [--parts trajectory,packets,local,loss,floor] [--certify]
 Writes results/json/weil_trajectory_summary.json and results/figures/weil_trajectory.png.
 """
 import argparse
@@ -235,6 +237,47 @@ def part_loss(quick):
             "rows": rows}
 
 
+FLOOR_CASES = [(1.0, 5.0, 45, [90.0, 100.0, 110.0, 120.0, 150.0]), (1.2, 5.5, 70, [170.0, 190.0, 210.0, 240.0]),
+               (1.4, 6.0, 100, [300.0, 400.0, 500.0, 650.0, 750.0])]
+
+
+def floor_probe(L, cert, T, dps):
+    """Is the envelope form (even sector) positive definite at cutoff T, with beta = 0.05 imposed on [T, inf)?
+    A probe of the reduction, not a certificate: beta is not checked here."""
+    from flint import ctx
+    cert.trajectory = {"certified": True, "T": T, "beta": BETA}
+    ctx.dps = dps
+    N = int(math.ceil(1.4 * math.e * L * T / 4)) + 30
+    blk = we.envelope_block(L, T, N, "even", dps=dps, comb_cert=cert, wmax=8.0)
+    est = we.approx_lambda_min_ldl(blk["R"])
+    out = {"T": T, "N": N, "positive": est is not None,
+           "lambda_min": float(est[0].mid()) if est is not None else None,
+           "negative_eigenvalues": 0 if est is not None else we.inertia_count(blk["R"], None)}
+    ctx.dps = 15
+    cert.trajectory = None
+    return out
+
+
+def part_floor(quick):
+    """Where the envelope form turns indefinite, with H = 0 and with a joint certificate's H (Numerical)."""
+    from flint import arb
+    rows = []
+    for L, Lam, dps, Ts in (FLOOR_CASES[:1] if quick else FLOOR_CASES):
+        t0 = 2 * math.pi * math.exp(1 + 2 * L)
+        joint = wcb.joint_comb_certificate(L, Lam)
+        zero = wcb.CombCertificate(L=L, X=0.0)
+        A_L = sum((c for t in wcb.prime_comb(L).values() for _, c in t), arb(0))
+        zero.terms, zero.A_L, zero.A_prime, zero.H_sup, zero.omega_min = [], A_L, A_L, 0.0, float("inf")
+        for name, cert in (("H=0", zero), (f"joint Lambda={Lam}", joint)):
+            for T in Ts:
+                r = floor_probe(L, cert, T, dps)
+                r.update({"L": L, "H": name, "T_over_t0": T / t0, "sum_abs_h": sum(float(abs(h).upper()) for _, _, h in cert.terms)})
+                rows.append(r)
+                print(f"  L={L} {name} T={T:.0f} ({T / t0:.2f} t0): " + (f"lambda_min ~ {r['lambda_min']:.3e}" if r["positive"]
+                      else f"indefinite ({r['negative_eigenvalues']} negative)"), flush=True)
+    return rows
+
+
 def part_certify(parities=("even", "odd")):
     """Q >= c ||f||^2 on [-1.7, 1.7] from the stored Gram factor, with the trajectory constant."""
     p = CERTIFY_17
@@ -301,7 +344,7 @@ def figure(out):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true")
-    ap.add_argument("--parts", default="trajectory,packets,local,loss")
+    ap.add_argument("--parts", default="trajectory,packets,local,loss,floor")
     ap.add_argument("--certify", action="store_true", help="also run the L = 1.7 window certification (hours)")
     args = ap.parse_args()
     t0 = time.time()
@@ -322,6 +365,9 @@ def main():
     if "loss" in parts:
         print("envelope form against T:", flush=True)
         out["loss"] = part_loss(args.quick)
+    if "floor" in parts:
+        print("envelope floor with and without H (probes, beta imposed):", flush=True)
+        out["floor"] = part_floor(args.quick)
     if args.certify:
         out["windows"] = part_certify()
     out["description"] = ("E15: trajectory certificates (rh.weil_comb.trajectory_check) and Weil positivity on "
