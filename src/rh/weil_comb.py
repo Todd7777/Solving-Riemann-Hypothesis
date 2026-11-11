@@ -74,7 +74,8 @@ from typing import List
 
 __all__ = ["prime_comb", "toeplitz_lambda_max", "fes_constant", "sos_gram", "PrimeCertificate",
            "CombCertificate", "prime_certificate", "comb_certificate", "joint_gram", "joint_gram_admm",
-           "joint_comb_certificate", "trajectory_check", "attach_local", "comb_operator_norm", "comb_constants"]
+           "joint_comb_certificate", "trajectory_check", "attach_local", "gap_certificate", "comb_operator_norm",
+           "comb_constants"]
 
 
 def _primes_upto(x: float) -> List[int]:
@@ -1029,6 +1030,32 @@ class _TrajectoryEvaluator:
                 lo = float(s.mid())
                 M2[i] += loc.M2_on(lo, lo + (K - 1) * step)
         return G, E, M2
+
+
+def gap_certificate(cert: "CombCertificate", gap: float) -> "CombCertificate":
+    """A copy of the certificate whose H has no frequency below 2L + gap: every term h cos(t log(n/d)) with
+    log(n/d) < 2L + gap is moved into A' (h cos >= -|h|, so (*) holds with A' + sum |h|; the test in floats
+    only decides which terms move, which is safe either way).
+
+    Why: |F|^2 has spectrum in [-2L, 2L], so a term of H at 2L + g beats against it at frequency g. The
+    envelope reduction drops the part of int H |F|^2 on [T, inf), and for small g that part does not average
+    out; at L = 1.4 one term (n/d = 33/2, g = 0.0034, h = 0.37) makes the envelope form indefinite at T = 650,
+    where it is positive without it (docs/06, E16). Returns a new certificate without trajectory record or
+    wave packets."""
+    from flint import arb
+    L = cert.L
+    keep, moved = [], arb(0)
+    for n, d, h in cert.terms:
+        if math.log(n / d) < 2 * L + gap:
+            moved += abs(h)
+        else:
+            keep.append((n, d, h))
+    new = CombCertificate(L=L, X=cert.X, primes=list(cert.primes), A_L=cert.A_L, terms=keep, meta=dict(cert.meta))
+    new.A_prime = arb(float((cert.A_prime + moved).upper()) * (1 + 1e-15))
+    new.H_sup = math.fsum(float(abs(h).upper()) for _, _, h in keep) * (1 + 1e-12)
+    new.omega_min = min((math.log(n / d) for n, d, _ in keep), default=math.inf) * (1 - 1e-15)
+    new.meta.update({"h_gap": gap, "n_moved": len(cert.terms) - len(keep), "moved_to_A_prime": float(moved.upper())})
+    return new
 
 
 def attach_local(cert: "CombCertificate", local) -> "CombCertificate":

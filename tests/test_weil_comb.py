@@ -161,6 +161,31 @@ def test_joint_certificate_is_valid_and_beats_separable():
     ctx.dps = 15
 
 
+def test_gap_certificate_is_valid_and_keeps_away_from_2L():
+    """gap_certificate moves the terms of H with log(n/d) < 2L + gap into A': the rest of H is untouched, A'
+    grows by at least the moved sum |h|, and A' - P_L + H >= 0 still holds (dense float grid and Arb)."""
+    L, gap = 0.9, 0.15
+    cert = wcb.joint_comb_certificate(L, Lam=5.0)
+    cg = wcb.gap_certificate(cert, gap)
+    moved = [(n, d, h) for n, d, h in cert.terms if math.log(n / d) < 2 * L + gap]
+    assert cg.meta["n_moved"] == len(moved) > 0 and len(cg.terms) == len(cert.terms) - len(moved)
+    assert all(math.log(n / d) >= 2 * L + gap for n, d, _ in cg.terms)
+    assert cg.omega_min >= 2 * L + gap - 1e-12
+    assert float(cg.A_prime.lower()) >= float((cert.A_prime + sum((abs(h) for _, _, h in moved), arb(0))).upper())
+    assert cg.trajectory is None and cg.local is None
+    comb = wcb.prime_comb(L)
+    ts = np.linspace(0, 2000, 400001)
+    P = sum(float(c.mid()) * np.cos(ts * math.log(n)) for t in comb.values() for n, c in t)
+    H = sum(float(h.mid()) * np.cos(ts * math.log(n / dd)) for n, dd, h in cg.terms)
+    assert (float(cg.A_prime.mid()) - P + H).min() > -1e-9
+    ctx.dps = 30
+    for t in np.random.default_rng(3).uniform(0, 1e4, 10):
+        tt = arb(float(t))
+        val = cg.A_prime - sum((c * (tt * arb(n).log()).cos() for t_ in comb.values() for n, c in t_), arb(0))
+        assert val + cg.H(tt).real > 0
+    ctx.dps = 15
+
+
 def test_admm_joint_certificate_matches_barrier_and_is_valid():
     """The ADMM route (used for the large monomial sets at L = 1.5) reaches the barrier optimum on a small
     case, and the certificate built from it is valid: the mismatches it leaves are absorbed into A'."""

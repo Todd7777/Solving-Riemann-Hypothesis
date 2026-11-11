@@ -46,6 +46,25 @@ def test_spectrum_check():
         wl.LocalCorrection(L=1.0, b=1.0, m=8, atoms=[(50.0, 2.75, 1, 1.0)])     # w - b < 2L
 
 
+def test_fix_dips_with_a_gap():
+    """fix_dips removes an isolated violation with carriers w - b >= 2L + gap and leaves the margin >= 0 on the
+    whole stretch the packets reach (float grid, packets evaluated with the bounded evaluator)."""
+    L, beta, gap = 1.0, 0.05, 0.3
+
+    def Om(ts):
+        return np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
+
+    def G(ts):                                   # margin 0.5 except for a narrow dip to -0.3 at t = 300 (as the
+        return Om(ts) - beta - 0.5 + 0.8 * np.exp(-((ts - 300.0) / 0.3) ** 2)     # peaks of P_L - H are)
+    loc = wl.fix_dips(G, Om, L, 150.0, [300.0], beta, gap=gap)
+    assert loc.atoms and all(w - loc.b >= 2 * L + gap for _, w, _, _ in loc.atoms)
+    ts = np.arange(150.0, 450.0, 0.01)
+    ctx.prec = 128
+    vals, errs = loc.eval_float([arb(150.0)], 0.01, len(ts))
+    ctx.prec = 53
+    assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
+
+
 def test_packets_are_invisible_to_the_window():
     """int_0^inf (psi(t - tau) + psi(-t - tau)) G_0(t)^2 dt = 0 when w - b >= 2L (G_0^2 has spectrum in
     [-2L, 2L]); a packet with w - b < 2L gives a clearly nonzero integral. Direct quadrature to t = 3000,

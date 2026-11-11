@@ -38,7 +38,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-__all__ = ["LocalCorrection", "fit_local_correction"]
+__all__ = ["LocalCorrection", "fit_local_correction", "fix_dips"]
 
 _U = 2.0 ** -53
 
@@ -264,18 +264,20 @@ class LocalCorrection:
 def fit_local_correction(G_of_t, Om_of_t, L: float, T: float, T_end: float, beta: float, b: float = 1.0,
                          m: int = 8, W: float = 4.0, dw: float = 0.5, dtau: float = 2.0, window: float = 100.0,
                          commit: float = 50.0, step: float = 0.04, amax: float = 8.0, mu: float = 1e-3,
-                         verbose: bool = False) -> LocalCorrection:
+                         gap: float = 0.0, verbose: bool = False) -> LocalCorrection:
     """Receding-horizon LP (numerical) for amplitudes a_k making G - H_loc <= Omega - beta on [T, T_end]
     with the largest margin, window by window. G_of_t and Om_of_t give float values of G = P_L - H and
-    Omega on arrays of t. Atoms: centres every dtau, carriers 2L + b + j dw (j = 0..W/dw), cos and sin;
-    each window optimises the atoms centred in [a, a + window) and keeps those in [a, a + commit)."""
+    Omega on arrays of t. Atoms: centres every dtau, carriers 2L + b + gap + j dw (j = 0..W/dw), cos and sin;
+    each window optimises the atoms centred in [a, a + window) and keeps those in [a, a + commit).
+    gap > 0 keeps the spectrum of the packets at distance >= gap above 2L (see `rh.weil_comb.gap_certificate`
+    for why frequencies just above 2L are costly for the envelope reduction)."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
     mb = m / b
     reach = mb * 10 ** (8.0 / m)                      # (m/(b d))^m < 1e-8 beyond
-    omegas = 2 * L + b + dw * np.arange(int(round(W / dw)) + 1)
-    # carriers as exact binary floats with w - b >= 2L
+    omegas = 2 * L + b + gap + dw * np.arange(int(round(W / dw)) + 1)
+    # carriers as exact binary floats with w - b >= 2L + gap
     omegas = np.array([math.ldexp(math.ceil(math.ldexp(w, 20)), -20) for w in omegas])
     ts = np.arange(T - 2 * reach, T_end + 2 * reach, step)
     slack0 = Om_of_t(ts) - beta - G_of_t(ts)
@@ -302,6 +304,9 @@ def fit_local_correction(G_of_t, Om_of_t, L: float, T: float, T_end: float, beta
     while a < T_end + reach / 2:
         taus = np.arange(a, a + window, dtau)
         core = (ts >= max(T, a - reach / 2)) & (ts < a + window - D)
+        if not core.any():                            # nothing to optimise in this window (short windows)
+            a += commit
+            continue
         side = (~core) & (ts >= T) & (ts >= a - reach) & (ts < a + window + reach)
         pts = core | side
         tc, r, isc = ts[pts], slack0[pts] + Hloc[pts], core[pts]
@@ -327,4 +332,56 @@ def fit_local_correction(G_of_t, Om_of_t, L: float, T: float, T_end: float, beta
             print(f"  window [{a:.0f}, {a + window:.0f}): s* = {res.x[-1]:+.4f}, committed {int(np.count_nonzero(av))} "
                   f"atoms, min slack so far {(slack0 + Hloc)[seg].min():+.4f}", flush=True)
         a += commit
+    return LocalCorrection(L=L, b=b, m=m, atoms=atoms)
+
+
+def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 1.0, m: int = 6, W: float = 4.0,
+             dw: float = 0.5, dtau: float = 1.0, half_width: float = 12.0, gap: float = 0.0, target: float = 0.01,
+             step: float = 0.02, amax: float = 4.0) -> LocalCorrection:
+    """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
+    centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
+    Omega - beta - G + H_loc >= min(target, current margin) on every grid point t >= T the atoms reach (points
+    that already fail must reach `target`). Unlike `fit_local_correction`, which maximises the margin window by
+    window over a whole range, this leaves the rest of the trajectory alone. The dips must be farther apart
+    than the reach (m/b) 10^(8/m) of the packets, or be fitted together."""
+    import numpy as np
+    import scipy.sparse as sp
+    from scipy.optimize import linprog
+    mb = m / b
+    reach = mb * 10 ** (8.0 / m)
+    omegas = 2 * L + b + gap + dw * np.arange(int(round(W / dw)) + 1)
+    omegas = np.array([math.ldexp(math.ceil(math.ldexp(w, 20)), -20) for w in omegas])
+
+    def env(s):
+        x = s / mb
+        with np.errstate(invalid="ignore", divide="ignore"):
+            u = np.where(np.abs(x) < 1e-8, 1.0, np.sin(x) / x)
+        return u ** m
+
+    def cols(taus, t):
+        out = []
+        for tau in taus:
+            e1, e2 = env(t - tau), env(t + tau)
+            for w in omegas:
+                out.append(e1 * np.cos(w * (t - tau)) + e2 * np.cos(w * (t + tau)))
+                out.append(e1 * np.sin(w * (t - tau)) - e2 * np.sin(w * (t + tau)))
+        return np.array(out).T
+
+    atoms = []
+    for d in dips:
+        taus = np.arange(d - half_width, d + half_width + 1e-9, dtau)
+        ts = np.arange(max(T, d - half_width - reach), d + half_width + reach, step)
+        r = Om_of_t(ts) - beta - G_of_t(ts)
+        C = cols(taus, ts)
+        n = C.shape[1]
+        need = np.where(r < target, target, np.minimum(target, r))
+        res = linprog(np.ones(2 * n), A_ub=sp.csr_matrix(np.hstack([-C, C])), b_ub=r - need,
+                      bounds=[(0, amax)] * (2 * n), method="highs")
+        if res.status != 0:
+            raise RuntimeError(f"LP failed at dip {d}: {res.message}")
+        av = res.x[:n] - res.x[n:]
+        av = np.array([math.ldexp(round(math.ldexp(x, 40)), -40) if abs(x) > 1e-9 else 0.0 for x in av])
+        for j in np.nonzero(av)[0]:
+            k, q = divmod(j, 2 * len(omegas))
+            atoms.append((float(taus[k]), float(omegas[q // 2]), int(q % 2), float(av[j])))
     return LocalCorrection(L=L, b=b, m=m, atoms=atoms)
