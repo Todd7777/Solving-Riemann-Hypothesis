@@ -557,7 +557,7 @@ At $L=1$, $L=1.1$ and $L=1.2$ (even) the upper bounds are rigorous enclosures (`
 * The separable certificate runs out near $L\approx1.3$. Joint certificates of feasible size close much of the gap to $A^*$; at $\Lambda=6$ they sit about 0.5–1.1 above $A^*$. At $L=1.5$ the joint certificate with $\Lambda=6$ would need $T_1\approx2900$; with $\Lambda=8$ (ADMM) it needs 1295, and the window is certified at $T=1684$. At $L=1.6$, $\Lambda=9$ gives $T_1''=2370$ and the window is certified at $T=2845$. The envelope approach with any comb certificate ends near $L\approx1.7$–$2$.
 * The margins keep collapsing (even sector): $\lambda^*\in[1.1,2.0]\times10^{-38}$ at $L=1.1$ and $[4.6,7.2]\times10^{-49}$ at $1.2$ (both rigorous). At $1.3$, $1.4$, $1.5$ and $1.6$ they are about $10^{-61}$, $10^{-77}$, $2.7\times10^{-97}$ and $3.5\times10^{-121}$ (certified lower bounds; upper ends numerical).
 
-**Where it stops on this machine: $L=1.7$.**
+**Where it stops on this machine: $L=1.7$.** (E15 tries a different comb certificate.)
 * At $L=1.7$ ten primes enter (up to 29). The comb constants are $A_L=16.64$, separable optimum 8.93, joint with $\Lambda=6$ 8.57, and $A^*=5.56$.
 * With $\Lambda=9$ (1408 monomials), ADMM reaches a certified $A'=7.45$ after 10000 steps. Its trace (6.32, still rising, as at $L=1.6$) points to an optimum near $A'\approx6.7$ for this monomial set (Numerical). Even that gives $T_1''\approx5104$, and certifying at $T\approx1.2\,T_1''$ would need about 7805 Legendre modes per sector at about 175 digits. One such ball matrix takes about 8 GB, and the blocked $LDL^T$ holds two or three at once: far beyond the roughly 11 GB available here. The margins also keep falling: $\lambda_J$ is $1.2\times10^{-86}$ and $9.8\times10^{-97}$ at $J=160$ and $192$.
 * A better solver does not close the gap. The low-rank augmented Lagrangian (`joint_gram_alm`) matches the barrier optimum on small cases. At $L=1.6$ (1239 monomials) it ends at 5.948 against ADMM's 5.933, with its trace rising towards about 5.88 as the mismatch falls. So the $\Lambda=9$ optimum at $L=1.6$ is about 5.85–5.9, and the remaining gap to $A^*$ (about 1) is set by the size of the monomial set, which grows like $e^\Lambda$.
@@ -565,7 +565,7 @@ At $L=1$, $L=1.1$ and $L=1.2$ (even) the upper bounds are rigorous enclosures (`
 
 **Interpretation.**
 * The barrier of E13 came from bounding the comb pointwise. Bounding it only against band-limited test functions moves it, and the certified window grows from $[-1,1]$ to $[-1.6,1.6]$.
-* The new limit is the operator norm of the comb, which still grows exponentially in $L$. Certificates of this envelope type cannot go far beyond $L\approx2$. Going further would need a treatment of the frequencies above $T$ that does not bound the comb by a constant there.
+* The new limit is the operator norm of the comb, which still grows exponentially in $L$. Certificates of this envelope type cannot go far beyond $L\approx2$. Going further would need a treatment of the frequencies above $T$ that does not bound the comb by a constant there. (E15 gives one: the same certificates, checked along the trajectory $t\ge T$, are not bound by $A^*$. The envelope reduction then meets its own floor, and $[-1.7,1.7]$ is not certified.)
 * The window $[-1.6,1.6]$ "sees" (heuristically, E12) zeros up to height $\sim2\pi e^{3.2}\approx154$. The certificate is a zero-free proof of a finite piece of Weil's criterion, not new information about zeros.
 * *What this does not show.* RH, or positivity on any larger window.
 * Labels:
@@ -574,8 +574,84 @@ At $L=1$, $L=1.1$ and $L=1.2$ (even) the upper bounds are rigorous enclosures (`
   * **Numerical:** $A^*$, the joint dual values and the numerical $\lambda_J$.
   * **Heuristic:** the remarks about heights.
 
+## E15. Trajectory certificates for the prime comb, and the envelope floor (2026-11-11)
+
+`OPENBLAS_NUM_THREADS=1 python3 scripts/run_weil_trajectory.py` reproduces the trajectory checks (with and without wave packets), the local operator norms and the scans of the envelope floor in about 40 minutes. With `--quick` it takes about a minute and is part of `run_all.py --quick`. `--certify` repeats the attempt on $[-1.7,1.7]$ described below: 5.8 hours on one core, with a peak of about 9.7 GB; run nothing else alongside it. Results are in `weil_trajectory_summary.json`. The Gram factor of the $L=1.7$ certificate is in `weil_trajectory_gram_L1.7.npz`; the exact certificate is rebuilt from it in 10 s. New code: `rh.weil_comb.trajectory_check` (`rh.weil_envelope.beta_star` uses its constant) and `rh.weil_local` (wave packets). There are nine new tests: three in `test_weil_comb.py`, five in `test_weil_local.py` and one in `test_weil_envelope.py`.
+
+**Outcome.**
+* A new kind of comb certificate. The torus bound of E14 is needed only along the trajectory $t\ge T$, and there it can be checked directly (Machine-checked). At $L=1.5$, 1.6 and 1.7 this lowers the comb's cutoff by factors 1.5, 2.0 and 4.4. With wave packets (localised parts of $H$), the $L=1.7$ cutoff drops from $T_1''=10853$ to $T=1000$.
+* **The window $[-1.7,1.7]$ is not certified.** At $T=2460$ the envelope form is indefinite: the even sector has a negative pivot $-0.141$, and the odd sector has $\lambda_{\min}\approx-2.8\times10^{-146}$. At $T=1000$, with the packets, both sectors are clearly indefinite.
+* The comb is no longer what limits the method: the envelope reduction's own floor is. Below a cutoff that grows with $L$ (and with the size of $H$), the near-minimisers of $Q$ keep more spectral mass above $T$ than their margin. The largest certified window remains $[-1.6,1.6]$ (E14).
+
+**The idea: the comb has to be bounded only along the trajectory $t\ge T$, not on the whole torus.** The envelope reduction needs $\Psi_L+H\ge\beta$ only for $t\ge T$. E14 got this from the torus bound $(*)$, valid for every real $t$, which forces $T\ge2\pi e^{A'+\beta}$ with $A'\ge A^*$. But on a finite range $[T,T_2]$, the phases $(t\log p)_p$ trace a curve on the torus. That curve stays away from the points where $P_L-H$ is near its maximum: by Kronecker it gets close to every point eventually, but only after a very long time. So:
+* for $t\ge T_2$, where $\Omega(T_2)-A'\ge\beta$, the torus bound gives $\Omega-P_L+H\ge\beta$;
+* for $T\le t\le T_2$, check $\Omega(t)-P_L(t)+H(t)\ge\beta$ directly. This is a one-dimensional problem.
+
+At $L=1.7$, the joint certificate ($\Lambda=9$, ADMM after 10000 steps; $A'=7.454$) has $\max(P_L-H)=6.166$ on $[2460,11410]$, against $A'=7.454$. The check certifies $\beta=0.05$ from $T=2460$ (and from 2450), a factor 4.4 below $T_1''=10853$. That would mean 3147 modes per sector instead of about 13900.
+
+**Rigour of the trajectory check.**
+* $G=P_L-H$ is evaluated in IEEE double on a grid of step $\delta=0.02$.
+* Every transcendental value comes from Arb: the prime phases $p^{it}$ at the start of each block of 2048 points, and $p^{i\delta}$. The phases $m^{it}$ of the 1408 integers $m$ that occur are products of these. Each complex product has relative error at most $\sqrt5u$ (Brent, Percival and Zimmermann 2007; we use $3u$), and a sum of $k$ terms has error at most $\gamma_k\sum|\cdot|$. The coefficients are rounded to double, and the rounding errors are summed in Arb. At $L=1.7$ the resulting bound is $1.4\times10^{-9}$; the computed values agree with Arb to $10^{-13}$.
+* Between grid points, $|G''|\le M_2=\sum c_n\log^2n+\sum|h|\omega^2$ (Arb; 1782 at $L=1.7$). So on a cell, $G\le\max(G_k,G_{k+1})+M_2\delta^2/8$.
+* $\Omega$ is increasing (E13); on each group of 25 cells it is bounded below by its value at the start of the group, computed in Arb.
+* Cells that fail are split into four, up to four times. At $L=1.7$, 447519 cells pass and 31 need one split. The check takes 30 s.
+* Tests: agreement with Arb at random points; certification below $T_1''$ at $L=1.2$, confirmed on a dense float grid; refusal below the last violation; at $T<T_1''$, an envelope form that stays below the true form and certifies.
+
+**Results.**
+
+| $L$ | certificate | $A'$ | $T_1''$ (torus) | $T$ (trajectory) | $T_2$ | max of $P_L-H$ on $[T,T_2]$ | $2\pi e^{1+2L}$ | modes: $1.2\,T_1''$ / $T$ |
+|---|---|---|---|---|---|---|---|---|
+| 1.5 | joint, $\Lambda=8$ (E14) | 5.329 | 1295 | 853 | 1363 | 4.954 | 343 | 1763 / 977 |
+| 1.6 | joint, $\Lambda=9$ (E14) | 5.933 | 2370 | 1180 | 2493 | 5.471 | 419 | 3423 / 1432 |
+| 1.7 | joint, $\Lambda=9$ (10000 ADMM steps) | 7.454 | 10853 | 2450 | 11410 | 6.166 | 512 | 16571 / 3134 |
+| 1.7 | the same, plus 893 wave packets | 7.454 | 10853 | 1000 | 11410 | – | 512 | 16571 / 1291 |
+
+The trajectory constant $\beta=0.05$ is certified from $T$ on (Machine-checked). The last column shows the modes per sector, $\lceil1.1eLT/4\rceil+20$, at $1.2\,T_1''$ (E14's choice) and at the trajectory $T$. At $L=1.5$ and $1.6$ the stored E14 certificates are used. Their windows were certified in E14 with the torus bound; with the trajectory check the same windows would need about half the modes.
+
+**The attempt at $[-1.7,1.7]$.** The run used $T=2460$, 3147 modes per sector, 195 digits, and 49173 nodes in 324 panels (quadrature error unit $5.5\times10^{-193}$). Assembly took 3.7 hours and the whole run 5.8 hours.
+
+| sector | midpoint $LDL^T$ | $\lambda_{\min}(R_A)$ | residual | $\varepsilon_B$ | certified? |
+|---|---|---|---|---|---|
+| even | negative pivot $-0.141$ (index 233) | indefinite (the eigenvalue closest to 0 is $1.85\times10^{-150}$) | – | $2.8\times10^{-278}$ | no |
+| odd | all pivots positive (smallest $3.9\times10^{-13}$) | $\approx-2.75\times10^{-146}$ | $1.2\times10^{-185}$ | $9.3\times10^{-279}$ | no |
+
+The odd sector's shifted factorisation $R_A+2.75\times10^{-146}I=LDL^T+E$, with $\lVert E\rVert_F\le1.2\times10^{-185}$, bounds $\lambda_{\min}$ from below by $-2.75\times10^{-146}$. The Rayleigh quotient puts it at about the same negative value, so this sector sits right at its floor. With the 893 packets at $T=1000$ (1291 modes) the pivots are $-0.21$ (even, index 82) and $-0.012$ (odd, index 93).
+
+**What limits $T$ now.**
+* *The local operator norm* (**Theorem** + **Numerical**). Integrate $\Omega-P_L+H-\beta\ge0$ on $[T,\infty)$ against $|K(t-t_0)|^2$, with $K\in PW_L$ concentrated near $t_0\gg T$. This kills $H$, since $|K|^2$ has spectrum in $[-2L,2L]$, and gives $\lambda(t_0)\le\Omega(t_0)-\beta+o(1)$. Here $\lambda(t_0)=\max_K\int P_L(t_0+s)|K(s)|^2ds/\int|K|^2$ is the local operator norm of the comb at height $t_0$.
+  * At $t_0=0$ it is $A^*$; it then drops quickly as the phases decorrelate.
+  * At $L=1.7$: $\lambda(0)=5.556$, while the maximum of $\lambda(t_0)$ is 3.37 on $[100,300]$, 4.00 on $[300,1000]$, 4.01 on $[1000,2000]$ and 4.44 on $[2000,3000]$. At $L=1.6$ the corresponding values are 4.894, 3.24, 3.80, 3.68 and 4.16 (piecewise-constant $k$ on cells of width 0.025, step 0.05 in $t_0$).
+  * So a certificate that only needs to hold on $[T,\infty)$ could, as far as the comb is concerned, go down to $T\approx154$ at $L=1.7$.
+  * The joint certificate stops short of this because of isolated bumps where $P_L-H$ comes close to its torus maximum. At $L=1.7$ the last is at $t=2447.4$.
+  * Wave packets can remove such bumps. These are localised parts of $H$: band-limited envelopes $(\sin(bs/m)/(bs/m))^m$ with carriers $\ge2L+b$ (`rh.weil_local`). A receding-horizon linear program removes every violation on $[1000,2500]$ at $L=1.7$ with 893 packets. With them, the trajectory check certifies $\beta=0.05$ from $T=1000$ (Machine-checked, 40 s).
+  * The window cannot be certified at $T=1000$ all the same: the envelope form there is indefinite in both sectors (see the attempt above). This is the second limit below.
+* *The envelope floor* (**Numerical**). A valid $\beta$ does not by itself make the envelope form positive. The reduction drops $\frac1\pi\int_T^\infty(\Psi_L+H-\beta)|F|^2$, and this has to be negligible for the near-minimisers of $Q$, whose margins are tiny ($10^{-30}$ at $L=1$, $10^{-78}$ at $L=1.4$). Scans of the envelope form locate the cutoff below which it is indefinite. They use the even sector, with $\beta=0.05$ imposed where the trajectory check does not certify it, so they are probes, not certificates.
+
+| $L$ | $t_0=2\pi e^{1+2L}$ | $H=0$ | the joint certificate's $H$ |
+|---|---|---|---|
+| 1.0 | 126 | indefinite at 120 ($0.95\,t_0$), positive at 150 | $\Lambda=5$, $\sum\lvert h\rvert=9.6$: indefinite at 100, positive at 110 ($0.87\,t_0$) |
+| 1.2 | 188 | indefinite at 170, positive at 190 ($1.01\,t_0$) | $\Lambda=5.5$, $\sum\lvert h\rvert=14.3$: indefinite at 190, positive at 210 ($1.12\,t_0$) |
+| 1.4 | 281 | indefinite at 400 ($1.42\,t_0$), positive at 500 ($1.78\,t_0$) | $\Lambda=6$, $\sum\lvert h\rvert=18.6$: indefinite up to 750 ($2.67\,t_0$); E14 ($\Lambda=6.5$) certified at 850 |
+| 1.6 | 419 | – | $\Lambda=9$, $\sum\lvert h\rvert=61.7$: indefinite at 1180 ($2.8\,t_0$); E14 certified at 2845 ($6.8\,t_0$) |
+| 1.7 | 512 | – | $\Lambda=9$ plus 893 packets: indefinite at 1000 ($1.95\,t_0$); $\Lambda=9$, $\sum\lvert h\rvert=60.7$: indefinite at 2460 ($4.8\,t_0$): even pivot $-0.14$, odd $\lambda_{\min}\approx-2.8\times10^{-146}$ |
+
+  * Heuristic for the scale. Under RH $Q(f)=\sum_\gamma|F(\gamma)|^2$. An $F$ of exponential type $L$ has about $Lt/\pi$ zeros in $[0,t]$, while $\zeta$ has $\frac t{2\pi}\log\frac t{2\pi e}$. So $F$ can vanish at every zero only up to $t_0=2\pi e^{1+2L}$: 126 at $L=1$, 281 at $L=1.4$, 512 at $L=1.7$. Beyond $t_0$ a near-minimiser must have small spectral mass, so the reduction needs $T\gtrsim t_0$.
+  * Without $H$ the threshold is about $t_0$ at $L\le1.2$ and 1.4–1.8 $t_0$ at $L=1.4$. A large $H$ raises it: at $L=1.4$ the joint certificate ($\sum|h|=18.6$) leaves the form indefinite up to at least $2.7\,t_0$. Its contribution on $[T,\infty)$ is dropped with the rest. It is not a simple boundary term: putting the cutoff at a zero of the antiderivative of $H$ changes nothing.
+  * So, as far as the comb is concerned, the trajectory removes the torus barrier, but the envelope's own floor now sets $T$. It grows faster than $t_0$ in the range measured: about $1.2\,t_0$ at $L=1$, above $4.8\,t_0$ at $L=1.7$ (even sector, with $\sum|h|=60.7$). Whether it stays singly exponential is open.
+
+**Interpretation.**
+* E14's barrier, the operator norm of the comb, applies to certificates that hold for every real $t$. The envelope needs one only for $t\ge T$. Checked along the trajectory, the same sum-of-squares certificate lowers the comb's cutoff 4.4-fold at $L=1.7$, and wave packets lower it 10.9-fold.
+* That is not enough for the window: the envelope reduction discards the spectral side above $T$, and there the near-minimisers of $Q$ still carry more mass than their margin. At $L=1.7$ the floor, with this $H$, lies above $T=2460$ in the even sector and right at it in the odd sector. Wave packets bring the comb's requirement down to the local operator norm, but not below the floor, and they raise it if they are large near $T$.
+* Going further needs one of three things: a reduction that keeps part of the spectral side above $T$; certificates whose $H$ is small where the near-minimisers live; or a larger $T$. The last would mean about 4000–4500 modes per sector at $L=1.7$, roughly 10–13 GB per sector at 195 digits. This is a resource estimate, not a result.
+* Nothing here is information about the zeros, and nothing here bears on RH beyond the finite pieces of Weil's criterion certified in E13 and E14.
+* Labels:
+  * **Machine-checked:** the trajectory constants in the table (with and without packets), and the odd sector's lower bound $\lambda_{\min}\ge-2.75\times10^{-146}$.
+  * **Theorem:** the local necessary condition $\lambda(t_0)\le\Omega(t_0)-\beta+o(1)$.
+  * **Numerical:** the values of $\lambda(t_0)$, the LP for the packets, the indefinite pivots, and the scans of the envelope floor.
+  * **Heuristic:** the scale $2\pi e^{1+2L}$.
+
 ---
 
 ## Summary of the state of the evidence after all experiments
 
-Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ with the pointwise envelope (E13), and up to $[-1.6,1.6]$ with a non-pointwise bound for the prime comb (E14). These are zero-free proofs of finite pieces of Weil's criterion. Any certificate of this envelope type is limited by the operator norm of the comb, which still grows exponentially in $L$. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.
+Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ with the pointwise envelope (E13), and up to $[-1.6,1.6]$ with a non-pointwise bound for the prime comb (E14). These are zero-free proofs of finite pieces of Weil's criterion. Torus certificates of this envelope type are limited by the operator norm of the comb, which still grows exponentially in $L$. Trajectory certificates are not (E15). What limits the envelope then is its own floor: the near-minimisers of $Q$ keep spectral mass above $T$. At $L=1.7$ that floor lies above the cutoff the trajectory allows ($T=2460$). None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.

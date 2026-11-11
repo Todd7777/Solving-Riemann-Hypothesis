@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E15: trajectory certificates for the prime comb, and Weil positivity on [-1.7, 1.7].
+"""E15: trajectory certificates for the prime comb, and the envelope floor.
 
 The envelope reduction (E13, E14) needs Omega(t) - P_L(t) + H(t) >= beta only for t >= T. A torus
 certificate A' - P_L + H >= 0 (E14) gives this from T_1'' = 2 pi e^{A' + beta} on. Along a finite range
@@ -19,8 +19,9 @@ the torus bound applies. This script:
     t0 = 2 pi e^{1 + 2L} the envelope form is indefinite even though beta > 0;
   * floor: where the envelope form turns indefinite at L = 1.0, 1.2, 1.4, with H = 0 and with a joint
     certificate's H (probes with beta = 0.05 imposed; Numerical, about 25 minutes);
-  * certify (hours): Q(f) >= c ||f||^2 for every real f supported in [-1.7, 1.7], both parities, from the
-    stored Gram factor, with the trajectory constant (Machine-checked; ~6 h at 195 digits, ~10 GB).
+  * certify (hours): the attempted certification of [-1.7, 1.7] from the stored Gram factor with the trajectory
+    constant (T = 2460, 195 digits, ~6 h, ~10 GB). It does NOT certify: the envelope form is indefinite there
+    (even pivot -0.14; odd lambda_min ~ -2.8e-146), because T is below the envelope floor (docs/06, E15).
 
 Usage: python3 scripts/run_weil_trajectory.py [--quick] [--parts trajectory,packets,local,loss,floor] [--certify]
 Writes results/json/weil_trajectory_summary.json and results/figures/weil_trajectory.png.
@@ -46,7 +47,8 @@ FIG = os.path.join(ROOT, "results", "figures", "weil_trajectory.png")
 E14_CERTS = os.path.join(ROOT, "results", "json", "weil_comb_certificates.json")
 GRAM_17 = os.path.join(ROOT, "results", "json", "weil_trajectory_gram_L1.7.npz")
 BETA = 0.05
-# the L = 1.7 run: T from the trajectory check, 1.1 e L T / 4 modes per sector, 195 digits
+# the L = 1.7 attempt: T from the trajectory check, 1.1 e L T / 4 modes per sector, 195 digits (not certified:
+# below the envelope floor)
 CERTIFY_17 = {"L": 1.7, "T": 2460.0, "beta": BETA, "dps": 195, "modes_factor": 1.1}
 
 
@@ -279,7 +281,8 @@ def part_floor(quick):
 
 
 def part_certify(parities=("even", "odd")):
-    """Q >= c ||f||^2 on [-1.7, 1.7] from the stored Gram factor, with the trajectory constant."""
+    """Attempt Q >= c ||f||^2 on [-1.7, 1.7] from the stored Gram factor with the trajectory constant (fails at
+    T = 2460: the envelope form is indefinite)."""
     p = CERTIFY_17
     cert = cert_17()
     tr = wcb.trajectory_check(cert, p["T"], p["beta"], verbose=True)

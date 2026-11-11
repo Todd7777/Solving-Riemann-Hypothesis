@@ -117,15 +117,15 @@ def test_blocked_ldl_residual_and_inertia():
     rng = np.random.default_rng(3)
     n = 150                                        # several 64-blocks
     Qm, _ = np.linalg.qr(rng.standard_normal((n, n)))
-    D = np.concatenate([[1e-20, 3e-15], rng.uniform(0.5, 2.0, n - 2)])
+    # small eigenvalues, but far above the float noise (~1e-16) of M = Q D Q^T: whatever the BLAS summation order,
+    # the matrix that is certified (the floats of M, exactly) has lambda_min ~ 1e-10 > 0
+    D = np.concatenate([[1e-10, 3e-8], rng.uniform(0.5, 2.0, n - 2)])
     M = Qm @ np.diag(D) @ Qm.T
     from flint import arb_mat
     A = arb_mat([[arb(float(M[i, j])) for j in range(n)] for i in range(n)])
-    # the float matrix has lambda_min ~ 1e-20 only to float accuracy: shift well inside the spectrum
     ok = we.residual_certify(A, arb(1e-30))
-    lam = np.linalg.eigvalsh(M).min()
-    if lam > 1e-28:
-        assert ok["certified"]
+    assert ok["certified"]
+    assert not we.residual_certify(A, arb(2e-10))["certified"]       # a shift above lambda_min must fail
     assert we.inertia_count(A, arb(0.75)) >= 2
     neg = A - arb_mat(n, n, [arb(1.0) if i == j else 0 for i in range(n) for j in range(n)])
     k = int(np.sum(np.linalg.eigvalsh(M) < 1.0))

@@ -27,6 +27,7 @@ The Riemann Hypothesis will not be settled by a software project, and this repos
 | L | Explicit formula without an Euler product; Weil positivity for $L(s,(\cdot/5))$ and Davenport–Heilbronn; detection horizon of Weil's criterion; certified values of the Weil form | `explicit_formula_general.py`, `weil_form_general.py`, `weil_certificate.py` | done (E12) |
 | M | Certified Weil positivity on whole windows $[-L,L]$ (envelope reduction in ball arithmetic) and the reach of the method | `weil_envelope.py` | done (E13) |
 | N | Non-pointwise bounds for the prime comb (separable and joint sum-of-squares certificates $A'-P_L+H\ge0$, $H$ invisible to the window); certified windows past the pointwise barrier; the operator-norm barrier | `weil_comb.py` | done (E14) |
+| O | Trajectory certificates (the comb bound checked only along $t\ge T$), local operator norms, wave packets; the envelope floor that then blocks $[-1.7,1.7]$ | `weil_comb.py` (`trajectory_check`), `weil_local.py` | done (E15) |
 
 The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every number produced, with the command that produced it.
 

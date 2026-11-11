@@ -23,13 +23,13 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-10: 291 pass, about 3 minutes
+python3 -m pytest                   # 2026-11-11: 300 pass, about 5 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
 `data/zeros/` already holds 10^6 rigorous zero ordinates. Full experiment runs take hours.
 
-## State on 2026-11-10
+## State on 2026-11-11
 
 - E12 is complete (`docs/06_experiment_log.md`, E12; synthesis in `docs/08_findings_and_outlook.md`, item 1b).
   `src/rh/weil_form_general.py` was reviewed and is covered by `tests/test_weil_form_general.py`; a float64
@@ -54,14 +54,22 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   multithreaded BLAS made the joint solver 10x slower here. The next barrier is the operator norm of the comb
   (A* >= sum c_n (1 - log n / 2L), about 0.3 A_L), so the envelope approach ends near L = 1.7-2 (docs/06, E14).
 
+- E15 is complete: `trajectory_check` in `src/rh/weil_comb.py` certifies Omega - P_L + H >= beta along t in
+  [T, T2] (IEEE double with a-priori error bounds, phases from Arb), so the comb no longer needs the torus cutoff
+  2 pi e^{A'}: T = 853 / 1180 / 2460 at L = 1.5 / 1.6 / 1.7 instead of 1295 / 2370 / 10853, and T = 1000 at L = 1.7
+  with the wave packets of `src/rh/weil_local.py` (Machine-checked). But [-1.7, 1.7] is NOT certified: the
+  envelope form is indefinite at T = 2460 (even pivot -0.14; odd lambda_min ~ -2.8e-146). The limit is now the
+  envelope floor (near-minimisers keep spectral mass above T): ~2 pi e^{1+2L} for L <= 1.2, higher for larger L
+  and large H (docs/06, E15). `scripts/run_weil_trajectory.py` reproduces the analysis (~40 min); `--certify` the
+  failed attempt (~5.8 h, ~9.7 GB; the effective memory limit here is ~13 GB, run nothing else).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- L = 1.7 is out of reach here: the joint certificate at Lambda = 9 leaves A' ~ 6.7 (~7805 modes per
-  sector, beyond ~11 GB). It needs Lambda ~ 10-11 and 32-64 GB, or a different kind of comb certificate
-  (the low-rank ALM solver does not beat ADMM; the gap to A* is set by the monomial set);
-- a treatment of the frequencies above T that does not bound the comb by a constant (needed beyond L ~ 1.7-2);
+- the envelope floor (E15): how it grows with L, why a large H raises it, and a reduction that keeps part of
+  the spectral side above T; [-1.7, 1.7] at larger T (~3000-3500, ~4000-4500 modes, 10-13 GB per sector);
+- certificates whose H is small above T, and a prolate basis to make larger T affordable (E15);
 - the same certificates for L(s,(n/5));
 - whether bases other than wave packets detect off-line zeros earlier;
 - a theory for c(delta).

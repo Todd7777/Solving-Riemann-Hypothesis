@@ -870,7 +870,7 @@ def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, 
             lam0 = lam_approx * safety if lam_approx > 0 else lam_approx
         cert = residual_certify(R, arb(lam0))
         retries = []
-        if auto and est is not None and not cert["certified"]:
+        if auto and est is not None and lam_approx > 0 and not cert["certified"]:
             # the midpoint is positive definite, so the shift was too close to (or above) lambda_min: the inverse
             # iteration's Rayleigh quotient overestimates lambda_min when the two smallest eigenvalues are close.
             # Smaller shifts give a smaller but valid bound (each try is one more LDL^T, no re-assembly).
