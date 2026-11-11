@@ -339,7 +339,7 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              dw: float = 0.5, dtau: float = 1.0, half_width: float = 12.0, gap: float = 0.0, target: float = 0.01,
              step: float = 0.02, amax: float = 4.0, max_group: int | None = None,
              method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
-             buffer: float = 0.0) -> LocalCorrection:
+             buffer: float = 0.0, core_per_dip: bool = False) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -356,6 +356,9 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     packet centres and far_step beyond (out to the reach, where the packets are small), which keeps the
     programs small; buffer > 0 asks target + buffer on a program's own points in that core, so that the
     later programs have room for the tails of their packets at the earlier points (which keep target).
+    The core is the hull of the program's packet centres widened by core_pad; with core_per_dip it is the union
+    of the windows [d - half_width - core_pad, d + half_width + core_pad] of its dips (E18): for two dips far
+    apart the hull holds points no packet reaches, where target + buffer may be out of reach.
     Dense dips can need carriers well above 2L + b (W = 8 rather than 4): the deep notches of
     Omega - beta - G sit between large peaks, and only high carriers fit into them with small amplitudes."""
     import numpy as np
@@ -409,17 +412,30 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
         taus = np.unique(np.concatenate([np.arange(d - half_width, d + half_width + 1e-9, dtau) for d in grp]))
         lo, hi = max(T, grp[0] - half_width - reach), grp[-1] + half_width + reach
         if core_pad is None:
-            clo, chi = lo, hi
+            windows = [(lo, hi)]
             ts = np.arange(lo, hi, step)
-        else:
+        elif not core_per_dip:
             clo, chi = max(T, taus[0] - core_pad), taus[-1] + core_pad
+            windows = [(clo, chi)]
             fs = step if far_step is None else far_step
             ts = np.unique(np.concatenate([np.arange(lo, clo, fs), np.arange(clo, chi, step),
                                            np.arange(chi, hi, fs)]))
+        else:
+            windows = [(max(T, d - half_width - core_pad), d + half_width + core_pad) for d in grp]
+            fs = step if far_step is None else far_step
+            far = np.arange(lo, hi, fs)
+            infar = np.zeros(len(far), bool)
+            for a, c in windows:
+                infar |= (far >= a) & (far < c)
+            ts = np.unique(np.concatenate([far[~infar]] + [np.arange(a, c, step) for a, c in windows]))
+            ts = ts[(ts >= lo) & (ts < hi)]
+        incore = np.zeros(len(ts), bool)
+        for a, c in windows:
+            incore |= (ts >= a) & (ts < c)
         j = np.searchsorted(all_dips, ts)
         jl, jr = np.clip(j - 1, 0, len(all_dips) - 1), np.clip(j, 0, len(all_dips) - 1)
         nearest = np.where(np.abs(ts - all_dips[jl]) <= np.abs(ts - all_dips[jr]), jl, jr)
-        own = (dip_group[nearest] == k) & (ts >= clo) & (ts < chi)
+        own = (dip_group[nearest] == k) & incore
         keep = dip_group[nearest] <= k                # the points of this and earlier groups
         ts, own = ts[keep], own[keep]
         r = Om_of_t(ts) - beta - G_of_t(ts)

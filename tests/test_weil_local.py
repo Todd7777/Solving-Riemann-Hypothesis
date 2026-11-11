@@ -110,6 +110,32 @@ def test_fix_dips_buffer_and_coarse_far_grid():
     assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
 
 
+def test_fix_dips_core_per_dip():
+    """Two dips 120 apart in one program, and between them (60 from each) a shallow minimum of the margin at 0.03,
+    above the target 0.01 but below target + buffer = 0.06. The hull core asks 0.06 there, out of the packets'
+    reach, so the program is infeasible; with core_per_dip the buffer applies only near the dips, and the
+    margin then holds everywhere."""
+    L, beta, gap = 1.0, 0.05, 0.3
+
+    def Om(ts):
+        return np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
+
+    def G(ts):
+        return (Om(ts) - beta - 0.5 + 0.8 * np.exp(-((ts - 300.0) / 0.3) ** 2) + 0.8 * np.exp(-((ts - 420.0) / 0.3) ** 2)
+                + 0.47 * np.exp(-((ts - 360.0) / 1.0) ** 2))
+    kw = dict(gap=gap, max_group=2, core_pad=20.0, far_step=0.1, buffer=0.05)
+    with pytest.raises(RuntimeError):
+        wl.fix_dips(G, Om, L, 150.0, [300.0, 420.0], beta, **kw)
+    loc = wl.fix_dips(G, Om, L, 150.0, [300.0, 420.0], beta, core_per_dip=True, **kw)
+    taus = sorted({tau for tau, _, _, _ in loc.atoms})
+    assert taus[0] < 320.0 and taus[-1] > 400.0
+    ts = np.arange(150.0, 580.0, 0.01)
+    ctx.prec = 128
+    vals, errs = loc.eval_float([arb(150.0)], 0.01, len(ts))
+    ctx.prec = 53
+    assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
+
+
 def test_packets_are_invisible_to_the_window():
     """int_0^inf (psi(t - tau) + psi(-t - tau)) G_0(t)^2 dt = 0 when w - b >= 2L (G_0^2 has spectrum in
     [-2L, 2L]); a packet with w - b < 2L gives a clearly nonzero integral. Direct quadrature to t = 3000,
