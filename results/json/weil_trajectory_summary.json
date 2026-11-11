@@ -48480,7 +48480,7 @@
  },
  "description": "E15: trajectory certificates (rh.weil_comb.trajectory_check) and Weil positivity on [-1.7, 1.7]",
  "quick": false,
- "seconds_last_run": 52.41694116592407,
+ "seconds_last_run": 1633.3982286453247,
  "packets": {
   "L": 1.7,
   "T": 1000.0,
@@ -48499,5 +48499,315 @@
   ],
   "seconds": 40.317386627197266,
   "modes": 1291
- }
+ },
+ "floor": [
+  {
+   "T": 90.0,
+   "N": 116,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 2,
+   "L": 1.0,
+   "H": "H=0",
+   "T_over_t0": 0.713147222951972,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 100.0,
+   "N": 126,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.0,
+   "H": "H=0",
+   "T_over_t0": 0.7923858032799689,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 110.0,
+   "N": 135,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 2,
+   "L": 1.0,
+   "H": "H=0",
+   "T_over_t0": 0.8716243836079657,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 120.0,
+   "N": 145,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.0,
+   "H": "H=0",
+   "T_over_t0": 0.9508629639359626,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 150.0,
+   "N": 173,
+   "positive": true,
+   "lambda_min": 8.925810752739282e-31,
+   "negative_eigenvalues": 0,
+   "L": 1.0,
+   "H": "H=0",
+   "T_over_t0": 1.1885787049199532,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 90.0,
+   "N": 116,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 3,
+   "L": 1.0,
+   "H": "joint Lambda=5.0",
+   "T_over_t0": 0.713147222951972,
+   "sum_abs_h": 9.579365056246719
+  },
+  {
+   "T": 100.0,
+   "N": 126,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 2,
+   "L": 1.0,
+   "H": "joint Lambda=5.0",
+   "T_over_t0": 0.7923858032799689,
+   "sum_abs_h": 9.579365056246719
+  },
+  {
+   "T": 110.0,
+   "N": 135,
+   "positive": true,
+   "lambda_min": 1.4386456092802812e-31,
+   "negative_eigenvalues": 0,
+   "L": 1.0,
+   "H": "joint Lambda=5.0",
+   "T_over_t0": 0.8716243836079657,
+   "sum_abs_h": 9.579365056246719
+  },
+  {
+   "T": 120.0,
+   "N": 145,
+   "positive": true,
+   "lambda_min": 1.2888998149190198e-30,
+   "negative_eigenvalues": 0,
+   "L": 1.0,
+   "H": "joint Lambda=5.0",
+   "T_over_t0": 0.9508629639359626,
+   "sum_abs_h": 9.579365056246719
+  },
+  {
+   "T": 150.0,
+   "N": 173,
+   "positive": true,
+   "lambda_min": 2.505393760250381e-30,
+   "negative_eigenvalues": 0,
+   "L": 1.0,
+   "H": "joint Lambda=5.0",
+   "T_over_t0": 1.1885787049199532,
+   "sum_abs_h": 9.579365056246719
+  },
+  {
+   "T": 170.0,
+   "N": 225,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.2,
+   "H": "H=0",
+   "T_over_t0": 0.9029585498254469,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 190.0,
+   "N": 247,
+   "positive": true,
+   "lambda_min": 5.390447461366114e-50,
+   "negative_eigenvalues": 0,
+   "L": 1.2,
+   "H": "H=0",
+   "T_over_t0": 1.00918896745197,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 210.0,
+   "N": 270,
+   "positive": true,
+   "lambda_min": 7.715419935956892e-50,
+   "negative_eigenvalues": 0,
+   "L": 1.2,
+   "H": "H=0",
+   "T_over_t0": 1.1154193850784933,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 240.0,
+   "N": 305,
+   "positive": true,
+   "lambda_min": 1.0856312195102189e-49,
+   "negative_eigenvalues": 0,
+   "L": 1.2,
+   "H": "H=0",
+   "T_over_t0": 1.274765011518278,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 170.0,
+   "N": 225,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.2,
+   "H": "joint Lambda=5.5",
+   "T_over_t0": 0.9029585498254469,
+   "sum_abs_h": 14.259898624560995
+  },
+  {
+   "T": 190.0,
+   "N": 247,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.2,
+   "H": "joint Lambda=5.5",
+   "T_over_t0": 1.00918896745197,
+   "sum_abs_h": 14.259898624560995
+  },
+  {
+   "T": 210.0,
+   "N": 270,
+   "positive": true,
+   "lambda_min": 6.153881492118397e-51,
+   "negative_eigenvalues": 0,
+   "L": 1.2,
+   "H": "joint Lambda=5.5",
+   "T_over_t0": 1.1154193850784933,
+   "sum_abs_h": 14.259898624560995
+  },
+  {
+   "T": 240.0,
+   "N": 305,
+   "positive": true,
+   "lambda_min": 4.433923104360068e-50,
+   "negative_eigenvalues": 0,
+   "L": 1.2,
+   "H": "joint Lambda=5.5",
+   "T_over_t0": 1.274765011518278,
+   "sum_abs_h": 14.259898624560995
+  },
+  {
+   "T": 300.0,
+   "N": 430,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 2,
+   "L": 1.4,
+   "H": "H=0",
+   "T_over_t0": 1.0681256765069431,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 400.0,
+   "N": 563,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.4,
+   "H": "H=0",
+   "T_over_t0": 1.424167568675924,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 500.0,
+   "N": 696,
+   "positive": true,
+   "lambda_min": 2.117637049196202e-78,
+   "negative_eigenvalues": 0,
+   "L": 1.4,
+   "H": "H=0",
+   "T_over_t0": 1.780209460844905,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 650.0,
+   "N": 896,
+   "positive": true,
+   "lambda_min": 3.953667251666701e-78,
+   "negative_eigenvalues": 0,
+   "L": 1.4,
+   "H": "H=0",
+   "T_over_t0": 2.3142722990983766,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 750.0,
+   "N": 1029,
+   "positive": true,
+   "lambda_min": 4.520933333912017e-78,
+   "negative_eigenvalues": 0,
+   "L": 1.4,
+   "H": "H=0",
+   "T_over_t0": 2.670314191267358,
+   "sum_abs_h": 0
+  },
+  {
+   "T": 300.0,
+   "N": 430,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 4,
+   "L": 1.4,
+   "H": "joint Lambda=6.0",
+   "T_over_t0": 1.0681256765069431,
+   "sum_abs_h": 18.623675227448565
+  },
+  {
+   "T": 400.0,
+   "N": 563,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 3,
+   "L": 1.4,
+   "H": "joint Lambda=6.0",
+   "T_over_t0": 1.424167568675924,
+   "sum_abs_h": 18.623675227448565
+  },
+  {
+   "T": 500.0,
+   "N": 696,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 2,
+   "L": 1.4,
+   "H": "joint Lambda=6.0",
+   "T_over_t0": 1.780209460844905,
+   "sum_abs_h": 18.623675227448565
+  },
+  {
+   "T": 650.0,
+   "N": 896,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.4,
+   "H": "joint Lambda=6.0",
+   "T_over_t0": 2.3142722990983766,
+   "sum_abs_h": 18.623675227448565
+  },
+  {
+   "T": 750.0,
+   "N": 1029,
+   "positive": false,
+   "lambda_min": null,
+   "negative_eigenvalues": 1,
+   "L": 1.4,
+   "H": "joint Lambda=6.0",
+   "T_over_t0": 2.670314191267358,
+   "sum_abs_h": 18.623675227448565
+  }
+ ]
 }
