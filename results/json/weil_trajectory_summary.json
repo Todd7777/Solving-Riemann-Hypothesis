@@ -48480,7 +48480,7 @@
  },
  "description": "E15: trajectory certificates (rh.weil_comb.trajectory_check) and Weil positivity on [-1.7, 1.7]",
  "quick": false,
- "seconds_last_run": 45.17683792114258,
+ "seconds_last_run": 52.41694116592407,
  "packets": {
   "L": 1.7,
   "T": 1000.0,
@@ -48491,13 +48491,13 @@
   "m": 6,
   "b": 1.0,
   "T2": 11410.368896213387,
-  "min_margin": 7.141012953632009e-05,
+  "min_margin": 0.0024724467900077846,
   "eval_error": 1.4197671826266853e-06,
   "cells_per_level": [
    520519,
-   1224
+   1228
   ],
-  "seconds": 34.59856295585632,
+  "seconds": 40.317386627197266,
   "modes": 1291
  }
 }

@@ -25,8 +25,9 @@ What is rigorous here:
   Arb and products, as in `rh.weil_comb._TrajectoryEvaluator`. Atoms beyond `reach` and all mirror terms
   are bounded by the tail estimate instead of evaluated.
 * `M2_on` bounds |H_loc''| on an interval: (w + b)^2 per atom near it (Bernstein's inequality, since
-  psi has spectrum in [-(w+b), w+b] and |psi| <= 1), and (w + 2b)^2 (m / (b d))^m at distance d >= m/b.
-  The second bound follows from |u|, |u'|, |u''| <= 1/x, 2/x, 5/x for u = sin x / x and x >= 1.
+  psi has spectrum in [-(w+b), w+b] and |psi| <= 1), and (w^2 + 4wb + 5b^2) (m / (b d))^m at distance
+  d >= m/b. The second bound follows from |u|, |u'|, |u''| <= 1/y, 2/y, 5/y for u = sin y / y and y >= 1:
+  then |e| <= y^-m, |e'| <= 2b y^-m and |e''| <= (b^2/m)(4(m-1) + 5) y^-m <= 5 b^2 y^-m.
 
 `fit_local_correction` finds the amplitudes by a receding-horizon linear program (scipy HiGHS). This step
 is numerical: it affects only how good the correction is, never whether a certificate built on it is
@@ -90,7 +91,8 @@ class LocalCorrection:
         for tau, w, _, a in self.atoms:
             for d in (max(0.0, lo - tau, tau - hi), lo + tau):     # the atom and its mirror term
                 x = d / mb
-                tot += abs(a) * ((w + self.b) ** 2 if x < 1 else (w + 2 * self.b) ** 2 * x ** (-self.m))
+                tot += abs(a) * ((w + self.b) ** 2 if x < 1
+                                 else (w * w + 4 * w * self.b + 5 * self.b * self.b) * x ** (-self.m))
         return tot * (1 + 1e-9)
 
     def bound_on_ellipse(self, c: float, h: float, rho: float) -> float:
