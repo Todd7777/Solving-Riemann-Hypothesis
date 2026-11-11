@@ -76,12 +76,22 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   `scripts/run_weil_gap.py` reproduces the analysis (`--quick` in run_all; `--certify` repeats the
   certification, ~6.2 h, ~10 GB; run nothing else alongside).
 
+- E17 is complete: every dip of the L = 1.7 comb bound above T = 1000 passes the local condition for lifting
+  (E15's local operator norm at bandwidth L + gap/2: >= 1.10); E16's packets failed only for lack of high carriers
+  (W = 8, carriers to 12.45: sum|a| 19 instead of 520 on the dense cluster). `fix_dips` has `core_pad`, `far_step`,
+  `buffer` for many dips. 245 packets give beta = 0.2 from T = 1000, and [-1.7, 1.7] is certified there:
+  Q >= 1.05e-150 ||f||^2 with 1361 modes per sector (Machine-checked, 1.0 h). 1291 modes were not enough:
+  the tail bound eps_B ~ (eLT/4N)^{2N} must stay below the margin. `scripts/run_weil_lift.py` reproduces it
+  (~20 min; `--quick` in run_all; `--certify` ~1 h).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- a comb certificate for L = 1.7 from T = 1000 (the envelope form is positive there without the near-2L terms;
-  47 dips on [1000, 2460] to lift, a cluster of nine on [1058, 1144]), then L = 1.8;
+- L = 1.8: the joint certificate (ADMM, Lambda = 9, ~20000 iterations, ~4.5 h on one core), gap_certificate, the
+  dips lifted with fix_dips (W = 8), the trajectory check, then the certification (~240 digits; check the tail
+  bound first). The floor is higher than at L = 1.7: with H = 0 and beta = 0.2 the envelope form is indefinite
+  at T = 1250 = 2 t0 in both sectors (Numerical, 1702 modes), so T must be larger (1500 is being probed);
 - the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
   side above T;
 - sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T
