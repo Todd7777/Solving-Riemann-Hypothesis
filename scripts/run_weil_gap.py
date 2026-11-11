@@ -25,10 +25,14 @@ Parts:
   * blocks: the leading 400 x 400 block (even sector, 195 digits, beta = 0.05) of the L = 1.7 envelope form at
     T = 2460 for the E15 certificate (first negative pivot at index 233, as in the full E15 run) and for the
     gapped one with its 3 packets (Numerical, about 2 hours each);
+  * floor17: the L = 1.7 envelope form at T = 1000 (1.95 t0), both sectors, with the gapped H and beta = 0.2
+    imposed (Numerical, about an hour, ~3 GB): both positive definite, so without the near-2L terms the floor at
+    L = 1.7 lies below 2 t0;
   * --certify (hours): the certification of [-1.7, 1.7] with the gapped certificate and its 14 packets at
     T = 2460, beta = 0.2 (3147 modes per sector, 195 digits; ~6 h and ~10 GB; run nothing else alongside).
 
-Usage: python3 scripts/run_weil_gap.py [--quick] [--parts terms,resonance,anatomy,floor_beta,gap17,blocks] [--certify]
+Usage: python3 scripts/run_weil_gap.py [--quick] [--parts terms,resonance,anatomy,floor_beta,gap17,blocks,floor17]
+       [--certify]
 --quick runs `terms` and `gap17` only (about 3 minutes). Writes results/json/weil_gap_summary.json.
 """
 import argparse
@@ -356,6 +360,40 @@ def part_blocks():
     return rows
 
 
+def part_floor17(T=1000.0, beta=0.2):
+    """L = 1.7: the envelope form at T = 1000 (1.95 t0), both sectors, 1291 modes, 195 digits, with the gapped
+    certificate's H (no packets) and beta = 0.2 imposed on [T, inf) (Numerical, a probe: beta is not checked
+    there). About an hour; ~3 GB."""
+    from flint import ctx
+    t = time.time()
+    cert = wcb.gap_certificate(rwt.cert_17(), GAP_17["g"])
+    cert.trajectory = {"certified": True, "T": T, "beta": beta}
+    N = int(math.ceil(GAP_17["modes_factor"] * math.e * 1.7 * T / 4)) + 20
+    ctx.dps = GAP_17["dps"]
+    blks = we.envelope_blocks(1.7, T, {"even": N, "odd": N}, dps=GAP_17["dps"], comb_cert=cert, wmax=8.0, chunk=1000)
+    ta = time.time() - t
+    rows = []
+    for parity in ("even", "odd"):
+        R = blks[parity]["R"]
+        ctx.dps = GAP_17["dps"]
+        f = we.ldl_mid_blocked(R, None)
+        r = {"L": 1.7, "T": T, "T_over_t0": T / (2 * math.pi * math.exp(1 + 3.4)), "beta_imposed": beta,
+             "g": GAP_17["g"], "N": N, "parity": parity, "dps": GAP_17["dps"], "n_negative": f["n_negative"],
+             "first_negative": f["first_negative"], "min_pivot": float(f["min_pivot"]), "n_nodes": blks[parity]["n_nodes"],
+             "assembly_s": ta}
+        del f
+        if r["n_negative"] == 0:
+            est = we.approx_lambda_min_ldl(R)
+            r["lambda_min"] = float(est[0].mid()) if est is not None else None
+        blks[parity] = None
+        r["seconds"] = time.time() - t
+        rows.append(r)
+        print(f"  L=1.7 T={T:.0f} gapped H, beta={beta} imposed, {parity}: {r['n_negative']} negative pivots, "
+              f"lambda_min ~ {r.get('lambda_min')} [{r['seconds']:.0f}s]", flush=True)
+    ctx.dps = 15
+    return rows
+
+
 def part_certify(parities=("even", "odd")):
     p = GAP_17
     cert = gapped_17()
@@ -376,7 +414,7 @@ def part_certify(parities=("even", "odd")):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true")
-    ap.add_argument("--parts", default="terms,resonance,anatomy,floor_beta,gap17,blocks")
+    ap.add_argument("--parts", default="terms,resonance,anatomy,floor_beta,gap17,blocks,floor17")
     ap.add_argument("--certify", action="store_true", help="also run the L = 1.7 window certification (hours)")
     args = ap.parse_args()
     t0 = time.time()
@@ -386,7 +424,7 @@ def main():
             out = json.load(f)
     parts = ["terms", "gap17"] if args.quick else args.parts.split(",")
     fns = {"terms": part_terms, "resonance": part_resonance, "anatomy": part_anatomy, "floor_beta": part_floor_beta,
-           "gap17": part_gap17, "blocks": part_blocks}
+           "gap17": part_gap17, "blocks": part_blocks, "floor17": part_floor17}
     for name in parts:
         print(f"[{name}]", flush=True)
         res = fns[name]()

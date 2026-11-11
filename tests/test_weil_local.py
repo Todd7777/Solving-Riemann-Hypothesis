@@ -65,6 +65,27 @@ def test_fix_dips_with_a_gap():
     assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
 
 
+def test_fix_dips_sequential_groups():
+    """With max_group = 1, dips closer than the packets' reach get one program each, solved in increasing t with
+    the packets already fitted in the residual: the margin must hold on the whole stretch afterwards, including
+    where the packets of neighbouring dips overlap."""
+    L, beta, gap = 1.0, 0.05, 0.3
+
+    def Om(ts):
+        return np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
+
+    def G(ts):                                   # two narrow dips 60 apart, well within each other's reach
+        return Om(ts) - beta - 0.5 + 0.8 * (np.exp(-((ts - 300.0) / 0.3) ** 2) + np.exp(-((ts - 360.0) / 0.3) ** 2))
+    loc = wl.fix_dips(G, Om, L, 150.0, [300.0, 360.0], beta, gap=gap, max_group=1)
+    taus = sorted({tau for tau, _, _, _ in loc.atoms})
+    assert taus[0] < 330.0 < taus[-1]           # packets at both dips
+    ts = np.arange(150.0, 520.0, 0.01)
+    ctx.prec = 128
+    vals, errs = loc.eval_float([arb(150.0)], 0.01, len(ts))
+    ctx.prec = 53
+    assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
+
+
 def test_packets_are_invisible_to_the_window():
     """int_0^inf (psi(t - tau) + psi(-t - tau)) G_0(t)^2 dt = 0 when w - b >= 2L (G_0^2 has spectrum in
     [-2L, 2L]); a packet with w - b < 2L gives a clearly nonzero integral. Direct quadrature to t = 3000,

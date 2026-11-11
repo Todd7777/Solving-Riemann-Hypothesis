@@ -718,5 +718,43 @@
    "T_over_t0": 2.3142722990983766,
    "note": "computed 2026-11-11 with an equivalent scratch script (the same envelope_block / approx_lambda_min_ldl calls)"
   }
+ ],
+ "floor17": [
+  {
+   "L": 1.7,
+   "T": 1000.0,
+   "T_over_t0": 1.953999333592713,
+   "beta_imposed": 0.2,
+   "g": 0.002,
+   "N": 1291,
+   "parity": "even",
+   "dps": 195,
+   "n_negative": 0,
+   "first_negative": null,
+   "min_pivot": 9.378364158792681e-14,
+   "n_nodes": 21117,
+   "assembly_s": 3133,
+   "lambda_min": 1.0793580023011388e-150,
+   "seconds": 3286,
+   "note": "computed 2026-11-11 with an equivalent scratch script (the same envelope_blocks / ldl_mid_blocked / approx_lambda_min_ldl calls)"
+  },
+  {
+   "L": 1.7,
+   "T": 1000.0,
+   "T_over_t0": 1.953999333592713,
+   "beta_imposed": 0.2,
+   "g": 0.002,
+   "N": 1291,
+   "parity": "odd",
+   "dps": 195,
+   "n_negative": 0,
+   "first_negative": null,
+   "min_pivot": 3.661498792490106e-13,
+   "n_nodes": 21117,
+   "assembly_s": 3133,
+   "lambda_min": 6.51108077141548e-146,
+   "seconds": 3449,
+   "note": "computed 2026-11-11 with an equivalent scratch script (the same envelope_blocks / ldl_mid_blocked / approx_lambda_min_ldl calls)"
+  }
  ]
 }

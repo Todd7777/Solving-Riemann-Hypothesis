@@ -337,13 +337,19 @@ def fit_local_correction(G_of_t, Om_of_t, L: float, T: float, T_end: float, beta
 
 def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 1.0, m: int = 6, W: float = 4.0,
              dw: float = 0.5, dtau: float = 1.0, half_width: float = 12.0, gap: float = 0.0, target: float = 0.01,
-             step: float = 0.02, amax: float = 4.0) -> LocalCorrection:
+             step: float = 0.02, amax: float = 4.0, max_group: int | None = None,
+             method: str = "highs") -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
     `fit_local_correction`, which maximises the margin window by
     window over a whole range, this leaves the rest of the trajectory alone. Dips closer than twice the reach
-    (m/b) 10^(8/m) + half_width of the packets are fitted together, in one program."""
+    (m/b) 10^(8/m) + half_width of the packets are fitted together, in one program. With max_group, a program
+    closes after max_group dips at the first gap of at least 2.5 half_width (closer dips are always fitted
+    together), and the programs are solved in increasing t with the packets already fitted added to the
+    residual. Each grid point belongs to the group of its nearest dip; a program constrains the points of its
+    own and earlier groups that its packets reach, so later programs keep the earlier margins and fix the
+    later dips."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -370,21 +376,42 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     atoms = []
     groups = []
     for d in sorted(dips):
-        if groups and d - groups[-1][-1] < 2 * (reach + half_width):
+        if groups and d - groups[-1][-1] < 2 * (reach + half_width) and (
+                max_group is None or len(groups[-1]) < max_group or d - groups[-1][-1] < 2.5 * half_width):
             groups[-1].append(d)
         else:
             groups.append([d])
-    for grp in groups:
+
+    def fitted(t):                                    # the packets fitted so far, at the points t
+        out = np.zeros(len(t))
+        for tau, w, kind, a in atoms:
+            if tau < t[0] - reach or tau > t[-1] + reach:
+                continue
+            e1, e2 = env(t - tau), env(t + tau)
+            if kind == 0:
+                out += a * (e1 * np.cos(w * (t - tau)) + e2 * np.cos(w * (t + tau)))
+            else:
+                out += a * (e1 * np.sin(w * (t - tau)) - e2 * np.sin(w * (t + tau)))
+        return out
+    all_dips = np.array([d for grp in groups for d in grp])
+    dip_group = np.array([k for k, grp in enumerate(groups) for _ in grp])
+    for k, grp in enumerate(groups):
         taus = np.unique(np.concatenate([np.arange(d - half_width, d + half_width + 1e-9, dtau) for d in grp]))
         ts = np.arange(max(T, grp[0] - half_width - reach), grp[-1] + half_width + reach, step)
+        j = np.searchsorted(all_dips, ts)
+        jl, jr = np.clip(j - 1, 0, len(all_dips) - 1), np.clip(j, 0, len(all_dips) - 1)
+        nearest = np.where(np.abs(ts - all_dips[jl]) <= np.abs(ts - all_dips[jr]), jl, jr)
+        ts = ts[dip_group[nearest] <= k]              # the points of this and earlier groups
         r = Om_of_t(ts) - beta - G_of_t(ts)
+        if atoms:
+            r = r + fitted(ts)
         C = cols(taus, ts)
         n = C.shape[1]
         C[np.abs(C) < 1e-13] = 0.0                    # far from its centre an atom is negligible here
         Cs = sp.csr_matrix(C)
         del C
         res = linprog(np.ones(2 * n), A_ub=sp.hstack([-Cs, Cs]).tocsr(), b_ub=r - target,
-                      bounds=[(0, amax)] * (2 * n), method="highs")
+                      bounds=[(0, amax)] * (2 * n), method=method)
         if res.status != 0:
             raise RuntimeError(f"LP failed at dips {grp}: {res.message}")
         av = res.x[:n] - res.x[n:]
