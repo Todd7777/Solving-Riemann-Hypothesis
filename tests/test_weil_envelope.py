@@ -125,3 +125,14 @@ def test_shift_retry_when_the_estimate_is_too_high(monkeypatch):
     assert r["positive"] and r["shift_retries"]
     assert r["certified_lower_bound"] <= good["lambda_approx"] * 1.0001
     ctx.dps = 15
+
+
+def test_panels_at_high_precision_do_not_overflow():
+    """The node count of a panel comes from log(const) - log(target). Formed as log(const / target) it overflowed
+    a double for targets near 1e-300 (high precision, large H) although both logarithms are moderate. More
+    precision needs more nodes, never fewer, on the same panels."""
+    fine = we.panels(1.7, 200.0, 100, target=1e-305)
+    coarse = we.panels(1.7, 200.0, 100, target=1e-60)
+    assert fine and all(p.nu >= 4 for p in fine)
+    assert len(fine) == len(coarse)
+    assert all(p.lo == q.lo and p.hi == q.hi and p.nu >= q.nu for p, q in zip(fine, coarse))

@@ -375,7 +375,9 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
             growth = math.exp(2 * L * be)               # e^{2L |Im z|}
             # (64/15) M growth worst rho^{-2nu}/(rho^2-1) * h <= target
             const = (64 / 15) * M * growth * worst * h / (rho * rho - 1)
-            nu = max(4, int(math.ceil(math.log(const / target) / (2 * math.log(rho)))))
+            # log(const) - log(target), not log(const / target): at high precision (target ~ 1e-245) and a large
+            # H the quotient overflows a double although both logs are moderate
+            nu = max(4, int(math.ceil((math.log(const) - math.log(target)) / (2 * math.log(rho)))))
             if best is None or nu < best[1]:
                 best = (rho, nu, (64 / 15) * M * growth * h / (rho * rho - 1) * rho ** (-2 * nu))
         if best is None:
