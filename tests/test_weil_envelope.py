@@ -107,3 +107,21 @@ def test_paired_sectors_match_separate_assembly():
         A, B = both[parity]["R"], one["R"]
         assert all(A[i, j].overlaps(B[i, j]) for i in range(12) for j in range(12))
         assert both[parity]["orders"] == one["orders"]
+
+
+def test_shift_retry_when_the_estimate_is_too_high(monkeypatch):
+    """If the Rayleigh-quotient estimate of lambda_min is too high (two close eigenvalues), the first shifted
+    LDL^T check fails although the midpoint is positive definite; smaller shifts are then tried on the same
+    block, and the certified bound stays valid (below the true lambda_min)."""
+    ctx.dps = 40
+    good = we.certify_window(0.5, "even", T=40.0, N=37, dps=40)
+    real = we.approx_lambda_min_ldl
+
+    def inflated(M, *a, **k):
+        lam, x = real(M, *a, **k)
+        return lam * 1.5, x
+    monkeypatch.setattr(we, "approx_lambda_min_ldl", inflated)
+    r = we.certify_window(0.5, "even", T=40.0, N=37, dps=40)
+    assert r["positive"] and r["shift_retries"]
+    assert r["certified_lower_bound"] <= good["lambda_approx"] * 1.0001
+    ctx.dps = 15

@@ -865,9 +865,21 @@ def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, 
         # est is None: the midpoint has a negative pivot, so R_A is (numerically) indefinite and the check
         # below must fail; approx_lambda_min then only gives the eigenvalue closest to 0
         lam_approx = est[0] if est is not None else approx_lambda_min(R)[0]
-        if lam0 is None:
+        auto = lam0 is None
+        if auto:
             lam0 = lam_approx * safety if lam_approx > 0 else lam_approx
         cert = residual_certify(R, arb(lam0))
+        retries = []
+        if auto and est is not None and not cert["certified"]:
+            # the midpoint is positive definite, so the shift was too close to (or above) lambda_min: the inverse
+            # iteration's Rayleigh quotient overestimates lambda_min when the two smallest eigenvalues are close.
+            # Smaller shifts give a smaller but valid bound (each try is one more LDL^T, no re-assembly).
+            for fac in (0.5, 0.1, 0.01):
+                retries.append(float(arb(lam0).mid()))
+                lam0 = lam_approx * fac
+                cert = residual_certify(R, arb(lam0))
+                if cert["certified"]:
+                    break
         tb = tail_bounds(L, T, N, parity, comb_cert=comb_cert)
         beta = blk["beta"]
         c = None
@@ -882,7 +894,7 @@ def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, 
                "A_prime": float(comb_cert.A_prime.upper()) if comb_cert is not None else None,
                "comb_X": comb_cert.X if comb_cert is not None else None,
                "lambda0": float(arb(lam0).mid()), "ldl_certified": cert["certified"],
-               "midpoint_indefinite": est is None,
+               "midpoint_indefinite": est is None, "shift_retries": retries,
                "ldl_failed_at": cert.get("failed_at"),
                "ldl_min_pivot": cert["min_pivot"],
                "residual_F": float(cert["residual_F"].upper()) if cert["residual_F"] is not None else None,
