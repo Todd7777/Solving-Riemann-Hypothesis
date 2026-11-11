@@ -336,7 +336,7 @@ def leading_block(cert, T, Np, parity, dps):
     f = we.ldl_mid_blocked(blk["R"], None)
     ctx.dps = 15
     return {"T": T, "N_prime": Np, "parity": parity, "dps": dps, "n_negative": f["n_negative"],
-            "first_negative": f["first_negative"], "min_pivot": float(f["min_pivot"].mid()),
+            "first_negative": f["first_negative"], "min_pivot": float(f["min_pivot"]),
             "n_nodes": blk["n_nodes"], "seconds": time.time() - t}
 
 
