@@ -91,9 +91,9 @@ The open threads are listed in §8.3:
 - L = 1.8: the joint certificate (ADMM, Lambda = 9, ~20000 iterations, ~4.5 h on one core), gap_certificate, the
   dips lifted with fix_dips (W = 8), the trajectory check, then the certification (~240 digits; check the tail
   bound first). With H = 0 and beta = 0.2 the envelope form is indefinite at T = 1250 and 1500 (2.0 and 2.4 t0)
-  in both sectors (Numerical, 1702 / 2039 modes, 240 digits). H = 0 may be a poor proxy here: the cutoff drops
-  the large values of Psi in the comb's troughs above T, which a gapped H flattens. Probe with the gapped H
-  of the L = 1.8 certificate next;
+  in both sectors (Numerical, 1702 / 2039 modes, 240 digits). H = 0 is a fair proxy: at L = 1.7, T = 1000 it
+  gives the lambda_min of the gapped H (1.11e-150 / 6.42e-146 against 1.08e-150 / 6.51e-146). So the L = 1.8
+  floor is above 2.4 t0 (below 1.95 t0 at L = 1.7); T = 2000 is being probed;
 - the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
   side above T;
 - sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T
