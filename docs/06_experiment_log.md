@@ -540,22 +540,28 @@ At $L=1$, $L=1.1$ and $L=1.2$ (even) the upper bounds are rigorous enclosures (`
 
 **Comb constants and the next barrier.**
 
-| $L$ | 0.8 | 0.9 | 1.0 | 1.1 | 1.2 | 1.3 | 1.4 | 1.5 | 1.6 |
-|---|---|---|---|---|---|---|---|---|---|
-| $A_L$ (pointwise) | 2.94 | 4.38 | 5.85 | 7.08 | 8.52 | 9.94 | 10.29 | 13.02 | 14.32 |
-| $A'$ separable, $X=24$ (certified) | 1.53 | 2.27 | 3.02 | 3.83 | 4.57 | 5.32 | 5.59 | 7.02 | 7.72 |
-| separable optimum | 1.52 | 2.24 | 2.98 | 3.77 | 4.49 | 5.20 | 5.47 | 6.83 | 7.49 |
-| $A'$ joint, $\Lambda=6$ (certified) | 1.36 | 1.99 | 2.47 | 2.99 | 3.65 | 4.38 | 4.78 | 6.14 | 7.15 |
-| $A^*$ (operator norm) | 1.22 | 1.55 | 1.93 | 2.29 | 2.70 | 3.20 | 3.70 | 4.29 | 4.89 |
-| Fejér lower bound for $A^*$ | 1.05 | 1.41 | 1.75 | 2.15 | 2.56 | 3.04 | 3.53 | 4.09 | 4.67 |
-| $T_1$ pointwise | 119 | 502 | 2187 | 7427 | $3.2\times10^{4}$ | $1.3\times10^{5}$ | $1.9\times10^{5}$ | $2.8\times10^{6}$ | $1.0\times10^{7}$ |
-| $T_1$ separable / joint / $A^*$ | 29 / 24 / 21 | 61 / 46 / 30 | 129 / 74 / 43 | 288 / 124 / 62 | 609 / 242 / 93 | 1278 / 499 / 154 | 1680 / 746 / 255 | 7041 / 2918 / 457 | 14119 / 8025 / 839 |
+| $L$ | 0.8 | 0.9 | 1.0 | 1.1 | 1.2 | 1.3 | 1.4 | 1.5 | 1.6 | 1.7 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| $A_L$ (pointwise) | 2.94 | 4.38 | 5.85 | 7.08 | 8.52 | 9.94 | 10.29 | 13.02 | 14.32 | 16.64 |
+| $A'$ separable, $X=24$ (certified) | 1.53 | 2.27 | 3.02 | 3.83 | 4.57 | 5.32 | 5.59 | 7.02 | 7.72 | 9.23 |
+| separable optimum | 1.52 | 2.24 | 2.98 | 3.77 | 4.49 | 5.20 | 5.47 | 6.83 | 7.49 | 8.93 |
+| $A'$ joint, $\Lambda=6$ (certified) | 1.36 | 1.99 | 2.47 | 2.99 | 3.65 | 4.38 | 4.78 | 6.14 | 7.15 | 8.57 |
+| $A^*$ (operator norm) | 1.22 | 1.55 | 1.93 | 2.29 | 2.70 | 3.20 | 3.70 | 4.29 | 4.89 | 5.56 |
+| Fejér lower bound for $A^*$ | 1.05 | 1.41 | 1.75 | 2.15 | 2.56 | 3.04 | 3.53 | 4.09 | 4.67 | 5.30 |
+| $T_1$ pointwise | 119 | 502 | 2187 | 7427 | $3.2\times10^{4}$ | $1.3\times10^{5}$ | $1.9\times10^{5}$ | $2.8\times10^{6}$ | $1.0\times10^{7}$ | $1.1\times10^{8}$ |
+| $T_1$ separable / joint / $A^*$ | 29 / 24 / 21 | 61 / 46 / 30 | 129 / 74 / 43 | 288 / 124 / 62 | 609 / 242 / 93 | 1278 / 499 / 154 | 1680 / 746 / 255 | 7041 / 2918 / 457 | 14119 / 8025 / 839 | 64056 / 33015 / 1627 |
 
 * Any $(*)$ implies $A'\ge A^*$, the norm of the comb operator on $L^2[-L,L]$: integrate $(*)$ against $|F|^2$.
 * A Fejér window centred where all phases align (Kronecker) gives $A^*\ge\sum_{n<e^{2L}}c_n(1-\frac{\log n}{2L})\approx0.3A_L$. By the prime number theorem this is $(4+o(1))e^L/L$ (**Theorem** for the inequality; **Numerical** for the values).
 * Consequently **every** certificate of the form $(*)$ leaves the cutoff $T_1\ge2\pi e^{A^*}$ doubly exponential in $L$; only the exponent shrinks, by about a factor 3 for $L\le2$. The Fejér bound alone gives $T_1\ge1.8\times10^3$ at $L=1.75$ and $1.2\times10^4$ at $L=2$.
 * The separable certificate runs out near $L\approx1.3$. Joint certificates of feasible size close much of the gap to $A^*$; at $\Lambda=6$ they sit about 0.5–1.1 above $A^*$. At $L=1.5$ the joint certificate with $\Lambda=6$ would need $T_1\approx2900$; with $\Lambda=8$ (ADMM) it needs 1295, and the window is certified at $T=1684$. At $L=1.6$, $\Lambda=9$ gives $T_1''=2370$ and the window is certified at $T=2845$. The envelope approach with any comb certificate ends near $L\approx1.7$–$2$.
 * The margins keep collapsing (even sector): $\lambda^*\in[1.1,2.0]\times10^{-38}$ at $L=1.1$ and $[4.6,7.2]\times10^{-49}$ at $1.2$ (both rigorous). At $1.3$, $1.4$, $1.5$ and $1.6$ they are about $10^{-61}$, $10^{-77}$, $2.7\times10^{-97}$ and $3.5\times10^{-121}$ (certified lower bounds; upper ends numerical).
+
+**Where it stops on this machine: $L=1.7$.**
+* At $L=1.7$ ten primes enter (up to 29). The comb constants are $A_L=16.64$, separable optimum 8.93, joint with $\Lambda=6$ 8.57, and $A^*=5.56$.
+* With $\Lambda=9$ (1408 monomials), ADMM reaches a certified $A'=7.45$ after 10000 steps. Its trace (6.32, still rising, as at $L=1.6$) points to an optimum near $A'\approx6.7$ for this monomial set (Numerical). Even that gives $T_1''\approx5104$, and certifying at $T\approx1.2\,T_1''$ would need about 7805 Legendre modes per sector at about 175 digits. One such ball matrix takes about 8 GB, and the blocked $LDL^T$ holds two or three at once: far beyond the roughly 11 GB available here. The margins also keep falling: $\lambda_J$ is $1.2\times10^{-86}$ and $9.8\times10^{-97}$ at $J=160$ and $192$.
+* A better solver does not close the gap. The low-rank augmented Lagrangian (`joint_gram_alm`) matches the barrier optimum on small cases. At $L=1.6$ (1239 monomials) it ends at 5.948 against ADMM's 5.933, with its trace rising towards about 5.88 as the mismatch falls. So the $\Lambda=9$ optimum at $L=1.6$ is about 5.85–5.9, and the remaining gap to $A^*$ (about 1) is set by the size of the monomial set, which grows like $e^\Lambda$.
+* So $L\approx1.6$ is the practical limit of the joint-certificate envelope on this hardware. $L=1.7$ would need $\Lambda\approx10$–11 (2400–4000 monomials) and a machine with roughly 32–64 GB of memory, or a comb certificate that is not a sum of squares over smooth numbers. (Numerical: the $\Lambda=9$ value and the resource estimates.)
 
 **Interpretation.**
 * The barrier of E13 came from bounding the comb pointwise. Bounding it only against band-limited test functions moves it, and the certified window grows from $[-1,1]$ to $[-1.6,1.6]$.

@@ -62,7 +62,7 @@ What cannot constitute progress: further verification of zeros at feasible heigh
 ## 8.3 Status of open threads
 
 * **E14** (done, item 1d): non-pointwise comb certificates (separable and joint sums of squares). Certified Weil positivity up to $L=1.6$. Open:
-  * joint certificates closer to the operator norm $A^*$ (larger $\Lambda$), and a band-limited (prolate) basis, to reach $L\approx1.7$;
+  * $L=1.7$: the joint certificate at $\Lambda=9$ leaves $A'\approx6.7$, about 7805 modes per sector, beyond this machine's memory. It needs $\Lambda\approx10$–11, about 32–64 GB, or a comb certificate that is not a sum of squares over smooth numbers;
   * the analogous certificates for $L(s,(n/5))$;
   * an idea for the frequencies above $T$ that is not a constant bound on the comb, needed beyond $L\approx1.7$–$2$.
 * **E13** (done, item 1c): certified Weil positivity on whole windows up to $L=1$ by the envelope reduction in ball arithmetic.

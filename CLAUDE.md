@@ -23,7 +23,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-10: 290 pass, about 3 minutes
+python3 -m pytest                   # 2026-11-10: 291 pass, about 3 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
@@ -58,7 +58,9 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- joint comb certificates closer to the operator norm, and a prolate basis, to reach L ~ 1.7;
+- L = 1.7 is out of reach here: the joint certificate at Lambda = 9 leaves A' ~ 6.7 (~7805 modes per
+  sector, beyond ~11 GB). It needs Lambda ~ 10-11 and 32-64 GB, or a different kind of comb certificate
+  (the low-rank ALM solver does not beat ADMM; the gap to A* is set by the monomial set);
 - a treatment of the frequencies above T that does not bound the comb by a constant (needed beyond L ~ 1.7-2);
 - the same certificates for L(s,(n/5));
 - whether bases other than wave packets detect off-line zeros earlier;
