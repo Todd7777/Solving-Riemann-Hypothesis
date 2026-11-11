@@ -156,6 +156,9 @@ def beta_star(L, T, comb_cert=None):
     from flint import acb, arb
     if comb_cert is not None:
         b = omega(acb(T)).real - comb_cert.A_prime
+        loc = getattr(comb_cert, "local", None)
+        if loc is not None:                 # (*) holds for H without the wave packets: subtract their size
+            b -= arb(loc.sup_bound())
         tr = getattr(comb_cert, "trajectory", None)
         if tr is not None and tr.get("certified") and T >= tr["T"]:
             bt = arb(tr["beta"])
@@ -314,7 +317,12 @@ def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10, 
     two_pi = 2 * math.pi
     # H (a finite cosine sum) is bounded analytically on the ellipse: |Im z| <= b_e there, so
     # |H(z)| <= sum |h| cosh(omega b_e); the rest of the symbol is enclosed on Arb boxes
-    best = comb_cert.H_bound(h * (rho - 1 / rho) / 2) if comb_cert is not None else 0.0
+    if comb_cert is None:
+        best = 0.0
+    elif hasattr(comb_cert, "H_bound_panel"):
+        best = comb_cert.H_bound_panel(c, h, rho)
+    else:
+        best = comb_cert.H_bound(h * (rho - 1 / rho) / 2)
     base = best
     stack = [(two_pi * k / n_boxes, two_pi * (k + 1) / n_boxes, 0) for k in range(n_boxes)]
     while stack:
@@ -544,7 +552,9 @@ def tail_bounds(L, T, N, parity: str, n_extra: int = 4000, dps: int = 30, comb_c
             # on [0, T]: Omega(0) - A' <= Omega - P_L + H <= Omega(T) + A_L + sup|H| (the lower bound by
             # (*)), so |Psi_L + H - beta| <= max(Omega(T) + A_L + sup|H| - beta, A' + beta - Omega(0)); with
             # beta = Omega(T) - A' this is max(A' + A_L + sup|H|, Omega(T) - Omega(0))
-            sigma_max = max(_up(OmT + A - beta) + comb_cert.H_sup, _up(comb_cert.A_prime + beta - Om0))
+            loc = getattr(comb_cert, "local", None)
+            loc_sup = loc.sup_bound() if loc is not None else 0.0     # (*) holds for H without wave packets
+            sigma_max = max(_up(OmT + A - beta) + comb_cert.H_sup, _up(comb_cert.A_prime + beta - Om0) + loc_sup)
         orders = sector_orders(parity, N + n_extra)
         tail = orders[N:]
 

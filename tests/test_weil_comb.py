@@ -212,7 +212,8 @@ def test_trajectory_evaluator_error_bound():
     ev = wcb._TrajectoryEvaluator(cert)
     ctx.prec = 128
     starts = [arb(float(s)) for s in np.random.default_rng(4).uniform(10, 3000, 4)]
-    G, E = ev.evaluate(starts, 0.0173, 600)
+    G, Es, _ = ev.evaluate(starts, 0.0173, 600)
+    E = float(Es.max())
     comb = wcb.prime_comb(1.0)
     worst = 0.0
     for b, s in enumerate(starts):

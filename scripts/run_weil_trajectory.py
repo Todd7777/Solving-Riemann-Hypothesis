@@ -98,8 +98,8 @@ def last_violation(cert, beta, t_lo, step=0.01):
     for a in np.arange(t_lo, T2, 250.0):
         ts = np.arange(a, min(a + 250.0, T2), step)
         g = np.cos(np.outer(ts, np.log(ns))) @ cs
-        for i in range(0, len(w), 4000):
-            g -= np.cos(np.outer(ts, w[i:i + 4000])) @ h[i:i + 4000]
+        for i in range(0, len(w), 1000):                 # (25000 x 1000 temporaries: ~200 MB)
+            g -= np.cos(np.outer(ts, w[i:i + 1000])) @ h[i:i + 1000]
         bad = np.nonzero(g > omega_float(ts) - beta)[0]
         if len(bad):
             last = float(ts[bad[-1]])

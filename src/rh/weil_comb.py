@@ -74,7 +74,7 @@ from typing import List
 
 __all__ = ["prime_comb", "toeplitz_lambda_max", "fes_constant", "sos_gram", "PrimeCertificate",
            "CombCertificate", "prime_certificate", "comb_certificate", "joint_gram", "joint_gram_admm",
-           "joint_comb_certificate", "trajectory_check", "comb_operator_norm", "comb_constants"]
+           "joint_comb_certificate", "trajectory_check", "attach_local", "comb_operator_norm", "comb_constants"]
 
 
 def _primes_upto(x: float) -> List[int]:
@@ -277,6 +277,7 @@ class CombCertificate:
     omega_min: float = 0.0  # lower bound for the smallest frequency of H (> 2L)
     meta: dict = field(default_factory=dict)     # construction details (joint certificates)
     trajectory: dict | None = None  # set by `trajectory_check`: Omega - P_L + H >= beta on [T, inf)
+    local: object = None    # optional rh.weil_local.LocalCorrection, part of H (see `attach_local`)
 
     def freqs(self):
         """[(omega = log(n/d), h)] with omega computed at the current working precision (cached per precision)."""
@@ -313,7 +314,18 @@ class CombCertificate:
         v = acb(0)
         for n, d, h in self.terms:
             v += h * (E[n] * Ei[d] + Ei[n] * E[d])
-        return v / 2
+        v = v / 2
+        if self.local is not None:
+            v += self.local.H(z)
+        return v
+
+    def H_bound_panel(self, c: float, h: float, rho: float) -> float:
+        """Upper bound for |H(z)| on the Bernstein ellipse of [c - h, c + h] with parameter rho."""
+        b_e = h * (rho - 1 / rho) / 2
+        out = self.H_bound(b_e)
+        if self.local is not None:
+            out += self.local.bound_on_ellipse(c, h, rho)
+        return out
 
     def H_direct(self, z):
         """H(z) term by term with one cosine per term (reference for `H`)."""
@@ -322,6 +334,8 @@ class CombCertificate:
         v = acb(0)
         for om, h in self.freqs():
             v += h * (om * z).cos()
+        if self.local is not None:
+            v += self.local.H(z)
         return v
 
     def describe(self) -> dict:
@@ -1003,7 +1017,31 @@ class _TrajectoryEvaluator:
         SV = self.S @ V
         Hv = np.einsum("ij,ij->j", V.conj(), SV).real
         Pv = self.cf @ V[self.cidx].real
-        return (Pv - Hv).reshape(len(starts), K), self.error_bound(K, eps0, eps_w)
+        G = (Pv - Hv).reshape(len(starts), K)
+        E = np.full(len(starts), self.error_bound(K, eps0, eps_w))
+        M2 = np.full(len(starts), self.M2)
+        loc = self.cert.local
+        if loc is not None:                              # wave packets: G = P_L - H - H_loc
+            vals, errs = loc.eval_float(starts, step, K)
+            G = G - vals
+            E = (E + errs + 2 * _U * (np.abs(G).max(axis=1) + np.abs(vals).max(axis=1))) * (1 + 1e-9)
+            for i, s in enumerate(starts):
+                lo = float(s.mid())
+                M2[i] += loc.M2_on(lo, lo + (K - 1) * step)
+        return G, E, M2
+
+
+def attach_local(cert: "CombCertificate", local) -> "CombCertificate":
+    """Add wave packets (`rh.weil_local.LocalCorrection`) to the certificate's H. They are invisible to the
+    window like H, but (*) no longer holds for H + H_loc everywhere: only the trajectory constant of
+    `trajectory_check` (computed afterwards) may then be used. Updates H_sup."""
+    if local.L != cert.L:
+        raise ValueError("window mismatch")
+    local.check_spectrum()
+    cert.local = local
+    cert.trajectory = None
+    cert.H_sup += local.sup_bound()
+    return cert
 
 
 def trajectory_check(cert: "CombCertificate", T: float, beta: float, delta: float = 0.02, refine: int = 4,
@@ -1039,7 +1077,16 @@ def trajectory_check(cert: "CombCertificate", T: float, beta: float, delta: floa
     try:
         bb = arb(beta)
         T2 = 2 * math.pi * math.exp(float(cert.A_prime.upper()) + beta) + 1.0
-        while not (omega(acb(T2)).real - cert.A_prime >= bb):
+        if cert.local is not None:                     # beyond T2 the wave packets are only bounded
+            T2 = max(T2, max(x[0] for x in cert.local.atoms) + 4 * cert.local.m / cert.local.b
+                     if cert.local.atoms else T2)
+
+        def far_ok(t2):
+            v = omega(acb(t2)).real - cert.A_prime
+            if cert.local is not None and cert.local.atoms:
+                v -= arb(cert.local.tail_bound(t2))
+            return v >= bb
+        while not far_ok(T2):
             T2 *= 1.001
         TT, dd = arb(T), arb(delta)
     finally:
@@ -1073,13 +1120,14 @@ def trajectory_check(cert: "CombCertificate", T: float, beta: float, delta: floa
         starts = [TT + k0 * dd for k0 in range(0, n_cells, block)]
     finally:
         ctx.prec = old
-    slack = ev.M2 * delta * delta / 8 * (1 + 1e-12) + 1e-10
     per = max(1, chunk_points // (block + 1))
     for c0 in range(0, len(starts), per):
         sts = starts[c0:c0 + per]
-        G, E = ev.evaluate(sts, delta, block + 1)
-        E0 = max(E0, E)
+        G, Es, M2s = ev.evaluate(sts, delta, block + 1)
+        E0 = max(E0, float(Es.max()))
         for bi in range(len(sts)):
+            E = float(Es[bi])
+            slack = float(M2s[bi]) * delta * delta / 8 * (1 + 1e-12) + 1e-10
             k0 = (c0 + bi) * block
             nk = min(block, n_cells - k0)
             g = G[bi, :nk + 1]
@@ -1113,7 +1161,6 @@ def trajectory_check(cert: "CombCertificate", T: float, beta: float, delta: floa
         if not fail:
             break
         h = delta / refine ** level
-        slack = ev.M2 * h * h / 8 * (1 + 1e-12) + 1e-10
         new_fail = []
         per = max(1, chunk_points // (refine + 1))
         for c0 in range(0, len(fail), per):
@@ -1129,9 +1176,10 @@ def trajectory_check(cert: "CombCertificate", T: float, beta: float, delta: floa
                     sts.append(s)
             finally:
                 ctx.prec = old
-            G, E = ev.evaluate(sts, h, refine + 1)
-            E0 = max(E0, E)
-            for (k, path, grp), g in zip(part, G):
+            G, Es, M2s = ev.evaluate(sts, h, refine + 1)
+            E0 = max(E0, float(Es.max()))
+            for (k, path, grp), g, E, M2c in zip(part, G, Es, M2s):
+                slack = float(M2c) * h * h / 8 * (1 + 1e-12) + 1e-10
                 bound = np.maximum(g[:-1], g[1:]) + E + slack
                 margin = om_low[grp] - beta - bound
                 for j in range(refine):
