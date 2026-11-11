@@ -340,10 +340,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              step: float = 0.02, amax: float = 4.0) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
-    Omega - beta - G + H_loc >= min(target, current margin) on every grid point t >= T the atoms reach (points
-    that already fail must reach `target`). Unlike `fit_local_correction`, which maximises the margin window by
-    window over a whole range, this leaves the rest of the trajectory alone. The dips must be farther apart
-    than the reach (m/b) 10^(8/m) of the packets, or be fitted together."""
+    Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
+    `fit_local_correction`, which maximises the margin window by
+    window over a whole range, this leaves the rest of the trajectory alone. Dips closer than twice the reach
+    (m/b) 10^(8/m) + half_width of the packets are fitted together, in one program."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -368,17 +368,25 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
         return np.array(out).T
 
     atoms = []
-    for d in dips:
-        taus = np.arange(d - half_width, d + half_width + 1e-9, dtau)
-        ts = np.arange(max(T, d - half_width - reach), d + half_width + reach, step)
+    groups = []
+    for d in sorted(dips):
+        if groups and d - groups[-1][-1] < 2 * (reach + half_width):
+            groups[-1].append(d)
+        else:
+            groups.append([d])
+    for grp in groups:
+        taus = np.unique(np.concatenate([np.arange(d - half_width, d + half_width + 1e-9, dtau) for d in grp]))
+        ts = np.arange(max(T, grp[0] - half_width - reach), grp[-1] + half_width + reach, step)
         r = Om_of_t(ts) - beta - G_of_t(ts)
         C = cols(taus, ts)
         n = C.shape[1]
-        need = np.where(r < target, target, np.minimum(target, r))
-        res = linprog(np.ones(2 * n), A_ub=sp.csr_matrix(np.hstack([-C, C])), b_ub=r - need,
+        C[np.abs(C) < 1e-13] = 0.0                    # far from its centre an atom is negligible here
+        Cs = sp.csr_matrix(C)
+        del C
+        res = linprog(np.ones(2 * n), A_ub=sp.hstack([-Cs, Cs]).tocsr(), b_ub=r - target,
                       bounds=[(0, amax)] * (2 * n), method="highs")
         if res.status != 0:
-            raise RuntimeError(f"LP failed at dip {d}: {res.message}")
+            raise RuntimeError(f"LP failed at dips {grp}: {res.message}")
         av = res.x[:n] - res.x[n:]
         av = np.array([math.ldexp(round(math.ldexp(x, 40)), -40) if abs(x) > 1e-9 else 0.0 for x in av])
         for j in np.nonzero(av)[0]:

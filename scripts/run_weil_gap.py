@@ -15,14 +15,14 @@ Parts:
   * anatomy: the negative direction at L = 1.4, T = 650 with the full H: its eigenvalue, where its spectral
     mass sits, and the parts of the dropped tail (Numerical, about 15 minutes);
   * gap17: the L = 1.7 certificate of E15 with the terms of gap < 0.002 moved into A' (the term 30/1 at
-    gap 0.0012, h = 0.387, and 34 small ones), plus 3 wave packets with carriers >= 2L + 1.05 that remove the
-    three remaining dips of the trajectory; trajectory constant beta = 0.05 from T = 2460 (Machine-checked,
-    about 2 minutes). Packets in results/json/weil_gap_packets_L1.7.json;
+    gap 0.0012, h = 0.387, and 34 small ones), plus 14 wave packets with carriers >= 2L + 1.05 that lift the
+    eight dips of Omega - G below 0.2 on [2460, 19989]; trajectory constant beta = 0.2 from T = 2460
+    (Machine-checked, about 2 minutes). Packets in results/json/weil_gap_packets_L1.7.json;
   * blocks: the leading 400 x 400 block (even sector, 195 digits) of the L = 1.7 envelope form at T = 2460 for
     the E15 certificate (first negative pivot at index 233, as in the full E15 run) and for the gapped one
     (Numerical, about 30 minutes each);
-  * --certify (hours): the certification of [-1.7, 1.7] with the gapped certificate at T = 2460 (3147 modes
-    per sector, 195 digits; ~6 h and ~10 GB; run nothing else alongside).
+  * --certify (hours): the certification of [-1.7, 1.7] with the gapped certificate at T = 2460, beta = 0.2
+    (3147 modes per sector, 195 digits; ~6 h and ~10 GB; run nothing else alongside).
 
 Usage: python3 scripts/run_weil_gap.py [--quick] [--parts terms,resonance,anatomy,gap17,blocks] [--certify]
 --quick runs `terms` and `gap17` only (about 3 minutes). Writes results/json/weil_gap_summary.json.
@@ -49,7 +49,10 @@ ROOT = os.path.join(HERE, "..")
 OUT_JSON = os.path.join(ROOT, "results", "json", "weil_gap_summary.json")
 PACKETS = os.path.join(ROOT, "results", "json", "weil_gap_packets_L1.7.json")
 BETA = 0.05
-GAP_17 = {"L": 1.7, "g": 0.002, "packet_gap": 0.05, "T": 2460.0, "dips": [2819.14, 3099.96, 3689.14],
+# the gapped L = 1.7 certificate: terms with log(n/d) < 2L + g moved into A'; packets (fix_dips) at the dips of
+# Omega - beta - G on [T, T2] with carriers >= 2L + b + packet_gap; trajectory constant beta from T
+GAP_17 = {"L": 1.7, "g": 0.002, "packet_gap": 0.05, "T": 2460.0, "beta": 0.2, "target": 0.01, "lp_step": 0.04,
+          "dips": [2599.2, 2630.98, 2819.14, 2931.62, 2974.12, 3099.96, 3517.36, 3689.14],
           "dps": 195, "modes_factor": 1.1}
 
 
@@ -196,20 +199,21 @@ def gapped_17():
                 t = ts[i:i + 1500]
                 out[i:i + 1500] = np.cos(np.outer(t, np.log(ns))) @ cs - np.cos(np.outer(t, w)) @ h
             return out
-        loc = wl.fix_dips(G, omega_float, p["L"], p["T"], p["dips"], BETA, gap=p["packet_gap"])
+        loc = wl.fix_dips(G, omega_float, p["L"], p["T"], p["dips"], p["beta"], gap=p["packet_gap"],
+                          target=p["target"], step=p["lp_step"])
         with open(PACKETS, "w") as f:
-            json.dump({"L": loc.L, "b": loc.b, "m": loc.m, "g": p["g"], "packet_gap": p["packet_gap"],
-                       "atoms_tau_w_kind_a": [list(a) for a in loc.atoms]}, f, indent=1)
+            json.dump({"L": loc.L, "b": loc.b, "m": loc.m, "g": p["g"], "packet_gap": p["packet_gap"], "beta": p["beta"],
+                       "T": p["T"], "dips": p["dips"], "atoms_tau_w_kind_a": [list(a) for a in loc.atoms]}, f, indent=1)
     return wcb.attach_local(cert, loc)
 
 
 def part_gap17():
     p = GAP_17
     cert = gapped_17()
-    r = wcb.trajectory_check(cert, p["T"], BETA)
+    r = wcb.trajectory_check(cert, p["T"], p["beta"])
     print(f"  L=1.7 gapped (g = {p['g']}: {cert.meta['n_moved']} terms, sum|h| = {cert.meta['moved_to_A_prime']:.3f} "
           f"moved; A' = {float(cert.A_prime.upper()):.4f}) + {len(cert.local.atoms)} packets (sum|a| = "
-          f"{cert.local.sum_abs():.3f}): certified={r['certified']} from T={r['T']} (margin {r['min_margin']}, "
+          f"{cert.local.sum_abs():.3f}): beta = {r['beta']} certified={r['certified']} from T={r['T']} (margin {r['min_margin']}, "
           f"T2 = {r['T2']:.0f}, {r['seconds']:.0f}s)", flush=True)
     return {"L": 1.7, "g": p["g"], "n_moved": cert.meta["n_moved"], "moved_to_A_prime": cert.meta["moved_to_A_prime"],
             "A_prime": float(cert.A_prime.upper()), "omega_min_minus_2L": cert.omega_min - 3.4,
@@ -232,11 +236,11 @@ def leading_block(cert, T, Np, parity, dps):
 
 def part_blocks():
     rows = []
-    for name, cert in (("E15 certificate", rwt.cert_17()), ("gapped + packets", gapped_17())):
-        tr = wcb.trajectory_check(cert, GAP_17["T"], BETA)
+    for name, cert, beta in (("E15 certificate", rwt.cert_17(), BETA), ("gapped + packets", gapped_17(), GAP_17["beta"])):
+        tr = wcb.trajectory_check(cert, GAP_17["T"], beta)
         assert tr["certified"]
         r = leading_block(cert, GAP_17["T"], 400, "even", GAP_17["dps"])
-        r["certificate"] = name
+        r["certificate"], r["beta"] = name, beta
         rows.append(r)
         print(f"  L=1.7 T=2460 leading 400 x 400 block (even, {GAP_17['dps']} digits), {name}: "
               f"{r['n_negative']} negative pivots (first at {r['first_negative']}), min pivot {r['min_pivot']:.3e} "
@@ -247,7 +251,7 @@ def part_blocks():
 def part_certify(parities=("even", "odd")):
     p = GAP_17
     cert = gapped_17()
-    tr = wcb.trajectory_check(cert, p["T"], BETA, verbose=True)
+    tr = wcb.trajectory_check(cert, p["T"], p["beta"], verbose=True)
     if not tr["certified"]:
         raise SystemExit("trajectory check failed")
     N = int(math.ceil(p["modes_factor"] * math.e * p["L"] * p["T"] / 4)) + 20
@@ -256,7 +260,8 @@ def part_certify(parities=("even", "odd")):
     for r in res.values():
         r["comb_certificate"] = {k: v for k, v in cert.describe().items() if k != "per_prime"}
         r["modes_factor"] = p["modes_factor"]
-        r["setup"] = f"E15 certificate, gap {p['g']} moved into A', {len(cert.local.atoms)} packets, T = {p['T']}"
+        r["setup"] = (f"E15 certificate, gap {p['g']} moved into A', {len(cert.local.atoms)} packets, T = {p['T']}, "
+                      f"beta = {p['beta']}")
     return list(res.values())
 
 
