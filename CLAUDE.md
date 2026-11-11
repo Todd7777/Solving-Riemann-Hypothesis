@@ -23,7 +23,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-11: 302 pass, about 6 minutes
+python3 -m pytest                   # 2026-11-11: 303 pass, about 5 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
@@ -57,27 +57,31 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
 - E15 is complete: `trajectory_check` in `src/rh/weil_comb.py` certifies Omega - P_L + H >= beta along t in
   [T, T2] (IEEE double with a-priori error bounds, phases from Arb), so the comb no longer needs the torus cutoff
   2 pi e^{A'}: T = 853 / 1180 / 2460 at L = 1.5 / 1.6 / 1.7 instead of 1295 / 2370 / 10853, and T = 1000 at L = 1.7
-  with the wave packets of `src/rh/weil_local.py` (Machine-checked). But [-1.7, 1.7] is NOT certified: the
-  envelope form is indefinite at T = 2460 (even pivot -0.14; odd lambda_min ~ -2.8e-146). The limit is now the
-  envelope floor (near-minimisers keep spectral mass above T): ~2 pi e^{1+2L} for L <= 1.2, higher for larger L
-  and large H (docs/06, E15). `scripts/run_weil_trajectory.py` reproduces the analysis (~40 min); `--certify` the
-  failed attempt (~5.8 h, ~9.7 GB; the effective memory limit here is ~13 GB, run nothing else).
+  with the wave packets of `src/rh/weil_local.py` (Machine-checked). But with this certificate [-1.7, 1.7] is NOT
+  certified (E16 certifies it): the envelope form is indefinite at T = 2460 (even pivot -0.14; odd lambda_min
+  ~ -2.8e-146). The limit is now the envelope floor (near-minimisers keep spectral mass above T): ~2 pi e^{1+2L}
+  for L <= 1.2, higher for larger L and large H (docs/06, E15). `scripts/run_weil_trajectory.py` reproduces the
+  analysis (~40 min); `--certify` the failed attempt (~5.8 h, ~9.7 GB; the effective memory limit here is
+  ~13 GB, run nothing else).
 
-- E16 (analysis complete): the part of the envelope floor that E15 attributed to a large H is a resonance of a few
+- E16 is complete: the part of the envelope floor that E15 attributed to a large H is a resonance of a few
   terms of H with frequency just above 2L. For even f, |F|^2 has a 2L component as large as its mean, and such a
   term can take up to |h|/2 per unit of mass above T, against the credit beta. At L = 1.4 one term (33/2) of 557
   makes the form indefinite at beta = 0.05; the thresholds beta*(T) are in docs/06, E16 (Numerical). E14 had beta
   0.18-0.30; E15 had 0.05, below the |h|/2 = 0.19 of the term 30/1 at L = 1.7. `rh.weil_comb.gap_certificate`
   moves such terms into A'; `rh.weil_local.fix_dips` lifts the remaining dips with wave packets. Gapped L = 1.7
-  certificate: beta = 0.2 from T = 2460 with 14 packets (Machine-checked). `scripts/run_weil_gap.py` reproduces
-  the analysis (`--quick` in run_all; `--certify` runs [-1.7, 1.7], ~6 h, ~10 GB).
+  certificate: beta = 0.2 from T = 2460 with 14 packets. Certified (Machine-checked): Q >= 1.79e-150 ||f||^2 on
+  [-1.7, 1.7] (3147 modes per sector, 195 digits). Without the near-2L terms the L = 1.7 floor is below
+  T = 1000 (Numerical); a certificate from there needs 47 dips of the comb bound lifted on [1000, 2460].
+  `scripts/run_weil_gap.py` reproduces the analysis (`--quick` in run_all; `--certify` repeats the
+  certification, ~6.2 h, ~10 GB; run nothing else alongside).
 
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- the certification of [-1.7, 1.7] with the gapped certificate (`scripts/run_weil_gap.py --certify`, ~6 h,
-  ~10 GB; run nothing else alongside);
+- a comb certificate for L = 1.7 from T = 1000 (the envelope form is positive there without the near-2L terms;
+  47 dips on [1000, 2460] to lift, a cluster of nine on [1058, 1144]), then L = 1.8;
 - the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
   side above T;
 - sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T
