@@ -22,8 +22,8 @@ Parts:
     T = 1000 with beta = 0.2 (Machine-checked). About 5 minutes. The stored packets
     (results/json/weil_lift_packets_L1.7_T1000.json) are those of the certification run; the part refits them
     and compares (the LP solver reproduces them to about 1e-12), then checks the stored ones;
-  * --certify (about an hour, ~3 GB): the certification of [-1.7, 1.7] at T = 1000 with these packets
-    (1291 modes per sector, 195 digits).
+  * --certify (about an hour, ~5 GB): the certification of [-1.7, 1.7] at T = 1000 with these packets
+    (1361 modes per sector, 195 digits; with 1291 the tail bound eps_B ~ (eLT/4N)^{2N} is ~1e-124, too large).
 
 Usage: python3 scripts/run_weil_lift.py [--quick] [--parts scan,liftable,cluster,fit] [--certify]
 --quick checks the trajectory constant of the stored packets only (about a minute; part of run_all.py --quick). Writes
@@ -53,7 +53,7 @@ PACKETS = os.path.join(ROOT, "results", "json", "weil_lift_packets_L1.7_T1000.js
 P = {"L": 1.7, "g": 0.002, "beta": 0.2, "T": 1000.0, "gap": 0.05, "thr": 0.03,
      "fit": {"W": 8.0, "amax": 16.0, "half_width": 8.0, "step": 0.03, "far_step": 0.15, "core_pad": 25.0,
              "target": 0.02, "buffer": 0.06, "max_group": 2, "dw": 0.5, "dtau": 1.0},
-     "dps": 195, "modes_factor": 1.1}
+     "dps": 195, "modes_factor": 1.16}      # 1.1 leaves eps_B ~ 1e-124 at T = 1000 (above lambda_min); 1.16: ~1e-192
 CLUSTER = (1058.0, 1145.0)
 
 
@@ -216,9 +216,9 @@ def part_cluster(scan):
     G = G_function(gapped())
     dips = [d for d, m in scan["dips"] if m < 0.03]
     rows = []
-    for W, amax, b, hw in ((4.0, 4.0, 1.0, 12.0), (4.0, 16.0, 1.0, 12.0), (8.0, 16.0, 1.0, 12.0),
-                           (12.0, 16.0, 1.0, 12.0), (4.0, 16.0, 2.0, 6.0)):
-        row = cluster_program(G, dips, *CLUSTER, W=W, amax=amax, b=b, half_width=hw, dtau=1.0 if b == 1 else 0.5)
+    for W, amax, b in ((4.0, 4.0, 1.0), (4.0, 16.0, 1.0), (8.0, 16.0, 1.0), (12.0, 16.0, 1.0), (4.0, 16.0, 2.0)):
+        # b = 2: envelopes half as wide, centres twice as dense; the same nine-dip group (half_width 12)
+        row = cluster_program(G, dips, *CLUSTER, W=W, amax=amax, b=b, half_width=12.0, dtau=1.0 / b)
         rows.append(row)
         print(f"  cluster W={W:g} amax={amax:g} b={b:g}: {len(row['dips'])} dips, "
               + (f"sum|a| {row['sum_abs']:.2f}, max|a| {row['max_abs']:.2f}, {row['packets']} packets"
