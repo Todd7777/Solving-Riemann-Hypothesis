@@ -581,7 +581,7 @@ At $L=1$, $L=1.1$ and $L=1.2$ (even) the upper bounds are rigorous enclosures (`
 **Outcome.**
 * A new kind of comb certificate. The torus bound of E14 is needed only along the trajectory $t\ge T$, and there it can be checked directly (Machine-checked). At $L=1.5$, 1.6 and 1.7 this lowers the comb's cutoff by factors 1.5, 2.0 and 4.4. With wave packets (localised parts of $H$), the $L=1.7$ cutoff drops from $T_1''=10853$ to $T=1000$.
 * **The window $[-1.7,1.7]$ is not certified.** At $T=2460$ the envelope form is indefinite: the even sector has a negative pivot $-0.141$, and the odd sector has $\lambda_{\min}\approx-2.8\times10^{-146}$. At $T=1000$, with the packets, both sectors are clearly indefinite.
-* The comb is no longer what limits the method: the envelope reduction's own floor is. Below a cutoff that grows with $L$ (and with the size of $H$), the near-minimisers of $Q$ keep more spectral mass above $T$ than their margin. The largest certified window remains $[-1.6,1.6]$ (E14).
+* The comb is no longer what limits the method: the envelope reduction's own floor is. Below a cutoff that grows with $L$ (and, at $\beta=0.05$, with a few terms of $H$ just above frequency $2L$; E16), the near-minimisers of $Q$ keep more spectral mass above $T$ than their margin. The largest certified window remains $[-1.6,1.6]$ (E14).
 
 **The idea: the comb has to be bounded only along the trajectory $t\ge T$, not on the whole torus.** The envelope reduction needs $\Psi_L+H\ge\beta$ only for $t\ge T$. E14 got this from the torus bound $(*)$, valid for every real $t$, which forces $T\ge2\pi e^{A'+\beta}$ with $A'\ge A^*$. But on a finite range $[T,T_2]$, the phases $(t\log p)_p$ trace a curve on the torus. That curve stays away from the points where $P_L-H$ is near its maximum: by Kronecker it gets close to every point eventually, but only after a very long time. So:
 * for $t\ge T_2$, where $\Omega(T_2)-A'\ge\beta$, the torus bound gives $\Omega-P_L+H\ge\beta$;
@@ -636,13 +636,13 @@ The odd sector's shifted factorisation $R_A+2.75\times10^{-146}I=LDL^T+E$, with 
 | 1.7 | 512 | – | $\Lambda=9$ plus 893 packets: indefinite at 1000 ($1.95\,t_0$); $\Lambda=9$, $\sum\lvert h\rvert=60.7$: indefinite at 2460 ($4.8\,t_0$): even pivot $-0.14$, odd $\lambda_{\min}\approx-2.8\times10^{-146}$ |
 
   * Heuristic for the scale. Under RH $Q(f)=\sum_\gamma|F(\gamma)|^2$. An $F$ of exponential type $L$ has about $Lt/\pi$ zeros in $[0,t]$, while $\zeta$ has $\frac t{2\pi}\log\frac t{2\pi e}$. So $F$ can vanish at every zero only up to $t_0=2\pi e^{1+2L}$: 126 at $L=1$, 281 at $L=1.4$, 512 at $L=1.7$. Beyond $t_0$ a near-minimiser must have small spectral mass, so the reduction needs $T\gtrsim t_0$.
-  * Without $H$ the threshold is about $t_0$ at $L\le1.2$ and 1.4–1.8 $t_0$ at $L=1.4$. A large $H$ raises it: at $L=1.4$ the joint certificate ($\sum|h|=18.6$) leaves the form indefinite up to at least $2.7\,t_0$. Its contribution on $[T,\infty)$ is dropped with the rest. It is not a simple boundary term: putting the cutoff at a zero of the antiderivative of $H$ changes nothing.
-  * So, as far as the comb is concerned, the trajectory removes the torus barrier, but the envelope's own floor now sets $T$. It grows faster than $t_0$ in the range measured: about $1.2\,t_0$ at $L=1$, above $4.8\,t_0$ at $L=1.7$ (even sector, with $\sum|h|=60.7$). Whether it stays singly exponential is open.
+  * Without $H$ the threshold is about $t_0$ at $L\le1.2$ and 1.4–1.8 $t_0$ at $L=1.4$. A large $H$ raises it: at $L=1.4$ the joint certificate ($\sum|h|=18.6$) leaves the form indefinite up to at least $2.7\,t_0$. Its contribution on $[T,\infty)$ is dropped with the rest. It is not a simple boundary term: putting the cutoff at a zero of the antiderivative of $H$ changes nothing. E16 traces it to a few terms of $H$ within a few $10^{-3}$ of frequency $2L$, against $\beta=0.05$; the size of $H$ does not matter.
+  * So, as far as the comb is concerned, the trajectory removes the torus barrier, but the envelope's own floor now sets $T$. It grows faster than $t_0$ in the range measured: about $1.2\,t_0$ at $L=1$, above $4.8\,t_0$ at $L=1.7$ (even sector, with $\sum|h|=60.7$; E16: this includes the resonance of the term $30/1$). Whether it stays singly exponential is open.
 
 **Interpretation.**
 * E14's barrier, the operator norm of the comb, applies to certificates that hold for every real $t$. The envelope needs one only for $t\ge T$. Checked along the trajectory, the same sum-of-squares certificate lowers the comb's cutoff 4.4-fold at $L=1.7$, and wave packets lower it 10.9-fold.
 * That is not enough for the window: the envelope reduction discards the spectral side above $T$, and there the near-minimisers of $Q$ still carry more mass than their margin. At $L=1.7$ the floor, with this $H$, lies above $T=2460$ in the even sector and right at it in the odd sector. Wave packets bring the comb's requirement down to the local operator norm, but not below the floor, and they raise it if they are large near $T$.
-* Going further needs one of three things: a reduction that keeps part of the spectral side above $T$; certificates whose $H$ is small where the near-minimisers live; or a larger $T$. The last would mean about 4000–4500 modes per sector at $L=1.7$, roughly 10–13 GB per sector at 195 digits. This is a resource estimate, not a result.
+* Going further needs one of three things: a reduction that keeps part of the spectral side above $T$; certificates whose $H$ is small where the near-minimisers live; or a larger $T$. The last would mean about 4000–4500 modes per sector at $L=1.7$, roughly 10–13 GB per sector at 195 digits. This is a resource estimate, not a result. (E16 adds a fourth: remove the frequencies of $H$ just above $2L$, and raise $\beta$.)
 * Nothing here is information about the zeros, and nothing here bears on RH beyond the finite pieces of Weil's criterion certified in E13 and E14.
 * Labels:
   * **Machine-checked:** the trajectory constants in the table (with and without packets), and the odd sector's lower bound $\lambda_{\min}\ge-2.75\times10^{-146}$.
@@ -650,8 +650,110 @@ The odd sector's shifted factorisation $R_A+2.75\times10^{-146}I=LDL^T+E$, with 
   * **Numerical:** the values of $\lambda(t_0)$, the LP for the packets, the indefinite pivots, and the scans of the envelope floor.
   * **Heuristic:** the scale $2\pi e^{1+2L}$.
 
+## E16. Frequencies of $H$ just above $2L$, and a gapped certificate for $L=1.7$ (2026-11-11)
+
+`OPENBLAS_NUM_THREADS=1 python3 scripts/run_weil_gap.py` reproduces everything below except the certification run, in about five and a half hours (3.8 of them for the two leading-block probes). `--quick` (about 3 minutes, part of `run_all.py --quick`) reproduces the table of near-$2L$ terms and the two trajectory checks of the gapped $L=1.7$ certificate. `--certify` runs the certification of $[-1.7,1.7]$ with the gapped certificate ($T=2460$, $\beta=0.2$, 3147 modes per sector, 195 digits; about 6 hours and 10 GB; run nothing else alongside). Results are in `weil_gap_summary.json`; the wave packets are in `weil_gap_packets_L1.7.json` ($\beta=0.2$) and `weil_gap_packets_L1.7_beta0.05.json`. New code: `rh.weil_comb.gap_certificate`, `rh.weil_local.fix_dips` and the option `gap` of `rh.weil_local.fit_local_correction`; two new tests.
+
+**Outcome.**
+* The part of the envelope floor that E15 attributed to a large $H$ is a resonance. A few terms of $H$ within a few $10^{-3}$ of frequency $2L$ beat against the component of $|F|^2$ at frequency $2L$, on $[T,\infty)$, where the envelope reduction drops them. At $L=1.4$, $T=650$, $\beta=0.05$, one term out of 557 makes the form indefinite. The other 556, with $\sum|h|=18.25$, do not matter (Numerical).
+* Such a term can take up to $|h|/2$ per unit of spectral mass above $T$ (an exact identity, and a heuristic for the size). The form then needs a larger $\beta$, or the term removed. At $L=1.4$ the term $33/2$ ($|h|/2=0.185$) raises the threshold $\beta^*$ by 0.10–0.15 at $T=400$, 500 and 650. Without the near-$2L$ terms the threshold is at most that of $H=0$, which falls steeply with $T$: 0.27, 0.01 and 0.00 at $1.42$, $1.78$ and $2.31\,t_0$ (Numerical).
+* E14 certified its windows with $\beta=0.18$–$0.30$. E15 used $\beta=0.05$, below the $|h|/2=0.19$ of the term $30/1$ in its $L=1.7$ certificate. Moving the 35 terms within 0.002 of $2L$ into $A'$ makes the leading 400-mode block of the $L=1.7$ form at $T=2460$ positive definite. With the E15 certificate that block carries the negative pivot of the full E15 run (Numerical).
+* The gapped $L=1.7$ certificate, with 14 wave packets, gives $\beta=0.2$ from $T=2460$ (Machine-checked).
+
+**The finding: one term of $H$ makes the envelope form indefinite** (**Numerical**). $L=1.4$, $T=650$ ($2.31\,t_0$), even sector, 896 modes, 100 digits, $\beta=0.05$ imposed on $[T,\infty)$ (probes, as in E15):
+
+| $H$ | terms | $\sum\lvert h\rvert$ | envelope form |
+|---|---|---|---|
+| joint certificate, $\Lambda=6$ | 557 | 18.62 | indefinite (1 negative eigenvalue) |
+| without $n/d=33/2$ (gap $0.0034$ above $2L$, $h=+0.370$) | 556 | 18.25 | positive, $\lambda_{\min}\approx3.42\times10^{-78}$ |
+| without the terms of gap $<0.01$ | 555 | 18.14 | positive, $3.81\times10^{-78}$ |
+| without the terms of gap $<0.03$ | 547 | 17.68 | positive, $3.954\times10^{-78}$ |
+| without the terms of gap $<0.1$ | 521 | 16.00 | positive, $3.954\times10^{-78}$ |
+| $H=0$ | 0 | 0 | positive, $3.954\times10^{-78}$ |
+| the full $H$, with $\beta=0.1$ | 557 | 18.62 | indefinite (1 negative eigenvalue) |
+| the full $H$, with $\beta=0.2$ | 557 | 18.62 | positive, $5.28\times10^{-78}$ |
+
+* Without the ten terms of gap $<0.03$, $\lambda_{\min}$ is that of $H=0$ to two parts in $10^4$. The other 547 terms ($\sum|h|=17.7$) do not matter.
+* The floor is then where it is for $H=0$: with gap $0.03$ the form is indefinite at $T=450$ and positive at 500 ($1.78\,t_0$), against "indefinite up to 750" with the full $H$ (E15).
+* So the size of $H$ does not matter; its frequencies within a few $10^{-3}$ of $2L$ do, at this $\beta$.
+
+**Anatomy of the negative direction** (**Numerical**; an exact decomposition from the matrices, no truncation). With the full $H$ and $\beta=0.05$ the envelope form has one negative eigenvalue, $\lambda=-1.549\times10^{-55}$; E14 certified $Q\ge6.5\times10^{-78}\lVert f\rVert^2$ on this window. The form at $\beta$ is $R(\beta)=R(0)+\beta K$, where $K$ is the Gram matrix of the mass above $T$, $\frac1\pi\int_T^\infty|F|^2$. Differences of forms with and without parts of $H$ give the rest. For the unit eigenvector $f$:
+
+| part of $R(0.05)$ at $f$ | value | |
+|---|---|---|
+| pole $+\frac1\pi\int_0^T\Psi_L\lvert F\rvert^2$ | $+4.32\times10^{-55}$ | |
+| $\beta\times$ mass above $T$ | $+1.01\times10^{-54}$ | mass $2.02\times10^{-53}$ |
+| the term $33/2$ on $[0,T]$ | $-1.70\times10^{-54}$ | 0.228 of $\lvert h\rvert\times$ mass |
+| the other 556 terms on $[0,T]$ | $+1.06\times10^{-55}$ | $-3\times10^{-4}$ of $\sum\lvert h\rvert\times$ mass |
+| total | $-1.55\times10^{-55}$ | |
+
+* One term takes back 1.7 times what $\beta$ credits; the other 556 terms, with $\sum|h|=18.25$, contribute nothing that matters.
+* The mass above $T$ is the endpoint oscillation of $F$: on $[690,1050]$ the part of $|F|^2$ at frequency $2L$ has the amplitude of its local mean to 0.1%. $|F|^2$ is $1.3\times10^{-58}$ at $T$ and $1.6\times10^{-55}$ at $t=690$.
+
+**Thresholds** (**Numerical**). The form at $\beta$ is $R(0.05)+(\beta-0.05)K$. The smallest $\beta$ for which it is positive definite, $\beta^*$, follows by bisection on the inertia. At $T=650$ (two independent bisections, to $\pm0.0016$, intersected):
+
+| $H$ | $\beta^*$ at $T=650$ |
+|---|---|
+| joint certificate, 557 terms | 0.103 |
+| without $33/2$ | 0.011 |
+| without the terms of gap $<0.03$ | between $-0.002$ and 0.001 |
+| $H=0$ | between 0 and 0.001 |
+
+The single term $33/2$ moves $\beta^*$ by 0.09, half of its $|h|/2=0.185$ (see below). This agrees with the probes: $\beta=0.1$ fails, $\beta=0.2$ holds.
+
+**The floor in the $(T,\beta)$ plane** (**Numerical**). The same threshold at three cutoffs ($L=1.4$, even sector, 100 digits, $\lceil1.4eLT/4\rceil+30$ modes):
+
+| $T$ | $T/t_0$ | $H=0$ | without the terms of gap $<0.03$ | full $H$ (557 terms) |
+|---|---|---|---|---|
+| 400 | 1.42 | 0.266 | 0.237 | 0.351 |
+| 500 | 1.78 | 0.011 | 0.008 | 0.161 |
+| 650 | 2.31 | 0.000 | 0.000 | 0.103 |
+
+* Without the near-$2L$ terms the threshold is that of $H=0$, or slightly lower. The other 547 terms do not raise it.
+* The near-$2L$ terms add 0.10–0.15 at every $T$ measured. That is of the order of $|h|/2=0.185$ for $33/2$, and it does not fall with $T$ in this range. With $\beta=0.05$ (E15) they alone keep the form indefinite.
+* Without them the threshold falls steeply with $T$: from 0.27 at $1.42\,t_0$ to 0.01 at $1.78\,t_0$. So $\beta$ buys little $T$: with $\beta=0.27$ instead of 0.05 the floor of $H=0$ moves from $(400,500]$ to 400. The floor is set by $T$, and by the near-$2L$ terms.
+
+**Why** (**Theorem** for the identity, **Heuristic** for the size). For a polynomial $f$ supported in $[-L,L]$, integrating by parts to the end gives $F(t)=\int f(x)e^{ixt}dx=e^{iLt}\varphi_+(t)-e^{-iLt}\varphi_-(t)$ exactly, with $\varphi_\pm(t)=\sum_k(-1)^kf^{(k)}(\pm L)/(it)^{k+1}$. For even real $f$, $\varphi_-=-\overline{\varphi_+}$, so $F=2\,\mathrm{Re}(e^{iLt}\varphi_+)$ and
+$$|F|^2=2|\varphi_+|^2+2\,\mathrm{Re}\big(\varphi_+^2e^{2iLt}\big).$$
+The part at frequency $2L$ has exactly the amplitude of the mean; for odd $f$ only its sign changes. A term $h\cos(\omega t)$ with $\omega=2L+g$ turns it into
+$$h\cos(\omega t)|F|^2=h\,\mathrm{Re}\big(\varphi_+^2e^{-igt}\big)+\big(\text{terms at frequencies }\approx2L\text{ and }4L\big).$$
+* On $(-\infty,\infty)$ the integral is exactly 0. The envelope keeps only $[0,T]$, so it carries $-\frac1\pi\int_T^\infty h\cos(\omega t)|F|^2$.
+* Where $\varphi_+$ varies slowly on the scale $1/L$, the fast terms average out, and the slow term is at most $|h|/2$ times the mass density $2|\varphi_+|^2$. So a near-$2L$ term can take up to $|h|/2$ per unit of mass above $T$, and takes a fixed fraction of it when $g$ is small against the inverse width of that mass. For $g$ large the slow term oscillates and cancels.
+* The envelope form credits the mass above $T$ with $\beta$ per unit. So it survives such a term only if $\beta$ exceeds about the coherent part of $|h|/2$. At $L=1.4$: $|h|/2=0.185$ for $33/2$; $\beta=0.1$ fails, $\beta=0.2$ holds.
+* This fits E14 and E15. E14 certified $[-1.4,1.4]$, $[-1.5,1.5]$ and $[-1.6,1.6]$ with $\beta=\Omega(T)-A'=0.30$, $0.26$ and $0.18$, above $|h|/2$ for every near-$2L$ term of those certificates (at most 0.229, 0.109 and 0.108). E15 used $\beta=0.05$ throughout: in its floor scans with $H$, and in the $L=1.7$ attempt, whose certificate has the term $30/1$ with $|h|/2=0.194$ at gap $0.0012$.
+
+The near-$2L$ terms appear only from $L\approx1.3$ on, which is where E15 saw the floor grow faster than $t_0$:
+
+| $L$ | certificate | $\sum\lvert h\rvert$ | $\sum\lvert h\rvert$ within 0.005 / 0.01 / 0.03 of $2L$ | largest near-$2L$ terms ($n/d$: gap, $h$) |
+|---|---|---|---|---|
+| 1.0, 1.1, 1.2 | E14 | 38.3, 39.4, 44.4 | 0 / 0 / 0 | – |
+| 1.3 | E14 | 14.1 | 0.006 / 0.014 / 0.132 | $55/4$: 0.0210, $+0.084$ |
+| 1.4 | E14 ($\Lambda=6.5$) | 23.6 | 0.463 / 0.627 / 1.192 | $33/2$: 0.0034, $+0.458$; $117/7$: 0.0163, $+0.174$; $182/11$: 0.0061, $+0.158$ |
+| 1.5 | E14 | 41.7 | 0.367 / 0.628 / 1.513 | $221/11$: 0.0003, $+0.217$; $143/7$: 0.0169, $+0.168$ |
+| 1.6 | E14 | 61.7 | 0.518 / 1.007 / 2.421 | $25/1$: 0.0189, $+0.216$; $323/13$: 0.0127, $+0.206$; $221/9$: 0.0009, $+0.125$ |
+| 1.7 | E15 | 60.7 | 0.562 / 0.817 / 1.846 | $30/1$: 0.0012, $+0.387$; $92/3$: 0.0232, $+0.147$; $91/3$: 0.0122, $+0.116$ |
+
+The sum of squares has no reason to avoid these frequencies: $\log(n/d)$ for $n/d$ just above $e^{2L}$ is as cheap as any other frequency of $H$. At $L\le1.2$ the stored certificates happen to have none within 0.03 of $2L$.
+
+**A gapped certificate at $L=1.7$** (**Machine-checked**). `gap_certificate` moves every term with $\log(n/d)<2L+g$ into $A'$; since $h\cos\ge-|h|$, the torus bound $(*)$ still holds.
+* With $g=0.002$ it moves the term $30/1$ (gap 0.0012, $h=+0.387$) and 34 small ones, $\sum|h|=0.411$: $A'=7.865$ instead of 7.454.
+* The trajectory check then fails at a few isolated dips above 2460. `fix_dips` removes them with wave packets whose carriers are $\ge2L+b+0.05$, so their spectrum stays 0.05 above $2L$: a linear program per group of dips that minimises $\sum|a|$ subject to a margin $\ge0.01$ wherever the packets reach.
+* $\beta=0.05$ from $T=2460$: 3 packets ($\sum|a|=0.494$, at the dips $t=2819.1$, 3100.0 and 3689.1); minimum margin 0.0011, evaluation error $4\times10^{-9}$, $T_2=17205$; about a minute.
+* $\beta=0.2$ from $T=2460$: 14 packets at 8 dips ($\sum|a|=1.548$); minimum margin 0.0024 (at $t=3517.35$), evaluation error $7.4\times10^{-9}$, $T_2=19989$; 876455 cells, 840 of them refined once; about a minute.
+
+**Leading-block probes** (**Numerical**). The leading $N'\times N'$ block of the envelope form is the form on the first $N'$ modes, so a negative pivot there is one of the full form. At $T=2460$, even sector, 400 modes, 195 digits, $\beta=0.05$:
+* the E15 certificate: one negative pivot, at index 233, value $-0.14126$. This is exactly the pivot of the full E15 run, found in 1.9 hours instead of 5.8;
+* the gapped certificate with its 3 packets: positive definite (smallest pivot $1.03\times10^{-13}$).
+
+**Labels.**
+* **Machine-checked:** the trajectory constants of the gapped $L=1.7$ certificate.
+* **Theorem:** the identity $|F|^2=2|\varphi_+|^2+2\,\mathrm{Re}(\varphi_+^2e^{2iLt})$ for even polynomial $f$, and the bound $|h|/2$ on the slow term.
+* **Numerical:** the probes at $L=1.4$ (including the thresholds and the anatomy) and the leading-block probes at $L=1.7$.
+* **Heuristic:** that the fast terms average out on $[T,\infty)$, and so the rule "$\beta$ above the coherent part of $|h|/2$".
+* Nothing here bears on RH beyond the finite pieces of Weil's criterion that are certified.
+
 ---
 
 ## Summary of the state of the evidence after all experiments
 
-Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ with the pointwise envelope (E13), and up to $[-1.6,1.6]$ with a non-pointwise bound for the prime comb (E14). These are zero-free proofs of finite pieces of Weil's criterion. Torus certificates of this envelope type are limited by the operator norm of the comb, which still grows exponentially in $L$. Trajectory certificates are not (E15). What limits the envelope then is its own floor: the near-minimisers of $Q$ keep spectral mass above $T$. At $L=1.7$ that floor lies above the cutoff the trajectory allows ($T=2460$). None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.
+Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ with the pointwise envelope (E13), and up to $[-1.6,1.6]$ with a non-pointwise bound for the prime comb (E14). These are zero-free proofs of finite pieces of Weil's criterion. Torus certificates of this envelope type are limited by the operator norm of the comb, which still grows exponentially in $L$. Trajectory certificates are not (E15). What limits the envelope then is its own floor: the near-minimisers of $Q$ keep spectral mass above $T$. At $L=1.7$, with E15's certificate, that floor lies above the cutoff the trajectory allows ($T=2460$). E16 traced the part of the floor that grew with the certificate's $H$ to a resonance of a few terms of $H$ just above frequency $2L$; a gapped certificate and a larger $\beta$ remove it. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.

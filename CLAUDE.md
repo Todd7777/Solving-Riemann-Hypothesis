@@ -23,7 +23,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-11: 300 pass, about 5 minutes
+python3 -m pytest                   # 2026-11-11: 302 pass, about 6 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
@@ -63,13 +63,25 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   and large H (docs/06, E15). `scripts/run_weil_trajectory.py` reproduces the analysis (~40 min); `--certify` the
   failed attempt (~5.8 h, ~9.7 GB; the effective memory limit here is ~13 GB, run nothing else).
 
+- E16 (analysis complete): the part of the envelope floor that E15 attributed to a large H is a resonance of a few
+  terms of H with frequency just above 2L. For even f, |F|^2 has a 2L component as large as its mean, and such a
+  term can take up to |h|/2 per unit of mass above T, against the credit beta. At L = 1.4 one term (33/2) of 557
+  makes the form indefinite at beta = 0.05; the thresholds beta*(T) are in docs/06, E16 (Numerical). E14 had beta
+  0.18-0.30; E15 had 0.05, below the |h|/2 = 0.19 of the term 30/1 at L = 1.7. `rh.weil_comb.gap_certificate`
+  moves such terms into A'; `rh.weil_local.fix_dips` lifts the remaining dips with wave packets. Gapped L = 1.7
+  certificate: beta = 0.2 from T = 2460 with 14 packets (Machine-checked). `scripts/run_weil_gap.py` reproduces
+  the analysis (`--quick` in run_all; `--certify` runs [-1.7, 1.7], ~6 h, ~10 GB).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- the envelope floor (E15): how it grows with L, why a large H raises it, and a reduction that keeps part of
-  the spectral side above T; [-1.7, 1.7] at larger T (~3000-3500, ~4000-4500 modes, 10-13 GB per sector);
-- certificates whose H is small above T, and a prolate basis to make larger T affordable (E15);
+- the certification of [-1.7, 1.7] with the gapped certificate (`scripts/run_weil_gap.py --certify`, ~6 h,
+  ~10 GB; run nothing else alongside);
+- the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
+  side above T;
+- sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T
+  affordable (E15);
 - the same certificates for L(s,(n/5));
 - whether bases other than wave packets detect off-line zeros earlier;
 - a theory for c(delta).

@@ -1,0 +1,46 @@
+{
+ "L": 1.7,
+ "b": 1.0,
+ "m": 6,
+ "g": 0.002,
+ "packet_gap": 0.05,
+ "beta": 0.05,
+ "T": 2460.0,
+ "target": 0.01,
+ "dips": [
+  2819.14,
+  3099.96,
+  3689.14
+ ],
+ "note": "wave packets for the gapped L = 1.7 certificate (terms with log(n/d) < 2L + 0.002 moved into A'): one min-sum|a| LP per dip (as rh.weil_local.fix_dips; grid step 0.02, half-width 12), carriers >= 2L + b + 0.05; trajectory constant beta = 0.05 from T = 2460; used by the leading-block probe of E16",
+ "atoms_tau_w_kind_a": [
+  [
+   2819.14,
+   4.450000762939453,
+   0,
+   0.30168132685321325
+  ],
+  [
+   3099.96,
+   4.450000762939453,
+   0,
+   0.060230802158002916
+  ],
+  [
+   3689.14,
+   4.450000762939453,
+   0,
+   0.13219614537047164
+  ]
+ ],
+ "trajectory": {
+  "certified": true,
+  "T": 2460.0,
+  "beta": 0.05,
+  "T2": 17204.904303356987,
+  "min_margin": 0.0011429633544932788,
+  "worst_t": 2631.1,
+  "eval_error": 4.012557191392312e-09,
+  "seconds": 54.25564980506897
+ }
+}

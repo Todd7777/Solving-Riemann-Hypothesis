@@ -28,6 +28,7 @@ The Riemann Hypothesis will not be settled by a software project, and this repos
 | M | Certified Weil positivity on whole windows $[-L,L]$ (envelope reduction in ball arithmetic) and the reach of the method | `weil_envelope.py` | done (E13) |
 | N | Non-pointwise bounds for the prime comb (separable and joint sum-of-squares certificates $A'-P_L+H\ge0$, $H$ invisible to the window); certified windows past the pointwise barrier; the operator-norm barrier | `weil_comb.py` | done (E14) |
 | O | Trajectory certificates (the comb bound checked only along $t\ge T$), local operator norms, wave packets; the envelope floor that then blocks $[-1.7,1.7]$ | `weil_comb.py` (`trajectory_check`), `weil_local.py` | done (E15) |
+| P | The part of the envelope floor that grows with $H$: a resonance of the terms just above frequency $2L$; thresholds $\beta^*(T)$; gapped certificates and per-dip wave packets for $L=1.7$ | `weil_comb.py` (`gap_certificate`), `weil_local.py` (`fix_dips`) | done (E16) |
 
 The experiment log ([06_experiment_log.md](06_experiment_log.md)) records every number produced, with the command that produced it.
 

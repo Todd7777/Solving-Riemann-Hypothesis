@@ -11,20 +11,24 @@ Parts:
   * terms: the near-2L terms of the stored certificates (E14 for L = 1.0-1.6, E15 for L = 1.7);
   * resonance: L = 1.4, joint Lambda = 6, envelope form (even sector, 100 digits, beta = 0.05 imposed on
     [T, inf)) at T = 650 with the full H, with the terms of gap < 0.005, 0.01, 0.03, 0.1 removed, and with
-    H = 0; and the floor with gap 0.03 (T = 450, 500). Numerical (probes), about 25 minutes;
-  * anatomy: the negative direction at L = 1.4, T = 650 with the full H: its eigenvalue, where its spectral
-    mass sits, and the parts of the dropped tail (Numerical, about 15 minutes);
+    H = 0; the floor with gap 0.03 (T = 450, 500); the full H with beta = 0.1 and 0.2. Numerical (probes), about
+    30 minutes;
+  * anatomy: the negative direction at L = 1.4, T = 650 with the full H, decomposed exactly with the matrices
+    (mass above T, the term 33/2, the rest of H), the threshold beta* for the full H, without 33/2 and for
+    H = 0, and the profile of |F|^2 above T (Numerical, about 30 minutes);
+  * floor_beta: the threshold beta*(T) at L = 1.4 for T = 400, 500, 650 (full H, gap 0.03, H = 0; Numerical,
+    about 45 minutes);
   * gap17: the L = 1.7 certificate of E15 with the terms of gap < 0.002 moved into A' (the term 30/1 at
-    gap 0.0012, h = 0.387, and 34 small ones), plus 14 wave packets with carriers >= 2L + 1.05 that lift the
-    eight dips of Omega - G below 0.2 on [2460, 19989]; trajectory constant beta = 0.2 from T = 2460
-    (Machine-checked, about 2 minutes). Packets in results/json/weil_gap_packets_L1.7.json;
-  * blocks: the leading 400 x 400 block (even sector, 195 digits) of the L = 1.7 envelope form at T = 2460 for
-    the E15 certificate (first negative pivot at index 233, as in the full E15 run) and for the gapped one
-    (Numerical, about 30 minutes each);
-  * --certify (hours): the certification of [-1.7, 1.7] with the gapped certificate at T = 2460, beta = 0.2
-    (3147 modes per sector, 195 digits; ~6 h and ~10 GB; run nothing else alongside).
+    gap 0.0012, h = 0.387, and 34 small ones), plus wave packets with carriers >= 2L + 1.05 at the dips of
+    Omega - beta - G on [2460, T2]: 3 packets for beta = 0.05 and 14 for beta = 0.2; trajectory constants from
+    T = 2460 (Machine-checked, about 2 minutes). Packets in results/json/weil_gap_packets_L1.7*.json;
+  * blocks: the leading 400 x 400 block (even sector, 195 digits, beta = 0.05) of the L = 1.7 envelope form at
+    T = 2460 for the E15 certificate (first negative pivot at index 233, as in the full E15 run) and for the
+    gapped one with its 3 packets (Numerical, about 2 hours each);
+  * --certify (hours): the certification of [-1.7, 1.7] with the gapped certificate and its 14 packets at
+    T = 2460, beta = 0.2 (3147 modes per sector, 195 digits; ~6 h and ~10 GB; run nothing else alongside).
 
-Usage: python3 scripts/run_weil_gap.py [--quick] [--parts terms,resonance,anatomy,gap17,blocks] [--certify]
+Usage: python3 scripts/run_weil_gap.py [--quick] [--parts terms,resonance,anatomy,floor_beta,gap17,blocks] [--certify]
 --quick runs `terms` and `gap17` only (about 3 minutes). Writes results/json/weil_gap_summary.json.
 """
 import argparse
@@ -47,12 +51,15 @@ import run_weil_trajectory as rwt  # noqa: E402
 
 ROOT = os.path.join(HERE, "..")
 OUT_JSON = os.path.join(ROOT, "results", "json", "weil_gap_summary.json")
-PACKETS = os.path.join(ROOT, "results", "json", "weil_gap_packets_L1.7.json")
+PACKETS = {0.2: os.path.join(ROOT, "results", "json", "weil_gap_packets_L1.7.json"),
+           0.05: os.path.join(ROOT, "results", "json", "weil_gap_packets_L1.7_beta0.05.json")}
 BETA = 0.05
 # the gapped L = 1.7 certificate: terms with log(n/d) < 2L + g moved into A'; packets (fix_dips) at the dips of
-# Omega - beta - G on [T, T2] with carriers >= 2L + b + packet_gap; trajectory constant beta from T
+# Omega - beta - G on [T, T2] with carriers >= 2L + b + packet_gap; trajectory constant beta from T. Two packet
+# sets: beta = 0.2 (14 packets, used for the certification) and beta = 0.05 (3 packets, the leading-block probe)
 GAP_17 = {"L": 1.7, "g": 0.002, "packet_gap": 0.05, "T": 2460.0, "beta": 0.2, "target": 0.01, "lp_step": 0.04,
-          "dips": [2599.2, 2630.98, 2819.14, 2931.62, 2974.12, 3099.96, 3517.36, 3689.14],
+          "dips": {0.2: [2599.2, 2630.98, 2819.14, 2931.62, 2974.12, 3099.96, 3517.36, 3689.14],
+                   0.05: [2819.14, 3099.96, 3689.14]},
           "dps": 195, "modes_factor": 1.1}
 
 
@@ -83,10 +90,20 @@ def part_terms():
     return rows
 
 
-def probe(L, cert, T, dps):
-    """Even-sector envelope form with beta = 0.05 imposed on [T, inf) (rwt.floor_probe)."""
+def probe(L, cert, T, dps, beta=BETA):
+    """Even-sector envelope form with beta imposed on [T, inf), as rwt.floor_probe (which uses beta = 0.05)."""
+    from flint import ctx
     t = time.time()
-    r = rwt.floor_probe(L, cert, T, dps)
+    cert.trajectory = {"certified": True, "T": T, "beta": beta}
+    ctx.dps = dps
+    N = int(math.ceil(1.4 * math.e * L * T / 4)) + 30
+    blk = we.envelope_block(L, T, N, "even", dps=dps, comb_cert=cert, wmax=8.0)
+    est = we.approx_lambda_min_ldl(blk["R"])
+    r = {"T": T, "N": N, "beta": beta, "positive": est is not None,
+         "lambda_min": float(est[0].mid()) if est is not None else None,
+         "negative_eigenvalues": 0 if est is not None else we.inertia_count(blk["R"], None)}
+    ctx.dps = 15
+    cert.trajectory = None
     r["seconds"] = time.time() - t
     return r
 
@@ -96,38 +113,84 @@ def part_resonance():
     full = wcb.joint_comb_certificate(L, Lam)
     t0 = 2 * math.pi * math.exp(1 + 2 * L)
     rows = []
-    cases = [("full H", None, 650.0)] + [(f"gap {g}", g, 650.0) for g in (0.005, 0.01, 0.03, 0.1)] + \
-            [("H = 0", 99.0, 650.0), ("gap 0.03", 0.03, 450.0), ("gap 0.03", 0.03, 500.0)]
-    for name, g, T in cases:
+    cases = [("full H", None, 650.0, BETA)] + [(f"gap {g}", g, 650.0, BETA) for g in (0.005, 0.01, 0.03, 0.1)] + \
+            [("H = 0", 99.0, 650.0, BETA), ("gap 0.03", 0.03, 450.0, BETA), ("gap 0.03", 0.03, 500.0, BETA),
+             ("full H", None, 650.0, 0.1), ("full H", None, 650.0, 0.2)]
+    for name, g, T, beta in cases:
         cert = full if g is None else wcb.gap_certificate(full, g)
-        r = probe(L, cert, T, dps)
+        r = probe(L, cert, T, dps, beta)
         r.update({"case": name, "L": L, "Lambda": Lam, "gap": g, "n_terms": len(cert.terms), "sum_abs_h": cert.H_sup,
                   "T_over_t0": T / t0})
         rows.append(r)
-        print(f"  L=1.4 {name:9s} T={T:.0f} ({T / t0:.2f} t0), {len(cert.terms)} terms, sum|h|={cert.H_sup:.2f}: "
+        print(f"  L=1.4 {name:9s} T={T:.0f} ({T / t0:.2f} t0) beta={beta}, {len(cert.terms)} terms, sum|h|={cert.H_sup:.2f}: "
               + (f"lambda_min ~ {r['lambda_min']:.4e}" if r["positive"] else
                  f"indefinite ({r['negative_eigenvalues']} negative)") + f" [{r['seconds']:.0f}s]", flush=True)
     return rows
 
 
-def part_anatomy():
-    """Negative direction of the envelope form at L = 1.4, T = 650 (full H): eigenvalue by bisection on the
-    inertia and inverse iteration, profile |F(t)|^2, and the dropped tail split into Psi - beta, the term 33/2
-    and the rest of H."""
-    from flint import arb, arb_mat, ctx
-    from scipy.special import digamma
-    L, T, dps, N = 1.4, 650.0, 100, 896
-    full = wcb.joint_comb_certificate(L, 6.0)
-    full.trajectory = {"certified": True, "T": T, "beta": BETA}
-    t = time.time()
+def _even_form(L, T, N, dps, cert, beta):
+    """Even-sector envelope matrix R(beta) with beta imposed on [T, inf) (a probe: beta is not checked)."""
+    from flint import ctx
+    cert.trajectory = {"certified": True, "T": T, "beta": beta}
     ctx.dps = dps
-    blk = we.envelope_blocks(L, T, {"even": N}, dps=dps, comb_cert=full, wmax=8.0)["even"]
-    R = blk["R"]
-    est = we.lambda_min_estimate(R, lo_exp=-(dps - 5), hi_exp=0, digits=0.1)
-    f = we.ldl_mid_blocked(R, arb(1.3 * est["lambda_min"]))
+    blk = we.envelope_block(L, T, N, "even", dps=dps, comb_cert=cert, wmax=8.0)
+    cert.trajectory = None
+    assert abs(float(blk["beta"].mid()) - beta) < 1e-12, blk["beta"]
+    return blk
+
+
+def _quad(A, x):
+    """x^T A x (arb) for an arb_mat A and a list x."""
+    from flint import arb, arb_mat
+    Ax = A * arb_mat([[v] for v in x])
+    return sum((x[i] * Ax[i, 0] for i in range(len(x))), arb(0))
+
+
+def _threshold(R, K, beta0, lo=-0.3, hi=0.5, tol=0.005):
+    """Smallest beta (to tol) for which R + (beta - beta0) K is positive definite: bisection on the inertia of the
+    midpoint LDL^T (Numerical).  R + (beta - beta0) K is the envelope form with beta in place of beta0."""
+    from flint import arb
+
+    def pos(b):
+        return we.ldl_mid_blocked(R + K * arb(b - beta0), None)["n_negative"] == 0
+    if pos(lo):
+        return {"beta_star": None, "below": lo}
+    if not pos(hi):
+        return {"beta_star": None, "above": hi}
+    while hi - lo > tol:
+        mid = 0.5 * (lo + hi)
+        lo, hi = (lo, mid) if pos(mid) else (mid, hi)
+    return {"beta_star": 0.5 * (lo + hi), "bracket": [lo, hi]}
+
+
+def part_anatomy():
+    """L = 1.4, T = 650, joint Lambda = 6, even sector, 896 modes, 100 digits (Numerical).
+    * Exact decomposition of the negative direction x of the envelope form R(0.05) with the full H. Since
+      R(beta) = R(0) + beta K with K = (1/pi) int_T^inf G_m G_n (the mass above T), K = (R(0.15) - R(0.05)) / 0.1,
+      and the part of H on [0, T] is R_full - R_{H=0} (the term 33/2: R_full - R_{without 33/2}); all from the
+      matrices, no truncation.
+    * The threshold beta* above which the envelope form is positive definite, for the full H, without 33/2 and
+      for H = 0.
+    * The profile |F(t)|^2 of x on [T - 60, T + 400]: the local mean and the amplitude of its frequency-2L part
+      (least squares on windows of width 20)."""
+    from flint import arb, ctx
+    L, T, dps, N = 1.4, 650.0, 100, 896
+    t = time.time()
+    full = wcb.joint_comb_certificate(L, 6.0)
+    no33 = wcb.gap_certificate(full, 0.005)            # removes 33/2 only (gap 0.0034)
+    zero = wcb.gap_certificate(full, 99.0)             # H = 0
+    h33 = [float(h.mid()) for n, d, h in full.terms if (n, d) == (33, 2)][0]
+    blk = _even_form(L, T, N, dps, full, BETA)
+    R = {"full": blk["R"], "no33": _even_form(L, T, N, dps, no33, BETA)["R"],
+         "zero": _even_form(L, T, N, dps, zero, BETA)["R"]}
+    K = (_even_form(L, T, N, dps, zero, BETA + 0.1)["R"] - R["zero"]) * arb(10)
+    print(f"  anatomy: 4 forms assembled [{time.time() - t:.0f}s]", flush=True)
+    ctx.dps = dps
+    est = we.lambda_min_estimate(R["full"], lo_exp=-(dps - 5), hi_exp=0, digits=0.1)
+    f = we.ldl_mid_blocked(R["full"], arb(1.3 * est["lambda_min"]))
     Lm, d = f["L"], f["d"]
     del f
-    n = R.nrows()
+    n = N
     x = [arb(1) / (1 + i) for i in range(n)]
     for _ in range(8):                         # inverse iteration with the shift below lambda_min
         z = [None] * n
@@ -145,45 +208,83 @@ def part_anatomy():
             y[i] = acc.mid()
         nrm = sum((v * v for v in y), arb(0)).sqrt()
         x = [(v / nrm).mid() for v in y]
-    Rx = R * arb_mat([[v] for v in x])
-    lam = float(sum((x[i] * Rx[i, 0] for i in range(n)), arb(0)).mid())
+    del Lm, d
+    lam = float(_quad(R["full"], x).mid())
+    mass = float(_quad(K, x).mid())
+    H_part = float(_quad(R["full"] - R["zero"], x).mid())      # (1/pi) int_0^T H |F|^2 = -(the tail of H)
+    p33 = float(_quad(R["full"] - R["no33"], x).mid())
+    Qt0 = float(_quad(R["zero"], x).mid()) - BETA * mass     # pole + (1/pi) int_0^T Psi |F|^2
+    out = {"L": L, "T": T, "N": N, "dps": dps, "beta": BETA, "lambda": lam, "lambda_bisection": est["lambda_min"],
+           "mass_above_T": mass, "beta_credit": BETA * mass, "H_on_0_T": H_part, "term_33_2_on_0_T": p33,
+           "rest_of_H_on_0_T": H_part - p33, "pole_plus_Psi_on_0_T": Qt0, "h_33_2": h33,
+           "term_33_2_share": -p33 / (abs(h33) * mass), "rest_share": -(H_part - p33) / ((full.H_sup - abs(h33)) * mass)}
+    print(f"  anatomy L=1.4 T=650 (full H, beta={BETA}): lambda = {lam:.4e}; mass above T = {mass:.4e}, beta credit "
+          f"{BETA * mass:.3e}; on [0, T]: pole + Psi {Qt0:+.3e}, 33/2 {p33:+.3e} ({out['term_33_2_share']:.3f} of |h| x mass), "
+          f"rest of H {H_part - p33:+.3e} ({out['rest_share']:.2e} of its sum|h| x mass) [{time.time() - t:.0f}s]", flush=True)
+    out["thresholds"] = {}
+    for name in ("full", "no33", "zero"):
+        out["thresholds"][name] = _threshold(R[name], K, BETA)
+        print(f"  threshold beta* ({name}): {out['thresholds'][name]} [{time.time() - t:.0f}s]", flush=True)
+    # profile of x above T
     orders = blk["orders"]
     LL = arb(L)
+    ctx.dps = dps
     scale = [((2 * LL * (2 * o + 1)).sqrt()) * (1 if (o // 2) % 2 == 0 else -1) for o in orders]
-    ts = np.concatenate([np.arange(0.05, T - 60, 0.5), np.arange(T - 60, T + 400, 0.05)])
+    ts = np.arange(T - 60, T + 400, 0.05)
     F2 = np.empty(len(ts))
     for k, tt in enumerate(ts):
         js = we.sph_bessel_j_all(LL * arb(float(tt)), orders[-1], check=False)
         F = sum((x[i] * scale[i] * js[orders[i]] for i in range(n)), arb(0))
         F2[k] = float((F * F).mid())
     ctx.dps = 15
-    Om = np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
-    comb = wcb.prime_comb(L)
-    P = sum(float(c.mid()) * np.cos(ts * math.log(nn)) for tt in comb.values() for nn, c in tt)
-    Hf = sum(float(h.mid()) * np.cos(ts * math.log(a / b)) for a, b, h in full.terms)
-    Hres = sum(float(h.mid()) * np.cos(ts * math.log(a / b)) for a, b, h in full.terms if math.log(a / b) < 2 * L + 0.005)
-    dt = np.diff(ts, append=ts[-1])
-    above = ts >= T
-    out = {"L": L, "T": T, "N": N, "dps": dps, "lambda": lam, "lambda_bisection": est["lambda_min"],
-           "mass_below_T": float(np.sum((F2 * dt)[~above])) / math.pi,
-           "mass_above_T": float(np.sum((F2 * dt)[above])) / math.pi,
-           "tail_Psi_minus_beta": float(np.sum(((Om - P - BETA) * F2 * dt)[above])) / math.pi,
-           "tail_H_33_2": float(np.sum((Hres * F2 * dt)[above])) / math.pi,
-           "tail_H_rest": float(np.sum(((Hf - Hres) * F2 * dt)[above])) / math.pi,
-           "F2_peak_t": float(ts[np.argmax(F2)]), "seconds": time.time() - t,
-           "profile_every_20": [[float(a), float(b)] for a, b in zip(ts[::20], F2[::20])]}
-    print(f"  anatomy L=1.4 T=650: lambda = {lam:.3e}; mass below/above T = {out['mass_below_T']:.3e} / "
-          f"{out['mass_above_T']:.3e}; dropped tail: Psi - beta {out['tail_Psi_minus_beta']:+.3e}, 33/2 "
-          f"{out['tail_H_33_2']:+.3e}, rest of H {out['tail_H_rest']:+.3e} [{out['seconds']:.0f}s]", flush=True)
+    win = []
+    for a in np.arange(T, T + 400, 40.0):
+        s = (ts >= a) & (ts < a + 20)
+        M = np.stack([np.ones(s.sum()), np.cos(2 * L * ts[s]), np.sin(2 * L * ts[s])], 1)
+        c = np.linalg.lstsq(M, F2[s], rcond=None)[0]
+        win.append({"t": float(a), "mean": float(c[0]), "amp_2L": float(math.hypot(c[1], c[2]))})
+    out["profile_windows"] = win
+    out["F2_at_T"] = float(F2[np.argmin(abs(ts - T))])
+    out["seconds"] = time.time() - t
+    print("  profile above T (mean, amplitude of the 2L part): " + ", ".join(
+        f"{w['t']:.0f}: {w['mean']:.2e}/{w['amp_2L']:.2e}" for w in win) + f" [{out['seconds']:.0f}s]", flush=True)
     return out
 
 
-def gapped_17():
-    """The gapped L = 1.7 certificate with its 3 wave packets (from PACKETS if present, else fitted)."""
+def part_floor_beta():
+    """L = 1.4 (joint Lambda = 6), even sector, 100 digits: the threshold beta*(T) above which the envelope form is
+    positive definite, for the full H, without the terms of gap < 0.03, and for H = 0 (Numerical). With K the mass
+    above T (as in `part_anatomy`), the form at beta is R(0.05) + (beta - 0.05) K."""
+    from flint import arb
+    L, dps = 1.4, 100
+    full = wcb.joint_comb_certificate(L, 6.0)
+    certs = {"full": full, "gap 0.03": wcb.gap_certificate(full, 0.03), "zero": wcb.gap_certificate(full, 99.0)}
+    t0 = 2 * math.pi * math.exp(1 + 2 * L)
+    rows = []
+    for T in (400.0, 500.0, 650.0):
+        t = time.time()
+        N = int(math.ceil(1.4 * math.e * L * T / 4)) + 30
+        Rz = _even_form(L, T, N, dps, certs["zero"], BETA)["R"]
+        K = (_even_form(L, T, N, dps, certs["zero"], BETA + 0.1)["R"] - Rz) * arb(10)
+        row = {"L": L, "T": T, "T_over_t0": T / t0, "N": N, "dps": dps}
+        for name, cert in certs.items():
+            R = Rz if name == "zero" else _even_form(L, T, N, dps, cert, BETA)["R"]
+            row[name] = _threshold(R, K, BETA, lo=-0.5, hi=1.0)
+        row["seconds"] = time.time() - t
+        rows.append(row)
+        print(f"  L=1.4 T={T:.0f} ({T / t0:.2f} t0), N={N}: beta* full {row['full']}, gap 0.03 {row['gap 0.03']}, "
+              f"H = 0 {row['zero']} [{row['seconds']:.0f}s]", flush=True)
+    return rows
+
+
+def gapped_17(beta=None):
+    """The gapped L = 1.7 certificate with the wave packets for trajectory constant beta (default GAP_17["beta"];
+    from PACKETS[beta] if present, else fitted with fix_dips; the fit is deterministic up to the LP solver)."""
     p = GAP_17
+    beta = p["beta"] if beta is None else beta
     cert = wcb.gap_certificate(rwt.cert_17(), p["g"])
-    if os.path.exists(PACKETS):
-        with open(PACKETS) as f:
+    if os.path.exists(PACKETS[beta]):
+        with open(PACKETS[beta]) as f:
             P = json.load(f)
         loc = wl.LocalCorrection(L=P["L"], b=P["b"], m=P["m"], atoms=[tuple(a) for a in P["atoms_tau_w_kind_a"]])
     else:
@@ -199,27 +300,32 @@ def gapped_17():
                 t = ts[i:i + 1500]
                 out[i:i + 1500] = np.cos(np.outer(t, np.log(ns))) @ cs - np.cos(np.outer(t, w)) @ h
             return out
-        loc = wl.fix_dips(G, omega_float, p["L"], p["T"], p["dips"], p["beta"], gap=p["packet_gap"],
+        loc = wl.fix_dips(G, omega_float, p["L"], p["T"], p["dips"][beta], beta, gap=p["packet_gap"],
                           target=p["target"], step=p["lp_step"])
-        with open(PACKETS, "w") as f:
-            json.dump({"L": loc.L, "b": loc.b, "m": loc.m, "g": p["g"], "packet_gap": p["packet_gap"], "beta": p["beta"],
-                       "T": p["T"], "dips": p["dips"], "atoms_tau_w_kind_a": [list(a) for a in loc.atoms]}, f, indent=1)
+        with open(PACKETS[beta], "w") as f:
+            json.dump({"L": loc.L, "b": loc.b, "m": loc.m, "g": p["g"], "packet_gap": p["packet_gap"], "beta": beta,
+                       "T": p["T"], "dips": p["dips"][beta], "atoms_tau_w_kind_a": [list(a) for a in loc.atoms]}, f,
+                      indent=1)
     return wcb.attach_local(cert, loc)
 
 
 def part_gap17():
     p = GAP_17
-    cert = gapped_17()
-    r = wcb.trajectory_check(cert, p["T"], p["beta"])
-    print(f"  L=1.7 gapped (g = {p['g']}: {cert.meta['n_moved']} terms, sum|h| = {cert.meta['moved_to_A_prime']:.3f} "
-          f"moved; A' = {float(cert.A_prime.upper()):.4f}) + {len(cert.local.atoms)} packets (sum|a| = "
-          f"{cert.local.sum_abs():.3f}): beta = {r['beta']} certified={r['certified']} from T={r['T']} (margin {r['min_margin']}, "
-          f"T2 = {r['T2']:.0f}, {r['seconds']:.0f}s)", flush=True)
-    return {"L": 1.7, "g": p["g"], "n_moved": cert.meta["n_moved"], "moved_to_A_prime": cert.meta["moved_to_A_prime"],
-            "A_prime": float(cert.A_prime.upper()), "omega_min_minus_2L": cert.omega_min - 3.4,
-            "packets": [list(a) for a in cert.local.atoms], "sum_abs_a": cert.local.sum_abs(),
-            "trajectory": {k: r.get(k) for k in ("certified", "T", "beta", "T2", "min_margin", "worst_t", "eval_error",
-                                                 "cells_per_level", "seconds")}}
+    rows = []
+    for beta in (0.05, 0.2):
+        cert = gapped_17(beta)
+        r = wcb.trajectory_check(cert, p["T"], beta)
+        print(f"  L=1.7 gapped (g = {p['g']}: {cert.meta['n_moved']} terms, sum|h| = {cert.meta['moved_to_A_prime']:.3f} "
+              f"moved; A' = {float(cert.A_prime.upper()):.4f}) + {len(cert.local.atoms)} packets (sum|a| = "
+              f"{cert.local.sum_abs():.3f}): beta = {r['beta']} certified={r['certified']} from T={r['T']} (margin "
+              f"{r['min_margin']:.4f}, T2 = {r['T2']:.0f}, {r['seconds']:.0f}s)", flush=True)
+        rows.append({"L": 1.7, "g": p["g"], "n_moved": cert.meta["n_moved"],
+                     "moved_to_A_prime": cert.meta["moved_to_A_prime"], "A_prime": float(cert.A_prime.upper()),
+                     "omega_min_minus_2L": cert.omega_min - 3.4, "packets": [list(a) for a in cert.local.atoms],
+                     "sum_abs_a": cert.local.sum_abs(),
+                     "trajectory": {k: r.get(k) for k in ("certified", "T", "beta", "T2", "min_margin", "worst_t",
+                                                          "eval_error", "cells_per_level", "seconds")}})
+    return rows
 
 
 def leading_block(cert, T, Np, parity, dps):
@@ -235,14 +341,16 @@ def leading_block(cert, T, Np, parity, dps):
 
 
 def part_blocks():
+    """Leading 400 x 400 block of the even sector at T = 2460, beta = 0.05: the E15 certificate against the gapped
+    one with its 3 packets (about 2 hours each)."""
     rows = []
-    for name, cert, beta in (("E15 certificate", rwt.cert_17(), BETA), ("gapped + packets", gapped_17(), GAP_17["beta"])):
-        tr = wcb.trajectory_check(cert, GAP_17["T"], beta)
+    for name, cert in (("E15 certificate", rwt.cert_17()), ("gapped, 3 packets", gapped_17(0.05))):
+        tr = wcb.trajectory_check(cert, GAP_17["T"], BETA)
         assert tr["certified"]
         r = leading_block(cert, GAP_17["T"], 400, "even", GAP_17["dps"])
-        r["certificate"], r["beta"] = name, beta
+        r["certificate"], r["beta"] = name, BETA
         rows.append(r)
-        print(f"  L=1.7 T=2460 leading 400 x 400 block (even, {GAP_17['dps']} digits), {name}: "
+        print(f"  L=1.7 T=2460 beta={BETA} leading 400 x 400 block (even, {GAP_17['dps']} digits), {name}: "
               f"{r['n_negative']} negative pivots (first at {r['first_negative']}), min pivot {r['min_pivot']:.3e} "
               f"[{r['seconds']:.0f}s]", flush=True)
     return rows
@@ -268,7 +376,7 @@ def part_certify(parities=("even", "odd")):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true")
-    ap.add_argument("--parts", default="terms,resonance,anatomy,gap17,blocks")
+    ap.add_argument("--parts", default="terms,resonance,anatomy,floor_beta,gap17,blocks")
     ap.add_argument("--certify", action="store_true", help="also run the L = 1.7 window certification (hours)")
     args = ap.parse_args()
     t0 = time.time()
@@ -277,8 +385,8 @@ def main():
         with open(OUT_JSON) as f:
             out = json.load(f)
     parts = ["terms", "gap17"] if args.quick else args.parts.split(",")
-    fns = {"terms": part_terms, "resonance": part_resonance, "anatomy": part_anatomy, "gap17": part_gap17,
-           "blocks": part_blocks}
+    fns = {"terms": part_terms, "resonance": part_resonance, "anatomy": part_anatomy, "floor_beta": part_floor_beta,
+           "gap17": part_gap17, "blocks": part_blocks}
     for name in parts:
         print(f"[{name}]", flush=True)
         res = fns[name]()
