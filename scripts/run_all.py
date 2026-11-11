@@ -27,6 +27,7 @@ EXPERIMENTS = [
     ("run_weil_form.py", [], ["--quick"]),
     ("run_explicit_formula.py", [], ["--quick"]),
     ("run_weil_detection.py", [], ["--quick"]),
+    ("run_weil_trajectory.py", [], ["--quick"]),   # E15 analysis; the L = 1.7 certification is --certify (hours)
 ]
 
 

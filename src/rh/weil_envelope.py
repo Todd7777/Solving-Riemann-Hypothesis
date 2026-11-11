@@ -150,10 +150,18 @@ def symbol(L, z, comb_list=None, comb_cert=None):
 def beta_star(L, T, comb_cert=None):
     """beta = Omega(T) - A_L (arb): Psi_L(t) >= beta for all t >= T.  With a comb certificate
     (A' - P_L + H >= 0 everywhere, H of spectrum outside (-2L, 2L)): beta'' = Omega(T) - A', and
-    Psi_L(t) + H(t) >= beta'' for all t >= T."""
-    from flint import acb
+    Psi_L(t) + H(t) >= beta'' for all t >= T.  If the certificate also carries a trajectory check
+    (`rh.weil_comb.trajectory_check`: Psi_L + H >= beta_tr on [T_tr, inf)) and T >= T_tr, the larger of
+    the two is used; below T_1'' = 2 pi e^{A'} only the trajectory constant is positive."""
+    from flint import acb, arb
     if comb_cert is not None:
-        return omega(acb(T)).real - comb_cert.A_prime
+        b = omega(acb(T)).real - comb_cert.A_prime
+        tr = getattr(comb_cert, "trajectory", None)
+        if tr is not None and tr.get("certified") and T >= tr["T"]:
+            bt = arb(tr["beta"])
+            if not (b > bt):
+                b = bt
+        return b
     _, A = comb(L)
     return omega(acb(T)).real - A
 
@@ -533,8 +541,10 @@ def tail_bounds(L, T, N, parity: str, n_extra: int = 4000, dps: int = 30, comb_c
             # Psi_L - beta = (Omega - Omega(T)) + (A_L - P_L), the second term in [0, 2 A_L]
             sigma_max = max(_up(OmT - Om0), _up(2 * A))
         else:
-            # Psi_L + H - beta'' = (Omega - Omega(T)) + (A' - P_L + H), the second in [0, A' + A_L + sup|H|]
-            sigma_max = max(_up(OmT - Om0), _up(comb_cert.A_prime + A) + comb_cert.H_sup)
+            # on [0, T]: Omega(0) - A' <= Omega - P_L + H <= Omega(T) + A_L + sup|H| (the lower bound by
+            # (*)), so |Psi_L + H - beta| <= max(Omega(T) + A_L + sup|H| - beta, A' + beta - Omega(0)); with
+            # beta = Omega(T) - A' this is max(A' + A_L + sup|H|, Omega(T) - Omega(0))
+            sigma_max = max(_up(OmT + A - beta) + comb_cert.H_sup, _up(comb_cert.A_prime + beta - Om0))
         orders = sector_orders(parity, N + n_extra)
         tail = orders[N:]
 
@@ -842,6 +852,8 @@ def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, 
     with _ctx(dps):
         R = blk["R"]
         est = approx_lambda_min_ldl(R)
+        # est is None: the midpoint has a negative pivot, so R_A is (numerically) indefinite and the check
+        # below must fail; approx_lambda_min then only gives the eigenvalue closest to 0
         lam_approx = est[0] if est is not None else approx_lambda_min(R)[0]
         if lam0 is None:
             lam0 = lam_approx * safety if lam_approx > 0 else lam_approx
@@ -860,6 +872,7 @@ def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, 
                "A_prime": float(comb_cert.A_prime.upper()) if comb_cert is not None else None,
                "comb_X": comb_cert.X if comb_cert is not None else None,
                "lambda0": float(arb(lam0).mid()), "ldl_certified": cert["certified"],
+               "midpoint_indefinite": est is None,
                "ldl_failed_at": cert.get("failed_at"),
                "ldl_min_pivot": cert["min_pivot"],
                "residual_F": float(cert["residual_F"].upper()) if cert["residual_F"] is not None else None,

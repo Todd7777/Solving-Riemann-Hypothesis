@@ -68,12 +68,13 @@ therefore a lower bound for every A', separable or not.
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass, field
 from typing import List
 
 __all__ = ["prime_comb", "toeplitz_lambda_max", "fes_constant", "sos_gram", "PrimeCertificate",
            "CombCertificate", "prime_certificate", "comb_certificate", "joint_gram", "joint_gram_admm",
-           "joint_comb_certificate", "comb_operator_norm", "comb_constants"]
+           "joint_comb_certificate", "trajectory_check", "comb_operator_norm", "comb_constants"]
 
 
 def _primes_upto(x: float) -> List[int]:
@@ -275,6 +276,7 @@ class CombCertificate:
     H_sup: float = 0.0      # upper bound for sup_{t real} |H(t)| (sum |h_j|)
     omega_min: float = 0.0  # lower bound for the smallest frequency of H (> 2L)
     meta: dict = field(default_factory=dict)     # construction details (joint certificates)
+    trajectory: dict | None = None  # set by `trajectory_check`: Omega - P_L + H >= beta on [T, inf)
 
     def freqs(self):
         """[(omega = log(n/d), h)] with omega computed at the current working precision (cached per precision)."""
@@ -334,6 +336,8 @@ class CombCertificate:
                             "lambda_toeplitz": pc.lambda_toeplitz, "dual_degree_M": pc.dual,
                             "sum_c": float(sum(c.mid() for c in pc.c))} for pc in self.primes]}
         d.update(self.meta)
+        if self.trajectory is not None:
+            d["trajectory"] = {k: v for k, v in self.trajectory.items() if k != "levels"}
         return d
 
 
@@ -846,6 +850,315 @@ def joint_comb_certificate(L: float, Lam: float = 5.0, drop: float = 1e-13, mu_m
     if solver == "admm":
         cert.meta.update({"admm_value": G["admm_value"], "admm_mismatch": G["admm_mismatch"], "admm_iters": G["iters"]})
     return cert
+
+
+# ----------------------------------------------------------------------------
+# Trajectory certificates: (*) is only needed along t >= T
+# ----------------------------------------------------------------------------
+_U = 2.0 ** -53                                   # unit roundoff of IEEE double, round to nearest
+
+
+def _gam(k: int) -> float:
+    """gamma_k = k u / (1 - k u): a floating-point sum or dot product of k terms is off by at most
+    gamma_k sum |terms| (any order of summation, with or without fused multiply-add)."""
+    return k * _U / (1 - k * _U)
+
+
+def _spf(m: int) -> int:
+    """Smallest prime factor of m >= 2."""
+    p = 2
+    while p * p <= m:
+        if m % p == 0:
+            return p
+        p += 1
+    return m
+
+
+def _float_up(x) -> float:
+    """A float >= every point of the arb ball x."""
+    return math.nextafter(float(x.upper()), math.inf)
+
+
+def _float_lo(x) -> float:
+    """A float <= every point of the arb ball x."""
+    return math.nextafter(float(x.lower()), -math.inf)
+
+
+class _TrajectoryEvaluator:
+    """G(t) = P_L(t) - H(t) in IEEE double on grids t = s + k step, with an a-priori error bound.
+
+    Every transcendental number comes from Arb: e^{i s log p} at the start s of each block and
+    e^{i step log p}. The other phases are products: p^{i(s + k step)} by k successive multiplications,
+    m^{it} = (m/p)^{it} p^{it} (p the smallest prime factor of m) for every integer m that occurs. A
+    complex product in double has relative error at most sqrt(5) u (Brent, Percival and Zimmermann
+    2007); 3u is used. A sum or dot product of k terms has error at most gamma_k sum |terms|. The
+    coefficients are rounded to double, and the rounding errors are summed in Arb."""
+
+    def __init__(self, cert: "CombCertificate"):
+        import numpy as np
+        import scipy.sparse as sps
+        from flint import arb, ctx
+        self.cert = cert
+        comb = prime_comb(cert.L)
+        ints = {1}
+        for n, d, _ in cert.terms:
+            ints.update((n, d))
+        for t in comb.values():
+            ints.update(n for n, _ in t)
+        stack = list(ints)
+        while stack:                                   # close the set under m -> m / spf(m)
+            m = stack.pop()
+            if m > 1 and m // _spf(m) not in ints:
+                ints.add(m // _spf(m))
+                stack.append(m // _spf(m))
+        self.ints = sorted(ints)
+        self.idx = {m: i for i, m in enumerate(self.ints)}
+        self.chain = [(self.idx[m], self.idx[m // _spf(m)], _spf(m)) for m in self.ints[1:]]
+        self.primes = sorted({p for _, _, p in self.chain})
+        depth = {1: 0}
+        for m in self.ints[1:]:
+            depth[m] = depth[m // _spf(m)] + 1
+        self.depth = max(depth.values())
+        old = ctx.prec
+        ctx.prec = 128
+        try:
+            self.logp = {p: arb(p).log() for p in self.primes}
+            hf = np.array([float(h.mid()) for _, _, h in cert.terms])
+            err_h, M2 = arb(0), arb(0)
+            for (n, d, h), x in zip(cert.terms, hf):
+                err_h += abs(h - arb(x))
+                om = arb(n).log() - arb(d).log()
+                M2 += abs(h) * om * om
+            cn = [(n, c) for t in comb.values() for n, c in t]
+            cf = np.array([float(c.mid()) for _, c in cn])
+            err_c = arb(0)
+            for (n, c), x in zip(cn, cf):
+                err_c += abs(c - arb(x))
+                M2 += abs(c) * arb(n).log() ** 2
+            self.err_h, self.err_c, self.M2 = _float_up(err_h), _float_up(err_c), _float_up(M2)
+        finally:
+            ctx.prec = old
+        rows = np.array([self.idx[d] for _, d, _ in cert.terms], dtype=np.int64)
+        cols = np.array([self.idx[n] for n, _, _ in cert.terms], dtype=np.int64)
+        if len(set(zip(rows.tolist(), cols.tolist()))) != len(rows):
+            raise ValueError("repeated (n, d) in the certificate: merge the terms first")
+        self.S = sps.csr_matrix((hf.astype(complex), (rows, cols)), shape=(len(self.ints), len(self.ints)))
+        self.kmax = int(np.diff(self.S.indptr).max()) if len(rows) else 0
+        self.cidx = np.array([self.idx[n] for n, _ in cn], dtype=np.int64)
+        self.cf = cf
+        self.sum_h = math.fsum(abs(x) for x in hf) * (1 + 1e-12)
+        self.sum_c = math.fsum(abs(x) for x in cf) * (1 + 1e-12)
+
+    def error_bound(self, K: int, eps0: float, eps_w: float) -> float:
+        """Bound for |G_computed - G| at every point of a block of K points, when e^{i s log p} and
+        e^{i step log p} are rounded to double with errors at most eps0 and eps_w."""
+        u = _U
+        # K - 1 successive products: e_k <= a e_{k-1} + c with a = (1 + eps_w)(1 + 3u), c = 3u(1 + eps_w) + eps_w
+        x = K * (eps_w + 3 * u)
+        if x > 0.1:
+            raise ValueError("block too long for the phase error bound")
+        eps_z = (1 + 2 * x) * (eps0 + K * (3 * u * (1 + eps_w) + eps_w))
+        # depth products of prime phases for m^{it}, starting from 1 exactly
+        y = self.depth * (eps_z + 3 * u)
+        eps_v = (1 + 2 * y) * self.depth * (3 * u * (1 + eps_z) + eps_z)
+        nu = 1 + eps_v
+        g1 = math.sqrt(2) * _gam(self.kmax + 1)        # one row of S V (real and imaginary parts)
+        g2 = _gam(len(self.ints) + 1)                   # the sum over rows
+        E_H = (self.err_h + self.sum_h * (2 * eps_v + eps_v ** 2)
+               + self.sum_h * nu ** 2 * (g1 + 3 * u * (1 + g1) + g2 * (1 + 3 * u) * (1 + g1)))
+        E_P = self.err_c + self.sum_c * (eps_v + _gam(len(self.cf) + 1) * nu)
+        E_sub = 2 * u * (self.sum_c + self.sum_h) * nu ** 2 * (1 + g1) * (1 + g2)
+        return (E_H + E_P + E_sub) * (1 + 1e-9)
+
+    def evaluate(self, starts: list, step: float, K: int):
+        """G at s + k step (k < K) for each exact arb s in `starts`: (array len(starts) x K, error bound)."""
+        import numpy as np
+        from flint import acb, arb, ctx
+        old = ctx.prec
+        ctx.prec = 128
+        try:
+            I = acb(0, 1)
+            st = arb(step)
+            Z, eps0, eps_w = {}, 0.0, 0.0
+            for p in self.primes:
+                w = (I * (st * self.logp[p])).exp()
+                wf = complex(float(w.real.mid()), float(w.imag.mid()))
+                eps_w = max(eps_w, _float_up(abs(w - acb(wf))))
+                arr = np.empty((len(starts), K), dtype=complex)
+                arr[:, 1:] = wf
+                for b, s in enumerate(starts):
+                    if s.rad() != 0:
+                        raise ValueError("block starts must be exact")
+                    z = (I * (s * self.logp[p])).exp()
+                    zf = complex(float(z.real.mid()), float(z.imag.mid()))
+                    eps0 = max(eps0, _float_up(abs(z - acb(zf))))
+                    arr[b, 0] = zf
+                Z[p] = np.cumprod(arr, axis=1).reshape(-1)      # sequential products along each block
+        finally:
+            ctx.prec = old
+        V = np.empty((len(self.ints), len(starts) * K), dtype=complex)
+        V[self.idx[1]] = 1.0
+        for i, j, p in self.chain:
+            np.multiply(V[j], Z[p], out=V[i])
+        SV = self.S @ V
+        Hv = np.einsum("ij,ij->j", V.conj(), SV).real
+        Pv = self.cf @ V[self.cidx].real
+        return (Pv - Hv).reshape(len(starts), K), self.error_bound(K, eps0, eps_w)
+
+
+def trajectory_check(cert: "CombCertificate", T: float, beta: float, delta: float = 0.02, refine: int = 4,
+                     depth: int = 4, block: int = 2048, omega_cells: int = 25, chunk_points: int = 4096,
+                     verbose: bool = False) -> dict:
+    r"""Certify Omega(t) - P_L(t) + H(t) >= beta for every t >= T, for a comb certificate (*).
+
+    This is all the envelope reduction needs on [T, inf) (see `rh.weil_envelope.beta_star`). The torus
+    bound (*) gives it for t >= T2, where Omega(T2) - A' >= beta (checked in Arb), because Omega
+    increases. Below T2 the trajectory t -> (t log p mod 2 pi)_p visits only part of the torus, and there
+    G = P_L - H is checked directly:
+
+    * G is evaluated in IEEE double at T + k delta (`_TrajectoryEvaluator`: transcendental values from
+      Arb, products and sums with a-priori error bounds E).
+    * Between grid points, |G''| <= M2 = sum c_n log^2 n + sum |h| omega^2 (Arb), so on a cell of length
+      delta, G <= max(G at both ends) + M2 delta^2 / 8.
+    * Omega increases, so on a cell it is at least Omega at the start of its group of `omega_cells` cells
+      (Arb).
+    A cell passes if max(G_k, G_{k+1}) + E + M2 delta^2 / 8 + 1e-10 <= Omega_low - beta. A failing cell is
+    split into `refine` parts, at most `depth` times; it is a failure if it still does not pass.
+
+    Returns a dict with 'certified', 'T', 'beta', 'T2', 'min_margin' (smallest Omega_low - beta - bound
+    over the cells that decide), 'worst_t', 'max_G' (largest computed G on the coarse grid) and counts.
+    On success it sets cert.trajectory, which `rh.weil_envelope` then uses."""
+    import numpy as np
+    from flint import acb, arb, ctx
+    from .weil_envelope import omega
+    t_start = time.time()
+    if refine not in (2, 4, 8, 16):
+        raise ValueError("refine must be a small power of 2 (exact cell boundaries)")
+    old = ctx.prec
+    ctx.prec = 128
+    try:
+        bb = arb(beta)
+        T2 = 2 * math.pi * math.exp(float(cert.A_prime.upper()) + beta) + 1.0
+        while not (omega(acb(T2)).real - cert.A_prime >= bb):
+            T2 *= 1.001
+        TT, dd = arb(T), arb(delta)
+    finally:
+        ctx.prec = old
+    out = {"T": float(T), "beta": float(beta), "T2": T2, "delta": delta, "refine": refine, "depth": depth}
+    if T >= T2:
+        out.update({"certified": True, "min_margin": None, "note": "T >= T2: the torus bound suffices"})
+        cert.trajectory = out
+        return out
+    ev = _TrajectoryEvaluator(cert)
+    n_cells = int(math.ceil((T2 - T) / delta))
+    n_groups = n_cells // omega_cells + 1
+    old = ctx.prec
+    ctx.prec = 128
+    try:
+        om_low = np.array([_float_lo(omega(acb(TT + (g * omega_cells) * dd)).real) for g in range(n_groups)])
+    finally:
+        ctx.prec = old
+    if verbose:
+        print(f"trajectory_check L={cert.L} T={T} beta={beta}: T2={T2:.1f}, {n_cells} cells of {delta}, "
+              f"M2={ev.M2:.1f}, {len(ev.ints)} integers, {len(cert.terms)} terms [{time.time() - t_start:.0f}s]",
+              flush=True)
+
+    # level 0: blocks of `block` cells
+    fail = []                                          # (k, path, group) of cells to refine
+    hard, n_hard = [], 0                               # cells whose grid values already fail: refinement cannot help
+    min_margin, worst_t, max_G, max_G_t, E0 = math.inf, None, -math.inf, None, 0.0
+    old = ctx.prec
+    ctx.prec = 128
+    try:
+        starts = [TT + k0 * dd for k0 in range(0, n_cells, block)]
+    finally:
+        ctx.prec = old
+    slack = ev.M2 * delta * delta / 8 * (1 + 1e-12) + 1e-10
+    per = max(1, chunk_points // (block + 1))
+    for c0 in range(0, len(starts), per):
+        sts = starts[c0:c0 + per]
+        G, E = ev.evaluate(sts, delta, block + 1)
+        E0 = max(E0, E)
+        for bi in range(len(sts)):
+            k0 = (c0 + bi) * block
+            nk = min(block, n_cells - k0)
+            g = G[bi, :nk + 1]
+            i = int(np.argmax(g))
+            if g[i] > max_G:
+                max_G, max_G_t = float(g[i]), T + (k0 + i) * delta
+            ks = k0 + np.arange(nk)
+            ends = np.maximum(g[:-1], g[1:]) + E + 1e-10
+            margin = om_low[ks // omega_cells] - beta - ends - slack
+            hard_k = ks[om_low[ks // omega_cells] - beta - ends < 0]    # the grid values themselves fail
+            if len(hard_k):
+                hard.extend(int(k) for k in hard_k[:100 - len(hard)] if len(hard) < 100)
+                n_hard += len(hard_k)
+            bad = margin < 0
+            ok = ~bad
+            if ok.any():
+                j = int(np.argmin(np.where(ok, margin, np.inf)))
+                if margin[j] < min_margin:
+                    min_margin, worst_t = float(margin[j]), T + (k0 + j) * delta
+            for k in ks[bad & (om_low[ks // omega_cells] - beta - ends >= 0)]:
+                fail.append((int(k), (), int(k // omega_cells)))
+    counts = [n_cells]
+    if verbose:
+        print(f"  level 0: {n_cells} cells, {len(fail)} to refine, {n_hard} failing at grid points, E={E0:.2e}, "
+              f"max G={max_G:.4f} at t={max_G_t:.2f} [{time.time() - t_start:.0f}s]", flush=True)
+    if n_hard:
+        fail = []                                      # not certifiable at this T and beta: skip the refinement
+    # refinement: a cell is (k, path) with path the sub-indices at each level; its start is
+    # T + k delta + sum_l path[l] delta / refine^(l+1), exact in Arb
+    for level in range(1, depth + 1):
+        if not fail:
+            break
+        h = delta / refine ** level
+        slack = ev.M2 * h * h / 8 * (1 + 1e-12) + 1e-10
+        new_fail = []
+        per = max(1, chunk_points // (refine + 1))
+        for c0 in range(0, len(fail), per):
+            part = fail[c0:c0 + per]
+            old = ctx.prec
+            ctx.prec = 128
+            try:
+                sts = []
+                for k, path, _ in part:
+                    s = TT + k * dd
+                    for l, j in enumerate(path):
+                        s += j * arb(delta / refine ** (l + 1))
+                    sts.append(s)
+            finally:
+                ctx.prec = old
+            G, E = ev.evaluate(sts, h, refine + 1)
+            E0 = max(E0, E)
+            for (k, path, grp), g in zip(part, G):
+                bound = np.maximum(g[:-1], g[1:]) + E + slack
+                margin = om_low[grp] - beta - bound
+                for j in range(refine):
+                    if margin[j] < 0:
+                        new_fail.append((k, path + (j,), grp))
+                    elif margin[j] < min_margin:
+                        min_margin = float(margin[j])
+                        worst_t = T + k * delta + sum(jj * delta / refine ** (l + 1) for l, jj in enumerate(path + (j,)))
+        counts.append(len(fail) * refine)
+        if verbose:
+            print(f"  level {level}: {len(fail) * refine} cells of {h:.2e}, {len(new_fail)} still failing "
+                  f"[{time.time() - t_start:.0f}s]", flush=True)
+        fail = new_fail
+    certified = not fail and not n_hard
+    if n_hard:
+        worst_t = T + hard[0] * delta
+    elif fail:
+        k, path, grp = fail[0]
+        worst_t = T + k * delta
+    out.update({"certified": certified, "min_margin": min_margin if certified else None, "worst_t": worst_t,
+                "n_failed": len(fail) + n_hard, "first_failures_t": [T + k * delta for k in hard[:20]],
+                "max_G": max_G, "max_G_t": max_G_t, "cells_per_level": counts,
+                "eval_error": E0, "M2": ev.M2, "A_prime": float(cert.A_prime.upper()),
+                "seconds": time.time() - t_start})
+    if certified:
+        cert.trajectory = out
+    return out
 
 
 def comb_operator_norm(L: float, J: int = 80) -> float:

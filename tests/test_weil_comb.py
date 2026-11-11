@@ -193,3 +193,80 @@ def test_low_rank_alm_joint_certificate():
     P = sum(float(c.mid()) * np.cos(ts * math.log(n)) for t in comb.values() for n, c in t)
     H = sum(float(h.mid()) * np.cos(ts * math.log(n / dd)) for n, dd, h in cert.terms)
     assert (float(cert.A_prime.mid()) - P + H).min() > -1e-9
+
+
+def _float_symbol_minus_beta(cert, ts, beta):
+    """Omega - P_L + H - beta on a grid, in floats (scipy digamma): an independent reference."""
+    from scipy.special import digamma
+    comb = wcb.prime_comb(cert.L)
+    P = sum(float(c.mid()) * np.cos(ts * math.log(n)) for t in comb.values() for n, c in t)
+    H = sum(float(h.mid()) * np.cos(ts * math.log(n / dd)) for n, dd, h in cert.terms)
+    Om = np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
+    return Om - P + H - beta
+
+
+def test_trajectory_evaluator_error_bound():
+    """G = P_L - H in double precision with phases built by products from Arb values: the computed values
+    agree with Arb to well within the a-priori bound E, and E itself is small."""
+    cert = wcb.joint_comb_certificate(1.0, Lam=5.0)
+    ev = wcb._TrajectoryEvaluator(cert)
+    ctx.prec = 128
+    starts = [arb(float(s)) for s in np.random.default_rng(4).uniform(10, 3000, 4)]
+    G, E = ev.evaluate(starts, 0.0173, 600)
+    comb = wcb.prime_comb(1.0)
+    worst = 0.0
+    for b, s in enumerate(starts):
+        for k in (0, 1, 299, 599):
+            t = s + k * arb(0.0173)
+            P = sum((c * (t * arb(n).log()).cos() for tt in comb.values() for n, c in tt), arb(0))
+            g = P - cert.H(acb(t)).real
+            assert abs(g - G[b, k]) < E
+            worst = max(worst, abs(float((g - G[b, k]).mid())))
+    ctx.prec = 53
+    assert worst < 1e-12 and E < 1e-8
+
+
+def test_trajectory_check_certifies_below_T1():
+    """L = 1.2, joint certificate: the torus bound needs T > T1'' = 2 pi e^{A'} ~ 273, but along the
+    trajectory Omega - P_L + H >= 0.05 already from T = 200 on. The check certifies it there, a dense float
+    grid agrees, and it refuses T = 150, below the last violation (t ~ 191.6)."""
+    cert = wcb.joint_comb_certificate(1.2, Lam=5.5)
+    T1 = 2 * math.pi * math.exp(float(cert.A_prime.upper()))
+    assert T1 > 270
+    bad = wcb.trajectory_check(cert, 150.0, 0.05)
+    assert not bad["certified"] and bad["first_failures_t"] and cert.trajectory is None
+    r = wcb.trajectory_check(cert, 200.0, 0.05)
+    assert r["certified"] and r["min_margin"] >= 0 and cert.trajectory is r
+    assert r["max_G"] < float(cert.A_prime.upper()) - 0.05      # the trajectory stays below the torus bound
+    ts = np.arange(200.0, r["T2"], 0.002)
+    assert _float_symbol_minus_beta(cert, ts, 0.05).min() > 0
+    ts = np.arange(150.0, 200.0, 0.002)
+    assert _float_symbol_minus_beta(cert, ts, 0.05).min() < 0
+    # rh.weil_envelope uses the trajectory constant below T1'' (where Omega(T) - A' < 0)
+    from flint import acb as _acb
+    ctx.dps = 30
+    assert we.omega(_acb(200.0)).real - cert.A_prime < 0
+    assert we.beta_star(1.2, 200.0, cert) == arb(0.05)
+    assert we.beta_star(1.2, 199.0, cert) < 0                  # below the checked range: torus bound only
+    ctx.dps = 15
+
+
+def test_trajectory_envelope_is_below_the_true_form_and_certifies():
+    """L = 1.2: with the trajectory constant the envelope form at T = 240 < T1'' ~ 273 is still below the
+    true form on the same modes, and it certifies the even sector with fewer modes than the torus bound
+    needs (T >= T1'')."""
+    L = 1.2
+    cert = wcb.joint_comb_certificate(L, Lam=5.5)
+    T1 = 2 * math.pi * math.exp(float(cert.A_prime.upper()))
+    T = 240.0
+    assert T < T1 and wcb.trajectory_check(cert, T, 0.05)["certified"]
+    N = 14
+    blk = we.envelope_block(L, T, N, "even", dps=40, comb_cert=cert, wmax=8.0)
+    assert blk["beta"] == arb(0.05)
+    R = np.array([[float(blk["R"][i, j].mid()) for j in range(N)] for i in range(N)])
+    Q, idx = _true_form_orthonormal(L, N, "even")
+    assert np.linalg.eigvalsh(Q - R).min() > -1e-13
+    Nfull = int(math.ceil(1.25 * math.e * L * T / 4)) + 20
+    res = we.certify_window(L, "even", T=T, N=Nfull, dps=68, comb_cert=cert, wmax=8.0)
+    assert res["positive"] and res["beta"] > 0.049 and res["certified_lower_bound"] > 1e-50
+    ctx.dps = 15
