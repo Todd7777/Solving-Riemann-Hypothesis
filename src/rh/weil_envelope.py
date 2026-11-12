@@ -499,42 +499,46 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
                            comb_cert=comb_cert, wmax=wmax, truncate=truncate, storage=storage, block=block)[parity]
 
 
+def _add_node_blocks(sec, js, k: int, wk, chunk: int) -> None:
+    """Write the Bessel values j_n(L t) of the sector's first k orders (n = orders[i], i < k) into column r of
+    the chunk buffers sec['GT'][I] (arb_mat, rows = the orders of block I, one column per node), allocated per
+    block on first use; the weight w sigma / pi goes to sec['wts'].  The values are copied, so the node's Python
+    objects can be freed at once (a buffer entry is ~160 bytes at 235 digits, a Python arb ~200)."""
+    from flint import arb_mat
+    S, GT, orders = sec["S"], sec["GT"], sec["orders"]
+    r = len(sec["wts"])
+    for I in range(S.nb):
+        s = S.starts[I]
+        if s >= k:
+            break
+        B = GT[I]
+        if B is None:
+            B = GT[I] = arb_mat(S.sizes[I], chunk)
+        for a in range(min(S.sizes[I], k - s)):
+            B[a, r] = js[orders[s + a]]
+    sec["wts"].append(wk)
+
+
 def _flush_blocks(sec) -> None:
-    """Add the chunk of nodes held in sec['rows'] (Bessel values j_n(L t_k) of the sector's orders, one list
-    per node, truncated) and sec['wts'] (w_k sigma_k / pi) to the lower block triangle sec['S'] of
-    sum_k w_k sigma_k j_m j_n / pi: block (I, J) += GT_I W_J with GT_I[i, k] = j_i(t_k) and W_J[k, j] = w_k j_j(t_k).
-    Blocks of orders above every node's cutoff are zero and skipped."""
-    from flint import arb, arb_mat
-    rows, wts = sec["rows"], sec["wts"]
-    R = len(rows)
-    if R == 0:
+    """Add the chunk of nodes in the buffers sec['GT'] (GT_I[i, r] = j_{n_i}(L t_r), zero above a node's cutoff)
+    and sec['wts'] (w_r sigma_r / pi) to the lower block triangle sec['S'] of sum_r w_r sigma_r j_m j_n / pi:
+    block (I, J) += GT_I W_J with W_J[r, j] = w_r GT_J[j, r].  Blocks above every node's cutoff were never
+    allocated and are skipped; unused columns of a last, partial chunk have zero weight rows in W_J."""
+    wts = sec["wts"]
+    if not wts:
         return
-    S = sec["S"]
-    kmax = max(len(r) for r in rows)
-    zero = arb(0)
-    nI = sum(1 for s in S.starts if s < kmax)
-    GT = []
-    for I in range(nI):
-        s, e = S.starts[I], S.starts[I] + S.sizes[I]
-        GT.append(arb_mat(S.sizes[I], R, [row[i] if i < len(row) else zero for i in range(s, e) for row in rows]))
+    S, GT = sec["S"], sec["GT"]
+    nI = sum(1 for B in GT if B is not None)
     for J in range(nI):
-        s, sz = S.starts[J], S.sizes[J]
-        e = s + sz
-        flat = []
-        for row, w in zip(rows, wts):
-            hi = min(e, len(row))
-            if hi > s:
-                flat.extend([row[i] * w for i in range(s, hi)])
-                if hi < e:
-                    flat.extend([zero] * (e - hi))
-            else:
-                flat.extend([zero] * sz)
-        WJ = arb_mat(R, sz, flat)
-        del flat
+        WJ = GT[J].transpose()                   # chunk x sz_J; row r times w_r
+        for r, w in enumerate(wts):
+            for c in range(S.sizes[J]):
+                WJ[r, c] = WJ[r, c] * w
         for I in range(J, nI):
             S.blocks[(I, J)] = S.blocks[(I, J)] + GT[I] * WJ
         del WJ
-    sec["rows"], sec["wts"] = [], []
+    sec["GT"] = [None] * S.nb
+    sec["wts"] = []
 
 
 def _finalize_blocks(S, scale, orders, p, s, beta, drop, qc):
@@ -567,10 +571,11 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
     """`envelope_block` for several parity sectors at once, Ns = {parity: N}.  The sectors share the panels
     (chosen for the largest order of all), the nodes, the symbol (with H) and the Bessel values at every
     node; only the accumulation is per sector.  Returns {parity: info}.
-    storage='blocks': R is a `SymBlocks` (lower block triangle, block size `block`).  Each chunk of nodes adds
-    GT_I W_J to the blocks I >= J only (half the products of the dense C + G^T W), the factor sqrt(2L(2n+1)) and
-    the sign of G_n are applied once at the end, and R is formed in place: no second n x n matrix.  At most
-    1024 nodes are held at a time (memory ~ n x chunk Bessel values; larger chunks gain nothing)."""
+    storage='blocks': R is a `SymBlocks` (lower block triangle, block size `block`).  The Bessel values of each
+    node are copied into per-chunk buffers (`_add_node_blocks`), each chunk adds GT_I W_J to the blocks I >= J
+    only (half the products of the dense C + G^T W), the factor sqrt(2L(2n+1)) and the sign of G_n are applied
+    once at the end, and R is formed in place: no second n x n matrix.  At most 1024 nodes are held at a time
+    (buffers ~ n x chunk entries; larger chunks gain little speed)."""
     from bisect import bisect_right
     from flint import arb, arb_mat, ctx
     from .weil_form import _gl_nodes
@@ -595,7 +600,7 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
             sec["scale"] = [((2 * LL * (2 * n + 1)).sqrt()) * (1 if (n // 2) % 2 == 0 else -1) for n in sec["orders"]]
             if use_blocks:
                 sec["S"] = SymBlocks(sec["N"], block)
-                sec["rows"], sec["wts"] = [], []
+                sec["GT"], sec["wts"] = [None] * sec["S"].nb, []
             else:
                 sec["C"] = arb_mat(sec["N"], sec["N"])
                 sec["rows_G"], sec["rows_W"] = [], []
@@ -646,9 +651,8 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                     orders, scale = sec["orders"], sec["scale"]
                     k = bisect_right(orders, ncut)         # orders are increasing: those <= ncut
                     if use_blocks:
-                        sec["rows"].append([js[orders[i]] for i in range(k)])
-                        sec["wts"].append(wk)
-                        if len(sec["rows"]) >= chunk:
+                        _add_node_blocks(sec, js, k, wk, chunk)
+                        if len(sec["wts"]) >= chunk:
                             _flush_blocks(sec)
                         continue
                     g = [scale[i] * js[orders[i]] for i in range(k)]
