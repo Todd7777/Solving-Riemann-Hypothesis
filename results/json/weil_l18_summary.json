@@ -107,7 +107,7 @@
     "worst_t": 3002.16,
     "eval_error": 2.482135908795032e-07
    },
-   "note": "computed 2026-11-12 by an equivalent scratch driver (gapped L = 1.8 joint certificate from weil_gram_L1.8.npz, the 230 stored packets, certify_window one sector at a time, 235 digits)"
+   "note": "computed 2026-11-12 by a scratch driver making the same calls as run_weil_l18.py --certify (gap_certificate of the joint certificate, attach_local, trajectory_check, certify_window with N = 2712, 235 digits, wmax 8, chunk 1000, one sector at a time) on the same inputs: its Gram arrays (B, R, primes) are bit-identical to weil_gram_L1.8.npz and its 230 packets equal weil_l18_packets_T2000.json (checked 2026-11-12)"
   },
   {
    "L": 1.8,
@@ -216,7 +216,7 @@
     "worst_t": 3002.16,
     "eval_error": 2.482135908795032e-07
    },
-   "note": "computed 2026-11-12 by an equivalent scratch driver (gapped L = 1.8 joint certificate from weil_gram_L1.8.npz, the 230 stored packets, certify_window one sector at a time, 235 digits)"
+   "note": "computed 2026-11-12 by a scratch driver making the same calls as run_weil_l18.py --certify (gap_certificate of the joint certificate, attach_local, trajectory_check, certify_window with N = 2712, 235 digits, wmax 8, chunk 1000, one sector at a time) on the same inputs: its Gram arrays (B, R, primes) are bit-identical to weil_gram_L1.8.npz and its 230 packets equal weil_l18_packets_T2000.json (checked 2026-11-12)"
   }
  ],
  "certify_L18_status": "certified in both sectors",
