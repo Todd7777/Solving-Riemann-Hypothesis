@@ -3,9 +3,10 @@
 path (`SymBlocks`, the default since E19).
 
 Parts (each measurement in a fresh process; the peak RSS of each phase is VmHWM, reset between phases):
-  * profile: one sector certified with storage 'dense' and with 'blocks': assembly, inverse iteration, residual
-    certificate.  Default L = 0.9, T = 700, N = 481, 235 digits, chunk 1000 (about 15 minutes per mode); both
-    modes must give the same estimate and the same certified bound;
+  * profile: one even sector (L = 0.9, T = 1400, N = 962, 235 digits) certified with storage 'dense' (chunks of
+    1000 nodes) and 'blocks' (chunks of 1000 and of 512): assembly, inverse iteration, residual certificate.  The
+    three runs go in parallel processes (about 25 minutes, 4.5 GB in all); they must give the same estimate and
+    the same certified bound;
   * bench: a synthetic SymBlocks matrix of the size of an L = 1.9 sector (N = 4300, 280 digits): memory and time
     of one full-width assembly flush, of the blocked LDL^T with inverse iteration and of the residual certificate
     (about 25 minutes with 3 threads, 4.5 GB; the matrix is synthetic, only memory and time are meaningful);
@@ -29,8 +30,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 OUT_JSON = os.path.join(ROOT, "results", "json", "cert_memory_summary.json")
 
-PROFILE = {"L": 0.9, "T": 700.0, "N": 481, "dps": 235, "chunk": 1000, "block": 512}
-PROFILE_QUICK = {"L": 0.5, "T": 40.0, "N": 37, "dps": 40, "chunk": 50, "block": 8}
+PROFILE = {"L": 0.9, "T": 1400.0, "N": 962, "dps": 235, "block": 512}
+PROFILE_RUNS = [("dense", 1000), ("blocks", 1000), ("blocks", 512)]
+PROFILE_QUICK = {"L": 0.5, "T": 40.0, "N": 37, "dps": 40, "block": 8}
+PROFILE_QUICK_RUNS = [("dense", 50), ("blocks", 50)]
 BENCH = {"n": 4300, "dps": 280, "chunk": 1024, "block": 512}
 BENCH_QUICK = {"n": 300, "dps": 60, "chunk": 64, "block": 64}
 
@@ -148,29 +151,39 @@ def child_recert17(threads: int) -> dict:
     return out
 
 
+def _start_child(*args):
+    env = dict(os.environ, OPENBLAS_NUM_THREADS="1")
+    return subprocess.Popen([sys.executable, os.path.abspath(__file__), "--child", json.dumps(list(args))],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+
+
+def _finish_child(proc, name) -> dict:
+    out, err = proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"child {name} failed:\n{err[-3000:]}")
+    return json.loads(out.strip().splitlines()[-1])
+
+
 def run_child(*args) -> dict:
     """Run one measurement in a fresh process; its last stdout line is the JSON result."""
-    env = dict(os.environ, OPENBLAS_NUM_THREADS="1")
-    r = subprocess.run([sys.executable, os.path.abspath(__file__), "--child", json.dumps(list(args))],
-                       capture_output=True, text=True, env=env)
-    if r.returncode != 0:
-        raise RuntimeError(f"child {args[0]} failed:\n{r.stderr[-3000:]}")
-    return json.loads(r.stdout.strip().splitlines()[-1])
+    return _finish_child(_start_child(*args), args[0])
 
 
-def part_profile(p: dict) -> dict:
-    rows = {mode: run_child("profile", mode, p) for mode in ("dense", "blocks")}
-    d, b = rows["dense"], rows["blocks"]
+def part_profile(p: dict, runs) -> dict:
+    """The runs in parallel processes (the peak RSS is per process)."""
+    procs = [((mode, chunk), _start_child("profile", mode, dict(p, chunk=chunk))) for mode, chunk in runs]
+    rows = [dict(_finish_child(proc, "profile"), chunk=key[1]) for key, proc in procs]
     for name in ("assembly", "estimate", "residual"):
-        print(f"  {name:9s} dense {d[name]['peak_GB']:.2f} GB {d[name]['seconds']:7.1f} s   "
-              f"blocks {b[name]['peak_GB']:.2f} GB {b[name]['seconds']:7.1f} s", flush=True)
-    same = (d["certified"] and b["certified"] and abs(b["lambda_approx"] / d["lambda_approx"] - 1) < 1e-12
-            and abs(b["lower_bound"] / d["lower_bound"] - 1) < 1e-12)
-    print(f"  lambda {d['lambda_approx']:.10e} / {b['lambda_approx']:.10e}, certified bound {d['lower_bound']:.10e} / "
-          f"{b['lower_bound']:.10e}: {'same' if same else 'DIFFERENT'}", flush=True)
+        print(f"  {name:9s} " + "   ".join(f"{r['mode']}/{r['chunk']} {r[name]['peak_GB']:.2f} GB "
+                                         f"{r[name]['seconds']:7.1f} s" for r in rows), flush=True)
+    ref = rows[0]
+    same = all(r["certified"] and abs(r["lambda_approx"] / ref["lambda_approx"] - 1) < 1e-12
+               and abs(r["lower_bound"] / ref["lower_bound"] - 1) < 1e-12 for r in rows)
+    print("  lambda " + ", ".join(f"{r['lambda_approx']:.10e}" for r in rows) + "; certified bound "
+          + ", ".join(f"{r['lower_bound']:.10e}" for r in rows) + (": same" if same else ": DIFFERENT"), flush=True)
     if not same:
-        raise SystemExit("the two storage modes disagree")
-    return {"settings": p, "dense": d, "blocks": b, "same_certificate": same}
+        raise SystemExit("the storage modes disagree")
+    return {"settings": p, "runs": rows, "same_certificate": same}
 
 
 def part_bench(p: dict, threads: int) -> dict:
@@ -197,7 +210,7 @@ def main():
     t0 = time.time()
     if args.quick:
         print("[profile, quick]", flush=True)
-        part_profile(PROFILE_QUICK)
+        part_profile(PROFILE_QUICK, PROFILE_QUICK_RUNS)
         print("[bench, quick]", flush=True)
         part_bench(BENCH_QUICK, 1)
         print(f"done [{time.time() - t0:.0f}s]", flush=True)
@@ -209,7 +222,7 @@ def main():
     parts = args.parts.split(",")
     if "profile" in parts:
         print("[profile]", flush=True)
-        out["profile"] = part_profile(PROFILE)
+        out["profile"] = part_profile(PROFILE, PROFILE_RUNS)
     if "bench" in parts:
         print("[bench]", flush=True)
         out["bench"] = part_bench(BENCH, args.threads)
