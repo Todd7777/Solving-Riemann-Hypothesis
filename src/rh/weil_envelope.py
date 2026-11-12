@@ -69,7 +69,8 @@ from typing import Optional
 
 __all__ = ["comb", "omega", "symbol", "beta_star", "sph_bessel_j_all", "pole_vector", "panels",
            "envelope_block", "envelope_blocks", "certify_windows", "approx_lambda_min_ldl", "tail_bounds", "bessel_guard_digits", "ldl_certify", "ldl_mid_blocked",
-           "residual_certify", "inertia_count", "lambda_min_estimate", "approx_lambda_min", "certify_window"]
+           "residual_certify", "inertia_count", "lambda_min_estimate", "approx_lambda_min", "certify_window",
+           "SymBlocks"]
 
 
 def _ctx(dps):
@@ -389,6 +390,79 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
 # ----------------------------------------------------------------------------
 # 4. The leading block R_A
 # ----------------------------------------------------------------------------
+class SymBlocks:
+    """A symmetric n x n matrix of arb balls stored as its b x b blocks on and below the block diagonal:
+    `blocks[(I, J)]` (I >= J) is an arb_mat holding rows starts[I].. and columns starts[J].. .  A diagonal
+    block is stored in full and kept exactly symmetric (every constructor and `__setitem__` maintain this);
+    the factorisations below read only its lower triangle.  Memory: n^2/2 + n b/2 entries instead of n^2, and
+    every product of the assembly and of the factorisation is a block product (efficient in FLINT for b of
+    a few hundred).  `M[i, j]` reads either triangle."""
+
+    def __init__(self, n: int, b: int = 512, blocks: Optional[dict] = None):
+        from flint import arb_mat
+        if n < 1 or b < 1:
+            raise ValueError("n, b >= 1 required")
+        self.n, self.b = int(n), int(b)
+        self.starts = list(range(0, self.n, self.b))
+        self.sizes = [min(self.b, self.n - s) for s in self.starts]
+        self.nb = len(self.starts)
+        if blocks is None:
+            blocks = {(I, J): arb_mat(self.sizes[I], self.sizes[J]) for I in range(self.nb) for J in range(I + 1)}
+        self.blocks = blocks
+
+    def nrows(self) -> int:
+        return self.n
+
+    def ncols(self) -> int:
+        return self.n
+
+    def _loc(self, i, j):
+        if i < j:
+            i, j = j, i
+        if not (0 <= j and i < self.n):
+            raise IndexError((i, j))
+        I, J = i // self.b, j // self.b
+        return (I, J), i - self.starts[I], j - self.starts[J]
+
+    def __getitem__(self, ij):
+        key, a, c = self._loc(*ij)
+        return self.blocks[key][a, c]
+
+    def __setitem__(self, ij, v):
+        key, a, c = self._loc(*ij)
+        B = self.blocks[key]
+        B[a, c] = v
+        if key[0] == key[1]:
+            B[c, a] = v
+
+    def to_arb_mat(self):
+        """The dense symmetric arb_mat (for tests and small n)."""
+        from flint import arb_mat
+        M = arb_mat(self.n, self.n)
+        for (I, J), B in self.blocks.items():
+            si, sj = self.starts[I], self.starts[J]
+            for a in range(self.sizes[I]):
+                for c in range(self.sizes[J] if I > J else a + 1):
+                    v = B[a, c]
+                    M[si + a, sj + c] = v
+                    M[sj + c, si + a] = v
+        return M
+
+    @classmethod
+    def from_arb_mat(cls, M, b: int = 512) -> "SymBlocks":
+        """The lower triangle of the square arb_mat M (its upper triangle is not read)."""
+        S = cls(M.nrows(), b)
+        for (I, J), B in S.blocks.items():
+            si, sj = S.starts[I], S.starts[J]
+            for a in range(S.sizes[I]):
+                for c in range(S.sizes[J] if I > J else a + 1):
+                    v = M[si + a, sj + c]
+                    B[a, c] = v
+                    if I == J:
+                        B[c, a] = v
+        return S
+
+
 def sector_orders(parity: str, N: int) -> list:
     first = 0 if parity == "even" else 1
     return [first + 2 * j for j in range(N)]
@@ -410,7 +484,7 @@ def _bessel_cutoff(x: float, L: float, n_max: int, log10_tau: float) -> int:
 
 def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] = None,
                    chunk: int = 4000, verbose: bool = False, comb_cert=None, wmax: float = 4.0,
-                   truncate: bool = True) -> dict:
+                   truncate: bool = True, storage: str = "dense", block: int = 512) -> dict:
     """R_A = beta I + s 2 p_A p_A^T + C_AA (arb_mat, orthonormal Legendre modes of the sector) with
     rigorous quadrature error radii.  With a comb certificate (`rh.weil_comb`), beta'' = Omega(T) - A'
     and the symbol on [0, T] is Psi_L + H - beta''.
@@ -418,18 +492,93 @@ def envelope_block(L, T, N, parity: str, dps: int = 40, target: Optional[float] 
     computed (`_bessel_cutoff`); the rest are dropped and covered by a rigorous radius added to every entry,
     10^-(dps+40) sqrt(2L(2 n_max+1)) sum_k |w_k sigma_k| / pi.  Each chunk of nodes (in increasing t) then
     updates only the leading block of C.
+    storage: 'dense' (R an arb_mat) or 'blocks' (R a `SymBlocks` of block size `block`: about a fifth of the
+    peak memory and half the products; see `envelope_blocks`).
     Returns {'R', 'beta', 'A', 'panels', 'n_nodes', 'orders', ...}.  (One sector of `envelope_blocks`.)"""
     return envelope_blocks(L, T, {parity: N}, dps=dps, target=target, chunk=chunk, verbose=verbose,
-                           comb_cert=comb_cert, wmax=wmax, truncate=truncate)[parity]
+                           comb_cert=comb_cert, wmax=wmax, truncate=truncate, storage=storage, block=block)[parity]
+
+
+def _flush_blocks(sec) -> None:
+    """Add the chunk of nodes held in sec['rows'] (Bessel values j_n(L t_k) of the sector's orders, one list
+    per node, truncated) and sec['wts'] (w_k sigma_k / pi) to the lower block triangle sec['S'] of
+    sum_k w_k sigma_k j_m j_n / pi: block (I, J) += GT_I W_J with GT_I[i, k] = j_i(t_k) and W_J[k, j] = w_k j_j(t_k).
+    Blocks of orders above every node's cutoff are zero and skipped."""
+    from flint import arb, arb_mat
+    rows, wts = sec["rows"], sec["wts"]
+    R = len(rows)
+    if R == 0:
+        return
+    S = sec["S"]
+    kmax = max(len(r) for r in rows)
+    zero = arb(0)
+    nI = sum(1 for s in S.starts if s < kmax)
+    GT = []
+    for I in range(nI):
+        s, e = S.starts[I], S.starts[I] + S.sizes[I]
+        GT.append(arb_mat(S.sizes[I], R, [row[i] if i < len(row) else zero for i in range(s, e) for row in rows]))
+    for J in range(nI):
+        s, sz = S.starts[J], S.sizes[J]
+        e = s + sz
+        flat = []
+        for row, w in zip(rows, wts):
+            hi = min(e, len(row))
+            if hi > s:
+                flat.extend([row[i] * w for i in range(s, hi)])
+                if hi < e:
+                    flat.extend([zero] * (e - hi))
+            else:
+                flat.extend([zero] * sz)
+        WJ = arb_mat(R, sz, flat)
+        del flat
+        for I in range(J, nI):
+            S.blocks[(I, J)] = S.blocks[(I, J)] + GT[I] * WJ
+        del WJ
+    sec["rows"], sec["wts"] = [], []
+
+
+def _finalize_blocks(S, scale, orders, p, s, beta, drop, qc):
+    """R = beta I + s 2 p p^T + C in place on the lower block triangle of S, which holds
+    sum_k w_k sigma_k j_m(L t_k) j_n(L t_k) / pi: C_mn = scale_m scale_n S_mn (scale_n = sqrt(2L(2n+1)) times
+    the sign of G_n) plus the radius drop + qc sqrt((2m+1)(2n+1)) (dropped orders, quadrature error; both
+    padded upward by the caller).  Diagonal blocks are mirrored, so they are exactly symmetric."""
+    from flint import arb
+    qf = [math.sqrt(2 * m + 1) for m in orders]
+    p2 = [s * 2 * x for x in p]
+    for (I, J), B in S.blocks.items():
+        si, sj = S.starts[I], S.starts[J]
+        for a in range(S.sizes[I]):
+            i = si + a
+            sci, pi2, qi = scale[i], p2[i], qf[i]
+            for c in range(S.sizes[J] if I > J else a + 1):
+                j = sj + c
+                v = B[a, c] * (sci * scale[j]) + pi2 * p[j] + arb(0, drop + qc * qi * qf[j])
+                if i == j:
+                    v += beta
+                B[a, c] = v
+                if I == J:
+                    B[c, a] = v
+    return S
 
 
 def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = None, chunk: int = 4000,
-                    verbose: bool = False, comb_cert=None, wmax: float = 4.0, truncate: bool = True) -> dict:
+                    verbose: bool = False, comb_cert=None, wmax: float = 4.0, truncate: bool = True,
+                    storage: str = "dense", block: int = 512) -> dict:
     """`envelope_block` for several parity sectors at once, Ns = {parity: N}.  The sectors share the panels
     (chosen for the largest order of all), the nodes, the symbol (with H) and the Bessel values at every
-    node; only the accumulation is per sector.  Returns {parity: info}."""
+    node; only the accumulation is per sector.  Returns {parity: info}.
+    storage='blocks': R is a `SymBlocks` (lower block triangle, block size `block`).  Each chunk of nodes adds
+    GT_I W_J to the blocks I >= J only (half the products of the dense C + G^T W), the factor sqrt(2L(2n+1)) and
+    the sign of G_n are applied once at the end, and R is formed in place: no second n x n matrix.  At most
+    1024 nodes are held at a time (memory ~ n x chunk Bessel values; larger chunks gain nothing)."""
+    from bisect import bisect_right
     from flint import arb, arb_mat, ctx
     from .weil_form import _gl_nodes
+    if storage not in ("dense", "blocks"):
+        raise ValueError("storage must be 'dense' or 'blocks'")
+    use_blocks = storage == "blocks"
+    if use_blocks:
+        chunk = min(chunk, 1024)
     t0 = time.time()
     sectors = {}
     for parity, N in Ns.items():
@@ -443,9 +592,13 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
         LL = arb(L)
         pans = panels(L, T, n_max, target=target, wmax=wmax, comb_cert=comb_cert)
         for sec in sectors.values():
-            sec["C"] = arb_mat(sec["N"], sec["N"])
             sec["scale"] = [((2 * LL * (2 * n + 1)).sqrt()) * (1 if (n // 2) % 2 == 0 else -1) for n in sec["orders"]]
-            sec["rows_G"], sec["rows_W"] = [], []
+            if use_blocks:
+                sec["S"] = SymBlocks(sec["N"], block)
+                sec["rows"], sec["wts"] = [], []
+            else:
+                sec["C"] = arb_mat(sec["N"], sec["N"])
+                sec["rows_G"], sec["rows_W"] = [], []
         n_nodes = 0
         err_unit_total = 0.0
         log10_tau = -(dps + 40)
@@ -491,7 +644,13 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                     sum_abs_wsig += _up(abs(wk))
                 for sec in sectors.values():
                     orders, scale = sec["orders"], sec["scale"]
-                    k = sum(1 for n in orders if n <= ncut)
+                    k = bisect_right(orders, ncut)         # orders are increasing: those <= ncut
+                    if use_blocks:
+                        sec["rows"].append([js[orders[i]] for i in range(k)])
+                        sec["wts"].append(wk)
+                        if len(sec["rows"]) >= chunk:
+                            _flush_blocks(sec)
+                        continue
                     g = [scale[i] * js[orders[i]] for i in range(k)]
                     sec["rows_G"].append(g)
                     sec["rows_W"].append([gi * wk for gi in g])
@@ -501,6 +660,19 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
             err_unit_total += P.err_unit
         out = {}
         for parity, sec in sectors.items():
+            if use_blocks:
+                _flush_blocks(sec)
+                N, orders = sec["N"], sec["orders"]
+                drop = (10.0 ** log10_tau * math.sqrt(2 * L * (2 * n_max + 1)) * sum_abs_wsig * (1 + 1e-9)
+                        if truncate else 0.0)
+                p = pole_vector(L, orders, parity)
+                R = _finalize_blocks(sec.pop("S"), sec["scale"], orders, p, 1 if parity == "even" else -1, beta,
+                                     drop, err_unit_total * 2 * L / math.pi * (1 + 1e-9))
+                out[parity] = {"R": R, "beta": beta, "A": A, "panels": pans, "n_nodes": n_nodes, "orders": orders,
+                               "A_prime": comb_cert.A_prime if comb_cert is not None else None,
+                               "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
+                               "seconds": time.time() - t0, "dps": dps, "storage": "blocks"}
+                continue
             flush(sec)
             N, orders, C = sec["N"], sec["orders"], sec["C"]
             if truncate:
@@ -525,7 +697,7 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
             out[parity] = {"R": R, "beta": beta, "A": A, "panels": pans, "n_nodes": n_nodes, "orders": orders,
                            "A_prime": comb_cert.A_prime if comb_cert is not None else None,
                            "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
-                           "seconds": time.time() - t0, "dps": dps}
+                           "seconds": time.time() - t0, "dps": dps, "storage": "dense"}
     if verbose:
         print(f"envelope_blocks L={L} T={T} {Ns}: {n_nodes} nodes in {len(pans)} panels, "
               f"quad err unit {err_unit_total:.1e}, {time.time() - t0:.0f}s", flush=True)
@@ -633,8 +805,11 @@ def ldl_mid_blocked(M, shift=None, b: int = 64) -> dict:
     panel).  Memory: the column blocks plus L (about two n x n matrices); flops ~ n^3/2 at C speed.
     Negative pivots do not stop it.
     Returns {'L': unit lower triangular arb_mat (exact entries), 'd': pivots (exact arb),
-    'n_negative', 'min_pivot', 'first_negative'}."""
+    'n_negative', 'min_pivot', 'first_negative'}.
+    For a `SymBlocks` M: `_ldl_mid_symblocks` (b is then the inner block size of its diagonal blocks)."""
     from flint import arb, arb_mat
+    if isinstance(M, SymBlocks):
+        return _ldl_mid_symblocks(M, shift, inner=b)
     n = M.nrows()
     starts = list(range(0, n, b))
     sh = arb(shift).mid() if shift is not None else None
@@ -711,8 +886,11 @@ def residual_certify(M, shift, b: int = 64) -> dict:
     and a rigorous residual: if A = Lt Dt Lt^T + E with Lt, Dt exact and Dt >= 0, then Lt Dt Lt^T is
     positive semidefinite, so lambda_min(M) >= shift - ||E||_2 >= shift - ||E||_F.  E is computed in
     ball arithmetic (it contains A - Lt Dt Lt^T for every A in the balls).
-    Returns {'certified', 'lower_bound' (arb), 'residual_F' (arb upper bound), 'min_pivot'}."""
+    Returns {'certified', 'lower_bound' (arb), 'residual_F' (arb upper bound), 'min_pivot'}.
+    For a `SymBlocks` M: `_residual_certify_symblocks` (same certificate, block by block)."""
     from flint import arb, arb_mat
+    if isinstance(M, SymBlocks):
+        return _residual_certify_symblocks(M, shift, inner=b)
     n = M.nrows()
     f = ldl_mid_blocked(M, shift, b=b)
     if f["n_negative"]:
@@ -780,8 +958,11 @@ def lambda_min_estimate(M, lo_exp: int = -60, hi_exp: int = 0, digits: float = 0
 def approx_lambda_min_ldl(M, iters: int = 6, b: int = 64):
     """As `approx_lambda_min`, but the inverse iteration reuses one blocked LDL^T of the midpoint of M
     (`ldl_mid_blocked`, O(N^3) at C speed) and triangular solves (O(N^2) each), instead of one full LU
-    solve per iteration.  Returns (lambda, x) or None if M has negative pivots (not positive definite)."""
+    solve per iteration.  Returns (lambda, x) or None if M has negative pivots (not positive definite).
+    For a `SymBlocks` M: `_approx_lambda_min_symblocks`."""
     from flint import arb, arb_mat
+    if isinstance(M, SymBlocks):
+        return _approx_lambda_min_symblocks(M, iters=iters, inner=b)
     n = M.nrows()
     f = ldl_mid_blocked(M, None, b=b)
     if f["n_negative"]:
@@ -816,8 +997,11 @@ def approx_lambda_min(M, iters: int = 6):
     """Approximate eigenvalue of the symmetric arb_mat M closest to 0 (and its vector), by inverse
     iteration on the midpoint.  Not rigorous, and it is lambda_min only if M is positive definite:
     it is used only to choose the shift that `residual_certify` then checks rigorously (an indefinite
-    M is caught there by a negative pivot)."""
+    M is caught there by a negative pivot).
+    For a `SymBlocks` M: inverse iteration with its (possibly indefinite) blocked LDL^T, no dense copy."""
     from flint import arb, arb_mat
+    if isinstance(M, SymBlocks):
+        return _approx_lambda_min_symblocks(M, iters=iters, allow_indefinite=True)
     n = M.nrows()
     Mm = M.mid()
     x = arb_mat([[arb(1) / (1 + i)] for i in range(n)])
@@ -831,32 +1015,242 @@ def approx_lambda_min(M, iters: int = 6):
     return lam, x
 
 
+def _ldl_mid_symblocks(M, shift=None, inner: int = 64) -> dict:
+    """Approximate LDL^T (no pivoting) of the midpoint of the `SymBlocks` M - shift I, right-looking by blocks
+    of size M.b, on a midpoint copy of the lower block triangle that is overwritten by the factor (memory: one
+    copy, n^2/2 + n b/2 entries, besides M).  Block column K: the diagonal block by `ldl_mid_blocked` (inner
+    block size `inner`), the blocks below it by one approximate solve with L_KK D_K, then
+    S_IJ -= L_IK (D_K L_JK^T) for I >= J > K (block products).  Negative pivots do not stop it.
+    Returns {'L': {(I, J): block of the unit lower triangular factor, I >= J; exact entries, zero above the
+    diagonal of a diagonal block}, 'd': pivots (exact arb), 'n_negative', 'min_pivot', 'first_negative'}."""
+    from flint import arb, arb_mat
+    nb, st, sz = M.nb, M.starts, M.sizes
+    S = {key: B.mid() for key, B in M.blocks.items()}
+    if shift is not None:
+        sh = arb(shift).mid()
+        for K in range(nb):
+            B = S[(K, K)]
+            for a in range(sz[K]):
+                B[a, a] = B[a, a] - sh
+    Lb = {}
+    d = [None] * M.n
+    n_neg, first_neg = 0, None
+    for K in range(nb):
+        m = sz[K]
+        f = ldl_mid_blocked(S.pop((K, K)), None, b=inner)
+        LKK, dK = f["L"], f["d"]
+        if f["n_negative"]:
+            n_neg += f["n_negative"]
+            if first_neg is None:
+                first_neg = st[K] + f["first_negative"]
+        del f
+        d[st[K]: st[K] + m] = dK
+        Lb[(K, K)] = LKK
+        if K == nb - 1:
+            break
+        below = range(K + 1, nb)
+        cols = sum(sz[I] for I in below)
+        # L_IK (L_KK D_K)^T = S_IK for all I > K at once:  (L_KK D_K) X = [S_IK^T ...],  L_IK = X_I^T
+        LD = arb_mat(m, m, [LKK[a, c] * dK[c] if c <= a else 0 for a in range(m) for c in range(m)])
+        RHS = arb_mat(m, cols)
+        off = 0
+        for I in below:
+            B = S.pop((I, K))
+            for r in range(sz[I]):
+                for a in range(m):
+                    RHS[a, off + r] = B[r, a]
+            off += sz[I]
+            del B
+        X = LD.solve(RHS, algorithm="approx")
+        del RHS, LD
+        X = X.mid()
+        off = 0
+        for I in below:
+            B = arb_mat(sz[I], m)
+            for r in range(sz[I]):
+                for a in range(m):
+                    B[r, a] = X[a, off + r]
+            Lb[(I, K)] = B
+            off += sz[I]
+        del X
+        for J in below:                       # trailing update of the lower block triangle
+            DLT = Lb[(J, K)].transpose()       # m x sz[J], then row a times d_a: D_K L_JK^T
+            for a in range(m):
+                da = dK[a]
+                for c in range(sz[J]):
+                    DLT[a, c] = DLT[a, c] * da
+            for I in range(J, nb):
+                S[(I, J)] = (S[(I, J)] - Lb[(I, K)] * DLT).mid()
+            del DLT
+    return {"L": Lb, "d": d, "n_negative": n_neg, "min_pivot": min(float(x) for x in d),
+            "first_negative": first_neg}
+
+
+def _residual_certify_symblocks(M, shift, inner: int = 64) -> dict:
+    """`residual_certify` for a `SymBlocks` M: the blocked LDL^T of mid(M) - shift I (`_ldl_mid_symblocks`) and
+    the rigorous residual E = M - shift I - L D L^T in ball arithmetic, block by block: for each block column J
+    the blocks D_K L_JK^T (K <= J) are formed once, then E_IJ = M_IJ - sum_{K <= J} L_IK (D_K L_JK^T) for I >= J
+    and only its Frobenius norm is kept (lower triangle, off-diagonal entries counted twice).  If all pivots
+    are positive, L D L^T is positive semidefinite and lambda_min(M) >= shift - ||E||_F."""
+    from flint import arb
+    f = _ldl_mid_symblocks(M, shift, inner)
+    if f["n_negative"]:
+        return {"certified": False, "failed_at": f["first_negative"], "lower_bound": None, "residual_F": None,
+                "min_pivot": f["min_pivot"], "n_negative": f["n_negative"]}
+    Lb, d, min_pivot = f["L"], f["d"], f["min_pivot"]
+    del f
+    nb, st, sz = M.nb, M.starts, M.sizes
+    sh = arb(shift) if shift is not None else arb(0)
+    fro2 = arb(0)
+    for J in range(nb):
+        DLT = []
+        for K in range(J + 1):
+            Tm = Lb[(J, K)].transpose()        # sz[K] x sz[J]
+            for a in range(sz[K]):
+                da = d[st[K] + a]
+                for c in range(sz[J]):
+                    Tm[a, c] = Tm[a, c] * da
+            DLT.append(Tm)
+        for I in range(J, nb):
+            P = Lb[(I, 0)] * DLT[0]
+            for K in range(1, J + 1):
+                P = P + Lb[(I, K)] * DLT[K]
+            E = M.blocks[(I, J)] - P
+            del P
+            for a in range(sz[I]):
+                if I > J:
+                    for c in range(sz[J]):
+                        u = abs(E[a, c]).upper()
+                        fro2 += 2 * u * u
+                else:
+                    for c in range(a):
+                        u = abs(E[a, c]).upper()
+                        fro2 += 2 * u * u
+                    u = abs(E[a, a] - sh).upper()
+                    fro2 += u * u
+            del E
+        del DLT
+    res = fro2.sqrt()
+    lower = sh - res
+    return {"certified": bool(lower > 0), "lower_bound": lower, "residual_F": res,
+            "min_pivot": min_pivot, "failed_at": None, "n_negative": 0}
+
+
+def _symblocks_matvec(M, x: list) -> list:
+    """M x for a `SymBlocks` M and a list x of arb (block products; diagonal blocks are symmetric)."""
+    from flint import arb_mat
+    nb, st, sz = M.nb, M.starts, M.sizes
+    col = [arb_mat(sz[I], 1, x[st[I]: st[I] + sz[I]]) for I in range(nb)]
+    row = [arb_mat(1, sz[I], x[st[I]: st[I] + sz[I]]) for I in range(nb)]
+    out = []
+    for I in range(nb):
+        acc = M.blocks[(I, I)] * col[I]
+        for J in range(I):
+            acc = acc + M.blocks[(I, J)] * col[J]
+        for J in range(I + 1, nb):
+            acc = acc + (row[J] * M.blocks[(J, I)]).transpose()
+        out.extend(acc[a, 0] for a in range(sz[I]))
+    return out
+
+
+def _approx_lambda_min_symblocks(M, iters: int = 6, inner: int = 64, allow_indefinite: bool = False):
+    """`approx_lambda_min_ldl` for a `SymBlocks` M: inverse iteration with one blocked LDL^T of mid(M)
+    (block triangular solves, the diagonal blocks by substitution) and block products for M x.  Returns
+    (lambda, x) or None if a pivot is negative, unless allow_indefinite (then the eigenvalue closest to 0, as
+    `approx_lambda_min`).  Not rigorous: it only chooses the shift that `residual_certify` checks."""
+    from flint import arb, arb_mat
+    f = _ldl_mid_symblocks(M, None, inner)
+    if f["n_negative"] and not allow_indefinite:
+        return None
+    Lb, d = f["L"], f["d"]
+    del f
+    nb, st, sz, n = M.nb, M.starts, M.sizes, M.n
+    x = [arb(1) / (1 + i) for i in range(n)]
+    lam = None
+    for _ in range(iters):
+        z = [None] * n                          # L z = x
+        for I in range(nb):
+            s = st[I]
+            acc = arb_mat(sz[I], 1, x[s: s + sz[I]])
+            for K in range(I):
+                acc = acc - Lb[(I, K)] * arb_mat(sz[K], 1, z[st[K]: st[K] + sz[K]])
+            LII = Lb[(I, I)]
+            for a in range(sz[I]):
+                v = acc[a, 0]
+                for c in range(a):
+                    v -= LII[a, c] * z[s + c]
+                z[s + a] = v.mid()
+        w = [(z[i] / d[i]).mid() for i in range(n)]
+        y = [None] * n                          # L^T y = w
+        for K in range(nb - 1, -1, -1):
+            s = st[K]
+            acc = arb_mat(1, sz[K], w[s: s + sz[K]])
+            for I in range(K + 1, nb):
+                acc = acc - arb_mat(1, sz[I], y[st[I]: st[I] + sz[I]]) * Lb[(I, K)]
+            LKK = Lb[(K, K)]
+            for a in range(sz[K] - 1, -1, -1):
+                v = acc[0, a]
+                for c in range(a + 1, sz[K]):
+                    v -= LKK[c, a] * y[s + c]
+                y[s + a] = v.mid()
+        nrm = sum((v * v for v in y), arb(0)).sqrt()
+        x = [(v / nrm).mid() for v in y]
+        Mx = _symblocks_matvec(M, x)
+        lam = sum((x[i] * Mx[i] for i in range(n)), arb(0)).mid()
+    return lam, arb_mat([[v] for v in x])
+
+
 # ----------------------------------------------------------------------------
 # 7. The certificate
 # ----------------------------------------------------------------------------
+def _threads(n):
+    """Context: FLINT's thread count set to n (None: unchanged), restored on exit."""
+    from flint import ctx
+
+    class _T:
+        def __enter__(self):
+            self.old = ctx.threads
+            if n is not None:
+                ctx.threads = int(n)
+
+        def __exit__(self, *a):
+            ctx.threads = self.old
+    return _T()
+
+
 def certify_window(L, parity: str, T, N, dps: int = 40, lam0=None, safety: float = 0.98,
-                   verbose: bool = False, comb_cert=None, wmax: float = 4.0, chunk: int = 4000) -> dict:
+                   verbose: bool = False, comb_cert=None, wmax: float = 4.0, chunk: int = 4000,
+                   storage: str = "blocks", block: int = 512, threads: Optional[int] = None) -> dict:
     """Certified lower bound c with Q(f) >= c ||f||^2 for every real f of the sector supported in
     [-L, L]:  c = min(lam0, beta - eps_D) - eps_B, valid when R_A - lam0 I is certified positive
-    definite.  lam0 defaults to safety x (approximate lambda_min(R_A))."""
-    t0 = time.time()
-    blk = envelope_block(L, T, N, parity, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk)
-    return _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, t0)
+    definite.  lam0 defaults to safety x (approximate lambda_min(R_A)).
+    storage='blocks' (default): R_A as a `SymBlocks` (lower block triangle, block size `block`), the
+    factorisations by blocks in place; peak memory about one n x n matrix of entries instead of about six, and
+    fewer products.  'dense' is the arb_mat path used up to E18 (same certificate).  threads: FLINT threads
+    for the block products (None: unchanged)."""
+    with _threads(threads):
+        t0 = time.time()
+        blk = envelope_block(L, T, N, parity, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk,
+                             storage=storage, block=block)
+        return _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, t0)
 
 
 def certify_windows(L, T, Ns: dict, dps: int = 40, safety: float = 0.98, verbose: bool = False, comb_cert=None,
-                    wmax: float = 4.0, chunk: int = 4000) -> dict:
+                    wmax: float = 4.0, chunk: int = 4000, storage: str = "blocks", block: int = 512,
+                    threads: Optional[int] = None) -> dict:
     """`certify_window` for several sectors (Ns = {parity: N}) from one shared-node assembly
     (`envelope_blocks`); the sectors are then certified one after the other, each block released after its
     certificate.  Returns {parity: result}."""
-    t0 = time.time()
-    blks = envelope_blocks(L, T, Ns, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk)
-    out = {}
-    for parity in list(blks):
-        blk = blks.pop(parity)
-        out[parity] = _certify_block(blk, L, parity, T, Ns[parity], dps, None, safety, verbose, comb_cert, t0)
-        del blk
-    return out
+    with _threads(threads):
+        t0 = time.time()
+        blks = envelope_blocks(L, T, Ns, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk,
+                               storage=storage, block=block)
+        out = {}
+        for parity in list(blks):
+            blk = blks.pop(parity)
+            out[parity] = _certify_block(blk, L, parity, T, Ns[parity], dps, None, safety, verbose, comb_cert, t0)
+            del blk
+        return out
 
 
 def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, t0) -> dict:
@@ -902,7 +1296,7 @@ def _certify_block(blk, L, parity, T, N, dps, lam0, safety, verbose, comb_cert, 
                "residual_F": float(cert["residual_F"].upper()) if cert["residual_F"] is not None else None,
                "eps_B": tb["eps_B"], "eps_D": tb["eps_D"],
                "certified_lower_bound": c, "positive": bool(c is not None and c > 0),
-               "seconds": time.time() - t0}
+               "storage": blk.get("storage", "dense"), "seconds": time.time() - t0}
     if verbose:
         print(f"certify_window L={L} {parity} T={T} N={N}: lambda_min(R_A)~{out['lambda_approx']:.4e} "
               f"ldl={cert['certified']} eps_B={tb['eps_B']:.1e} eps_D={tb['eps_D']:.1e} -> c={c} "

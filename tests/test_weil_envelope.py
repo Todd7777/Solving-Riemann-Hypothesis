@@ -136,3 +136,80 @@ def test_panels_at_high_precision_do_not_overflow():
     assert fine and all(p.nu >= 4 for p in fine)
     assert len(fine) == len(coarse)
     assert all(p.lo == q.lo and p.hi == q.hi and p.nu >= q.nu for p, q in zip(fine, coarse))
+
+
+def test_symblocks_storage():
+    """SymBlocks keeps the lower block triangle (last block smaller); reads are symmetric, writes keep diagonal
+    blocks symmetric, and the dense round trip is exact."""
+    ctx.dps = 30
+    rng = np.random.default_rng(1)
+    n = 23
+    X = rng.standard_normal((n, n))
+    X = X + X.T
+    M = arb_mat([[arb(float(X[i, j])) for j in range(n)] for i in range(n)])
+    S = we.SymBlocks.from_arb_mat(M, b=5)
+    assert S.nb == 5 and S.sizes == [5, 5, 5, 5, 3]
+    assert sorted(S.blocks) == [(I, J) for I in range(5) for J in range(I + 1)]
+    D = S.to_arb_mat()
+    assert all(D[i, j] == M[i, j] for i in range(n) for j in range(n))
+    assert all(S[i, j] == S[j, i] == M[i, j] for i in range(n) for j in range(n))
+    S[3, 17] = arb(7)
+    S[11, 13] = arb(-2)                       # inside a diagonal block
+    assert S[17, 3] == 7 and S[13, 11] == -2 and S.blocks[(2, 2)][3, 1] == -2 and S.blocks[(2, 2)][1, 3] == -2
+    ctx.dps = 15
+
+
+@pytest.mark.parametrize("parity", ["even", "odd"])
+def test_block_storage_matches_dense(parity):
+    """storage='blocks' (lower block triangle, one product per block pair, the scale of G_n applied at the
+    end) gives the R of the dense assembly: every entry overlaps, midpoints agree to rounding.  The blocked
+    LDL^T, the inverse iteration and the residual certificate agree with the dense ones, and a shift above
+    lambda_min is refused."""
+    L, T, N = 0.5, 40.0, 37
+    dn = we.envelope_block(L, T, N, parity, dps=40, chunk=50)
+    bl = we.envelope_block(L, T, N, parity, dps=40, chunk=50, storage="blocks", block=8)
+    A, B = dn["R"], bl["R"]
+    assert isinstance(B, we.SymBlocks) and B.nb == 5 and bl["storage"] == "blocks"
+    assert all(A[i, j].overlaps(B[i, j]) for i in range(N) for j in range(N))
+    assert max(abs(float((A[i, j] - B[i, j]).mid())) for i in range(N) for j in range(N)) < 1e-37
+    ctx.dps = 40
+    fd, fb = we.ldl_mid_blocked(A, None), we.ldl_mid_blocked(B, None)
+    assert fd["n_negative"] == fb["n_negative"] == 0
+    assert max(abs(float(((x - y) / x).mid())) for x, y in zip(fd["d"], fb["d"])) < 1e-30
+    lam_d, lam_b = we.approx_lambda_min_ldl(A)[0], we.approx_lambda_min_ldl(B)[0]
+    assert abs(float(lam_b.mid()) / float(lam_d.mid()) - 1) < 1e-12
+    lam0 = arb(float(lam_d.mid()) * 0.98)
+    rd, rb = we.residual_certify(A, lam0), we.residual_certify(B, lam0)
+    assert rd["certified"] and rb["certified"] and float(rb["residual_F"].upper()) < 1e-30
+    assert not we.residual_certify(B, arb(float(lam_d.mid()) * 1.05))["certified"]
+    ctx.dps = 15
+
+
+def test_block_certify_windows_both_sectors():
+    """certify_windows with block storage (shared nodes, both sectors, blocks of 7 with a smaller last one)
+    reproduces the certificates of the dense path."""
+    rd = we.certify_windows(0.5, 40.0, {"even": 30, "odd": 30}, dps=40, chunk=50, storage="dense")
+    rb = we.certify_windows(0.5, 40.0, {"even": 30, "odd": 30}, dps=40, chunk=50, storage="blocks", block=7)
+    for p in ("even", "odd"):
+        assert rb[p]["positive"] and rb[p]["storage"] == "blocks" and rd[p]["storage"] == "dense"
+        assert abs(rb[p]["certified_lower_bound"] / rd[p]["certified_lower_bound"] - 1) < 1e-9
+
+
+def test_block_ldl_on_an_indefinite_matrix():
+    """On an indefinite matrix the blocked LDL^T counts the negative eigenvalues (Sylvester) like the dense one,
+    nothing is certified, and the inverse iteration finds the eigenvalue closest to 0."""
+    ctx.dps = 30
+    rng = np.random.default_rng(3)
+    n = 19
+    Qm, _ = np.linalg.qr(rng.standard_normal((n, n)))
+    ev = np.linspace(1, 3, n)
+    ev[4], ev[11], ev[7] = -0.37, -2.0, 0.011
+    X = Qm @ np.diag(ev) @ Qm.T
+    M = arb_mat([[arb(float(X[i, j])) for j in range(n)] for i in range(n)])
+    S = we.SymBlocks.from_arb_mat(M, b=4)
+    assert we.inertia_count(S, None) == we.inertia_count(M, None) == 2
+    assert not we.residual_certify(S, arb(0))["certified"]
+    assert we.approx_lambda_min_ldl(S) is None
+    assert abs(float(we.approx_lambda_min(S)[0].mid()) - 0.011) < 1e-9
+    assert abs(float(we.approx_lambda_min(M)[0].mid()) - 0.011) < 1e-9
+    ctx.dps = 15
