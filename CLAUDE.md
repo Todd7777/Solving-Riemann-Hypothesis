@@ -29,7 +29,7 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
 
 `data/zeros/` already holds 10^6 rigorous zero ordinates. Full experiment runs take hours.
 
-## State on 2026-11-11
+## State on 2026-11-12
 
 - E12 is complete (`docs/06_experiment_log.md`, E12; synthesis in `docs/08_findings_and_outlook.md`, item 1b).
   `src/rh/weil_form_general.py` was reviewed and is covered by `tests/test_weil_form_general.py`; a float64
@@ -84,16 +84,21 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   the tail bound eps_B ~ (eLT/4N)^{2N} must stay below the margin. `scripts/run_weil_lift.py` reproduces it
   (~20 min; `--quick` in run_all; `--certify` ~1 h).
 
+- E18 is complete: [-1.8, 1.8] certified, Q >= 2.53e-186 ||f||^2 (Machine-checked). Joint certificate
+  Lambda = 9 by ADMM (results/json/weil_gram_L1.8.npz, 20000 iterations, ~4 h): A' = 8.169 (gapped 8.490);
+  230 packets (fix_dips, W = 8, core_per_dip) give beta = 0.2 from T = 2000; 2712 modes per sector, 235
+  digits, one sector at a time (~3.6 h and ~7 GB each). The floor (beta = 0.2) is between 2.4 and 3.2 t0.
+  `scripts/run_weil_l18.py` reproduces it (`--quick` in run_all; `--parts floor` the probes; `--certify`).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- L = 1.8: the joint certificate (ADMM, Lambda = 9, ~20000 iterations, ~4.5 h on one core), gap_certificate, the
-  dips lifted with fix_dips (W = 8), the trajectory check, then the certification (~240 digits; check the tail
-  bound first). With H = 0 and beta = 0.2 the envelope form is indefinite at T = 1250 and 1500 (2.0 and 2.4 t0)
-  in both sectors (Numerical, 1702 / 2039 modes, 240 digits). H = 0 is a fair proxy: at L = 1.7, T = 1000 it
-  gives the lambda_min of the gapped H (1.11e-150 / 6.42e-146 against 1.08e-150 / 6.51e-146). So the L = 1.8
-  floor is above 2.4 t0 (below 1.95 t0 at L = 1.7); T = 2000 is being probed;
+- L = 1.9: the same steps (run_weil_l18.py as the template). The floor grows faster than t0 (between 2.4 and
+  3.2 t0 at L = 1.8, below 1.95 t0 at L = 1.7), so the mode count and the memory grow faster than e^{2L}:
+  ~7 GB per sector at L = 1.8, and the limit here is ~13 GB. Locate the floor first (H = 0 probes are a fair
+  proxy), then size N with the tail bound (eLT/4N)^{2N}. A prolate basis or a reduction that keeps part of the
+  spectral side above T would lower the cost;
 - the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
   side above T;
 - sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T

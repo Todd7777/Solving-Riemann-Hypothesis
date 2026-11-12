@@ -15,8 +15,9 @@ Parts:
   * fit: `rh.weil_local.fix_dips` with the options of E17 and core_per_dip (refit and comparison with the stored
     packets, results/json/weil_l18_packets_T2000.json), then `trajectory_check` of the stored packets from T = 2000
     with beta = 0.2 (Machine-checked). About 8 minutes;
-  * --certify (hours, one sector after the other, ~8 GB each): the certification of [-1.8, 1.8] at T = 2000 with
-    these packets (2712 modes per sector, 235 digits; run nothing else alongside).
+  * --certify (about 7 hours, one sector after the other, 7.4 GB each): the certification of [-1.8, 1.8] at
+    T = 2000 with these packets (2712 modes per sector, 235 digits; run nothing else alongside). Certified
+    (2026-11-12): Q(f) >= 2.53e-186 ||f||^2 on [-1.8, 1.8] (Machine-checked).
 
 Usage: python3 scripts/run_weil_l18.py [--quick] [--parts cert,local,scan,fit] [--certify]
 --quick checks the trajectory constant of the stored packets (about 2 minutes). Writes
@@ -301,7 +302,15 @@ def main():
             out["fit"] = part_fit(scan)
     if args.certify:
         print("[certify]", flush=True)
-        out["certify_L18"] = part_certify()
+        tc = time.time()
+        res = part_certify()
+        ok = all(r["positive"] for r in res)
+        out["certify_L18"] = res
+        out["certify_L18_status"] = "certified in both sectors" if ok else "NOT certified"
+        out["certify_L18_summary"] = {"L": P["L"], "T": P["T"], "beta": P["beta"], "N": res[0]["N"],
+                                      "dps": res[0]["dps"], "seconds": time.time() - tc,
+                                      "certified_lower_bound": min(r["certified_lower_bound"] for r in res)
+                                      if ok else None}
     out["description"] = __doc__.split("\n")[0]
     if not args.quick or args.certify:
         out["seconds_last_run"] = time.time() - t0

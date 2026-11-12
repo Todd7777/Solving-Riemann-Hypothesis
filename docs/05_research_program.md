@@ -28,6 +28,7 @@ The Riemann Hypothesis will not be settled by a software project, and this repos
 | M | Certified Weil positivity on whole windows $[-L,L]$ (envelope reduction in ball arithmetic) and the reach of the method | `weil_envelope.py` | done (E13) |
 | N | Non-pointwise bounds for the prime comb (separable and joint sum-of-squares certificates $A'-P_L+H\ge0$, $H$ invisible to the window); certified windows past the pointwise barrier; the operator-norm barrier | `weil_comb.py` | done (E14) |
 | O | Trajectory certificates (the comb bound checked only along $t\ge T$), local operator norms, wave packets; the envelope floor that then blocks $[-1.7,1.7]$ | `weil_comb.py` (`trajectory_check`), `weil_local.py` | done (E15) |
+| R | $[-1.8,1.8]$: joint certificate $\Lambda=9$ by ADMM, packets from $T=2000$, the floor above $2.4\,t_0$ | `weil_comb.py`, `weil_local.py` (`core_per_dip`), `weil_envelope.py` | done (E18) |
 | Q | Lifting the comb along the trajectory: the local condition at every dip, packets with high carriers, $[-1.7,1.7]$ certified from $T=1000$ | `weil_local.py` (`fix_dips`: `core_pad`, `far_step`, `buffer`) | done (E17) |
 | P | The part of the envelope floor that grows with $H$: a resonance of the terms just above frequency $2L$; thresholds $\beta^*(T)$; gapped certificates and per-dip wave packets; $[-1.7,1.7]$ certified | `weil_comb.py` (`gap_certificate`), `weil_local.py` (`fix_dips`) | done (E16) |
 

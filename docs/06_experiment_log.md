@@ -817,8 +817,59 @@ Without the buffer, the program for the group at $[1178,1278]$ was infeasible. E
 * **Heuristic:** sufficiency of the condition; the explanation of why high carriers help.
 * Nothing here bears on RH beyond the finite pieces of Weil's criterion that are certified.
 
+## E18. $L=1.8$: a joint certificate, packets from $T=2000$, and $[-1.8,1.8]$ certified (2026-11-12)
+
+`OPENBLAS_NUM_THREADS=1 python3 scripts/run_weil_l18.py` reproduces the certificate, the local norms, the scan and the fit in about 15 minutes. `--parts floor` adds the floor probes (about 2.5 hours, 7–9 GB), and `--certify` runs the certification (about 7 hours; one sector after the other; run nothing else alongside). `--quick` (about 2 minutes, part of `run_all.py --quick`) checks the trajectory constant of the stored packets. The joint Gram factor is stored in `weil_gram_L1.8.npz` (ADMM, 20000 iterations, about 4 hours, not repeated by the script) and the packets in `weil_l18_packets_T2000.json`; results are in `weil_l18_summary.json`. New code: the option `core_per_dip` of `rh.weil_local.fix_dips` and a fix for a float overflow in `rh.weil_envelope.panels` at high precision; two new tests.
+
+**Outcome.**
+* *Comb* (**Machine-checked**). The joint certificate ($\Lambda=9$, 1578 monomials, rank 415) has $A'=8.169$, against the pointwise constant $A_L=18.12$. With the terms within 0.002 of $2L$ moved into $A'$ ($\sum|h|=0.32$), $A'=8.490$.
+* *Floor* (**Numerical**). With $H=0$ and $\beta=0.2$ the envelope form is indefinite at $T=1250$ and 1500 ($2.0$ and $2.4\,t_0$) in both sectors. At $L=1.7$ the same probe is positive at $1.95\,t_0$ and gives the $\lambda_{\min}$ of the gapped $H$. The comb's local operator norm stays 1.1–1.7 below $\Omega$ near these $T$, so the comb is not what raises the floor.
+* *Comb bound from $T=2000$* (**Machine-checked**). 230 wave packets ($\sum|a|=67.7$) lift the 45 dips below 0 on $[2000,6509]$, and $\beta=0.2$ holds from $T=2000$.
+* *Window:* $[-1.8,1.8]$ is certified from $T=2000$: $Q(f)\ge2.53\times10^{-186}\lVert f\rVert^2$ for every real $f$ supported there (**Machine-checked**; 2712 modes per sector, 235 digits, 7.1 hours in two runs).
+
+**The joint certificate.**
+* ADMM on the primal sum-of-squares problem (E14) with $\Lambda=9$: 1578 monomials, 247943 free moments.
+* 20000 iterations with over-relaxation 1.6 took 4.2 hours on one core. The value was 14.44, 11.26, 9.38, 8.51, 8.19 and 8.17 after 1000, 2000, 5000, 10000, 19000 and 20000 iterations.
+* As at $L=1.7$, the factor is rounded to $2^{-80}$ and $X=R^TR$ is formed exactly, so $(*)$ holds by construction.
+* Its terms near $2L$ are small: $|h|\le0.001$ within 0.0003 of $2L$. $g=0.002$ moves $\sum|h|=0.32$.
+* A warm start from the factor after 2000 iterations lost ground: 21.1 after 500 more iterations, because the dual variable restarts at 0. The run was restarted from scratch.
+
+**The floor** (**Numerical**). Envelope form with $H=0$ and $\beta=0.2$ imposed on $[T,\infty)$, $\lceil1.1\,eLT/4\rceil+20$ modes:
+
+| $T$ | $T/t_0$ | modes, digits | even | odd |
+|---|---|---|---|---|
+| 1250 | 2.00 | 1702, 240 | indefinite (pivot $-4.8\times10^{-4}$ at index 256) | indefinite ($-4.7\times10^{-5}$ at 244) |
+| 1500 | 2.40 | 2039, 240 | indefinite ($-0.12$ at 390) | indefinite ($-0.015$ at 351) |
+| 2000 | 3.20 | 2712, 235 | positive with the gapped $H$ and the packets (certified, $\lambda_{\min}\approx2.59\times10^{-186}$) | positive (certified, $1.92\times10^{-181}$) |
+
+* Control at $L=1.7$, $T=1000$, $H=0$: positive, with $\lambda_{\min}\approx1.11\times10^{-150}$ and $6.42\times10^{-146}$. The gapped $H$ gives $1.08\times10^{-150}$ and $6.51\times10^{-146}$.
+* The comb's local operator norm (E15): $\Omega-\lambda(t_0)\ge1.11$ on $[1150,1550]$ at $L=1.8$ (1.33 near 1250, 1.73 near 1500). At $L=1.7$ it is 1.37 near 1000.
+* So at $L=1.8$ the floor lies above $2.4\,t_0$; at $L=1.7$ it lies below $1.95\,t_0$. The near-minimisers of $Q$, whose margins are about 36 orders smaller at $L=1.8$, keep spectral mass above $T$ further out.
+
+**The comb bound from $T=2000$** (**Numerical**, then **Machine-checked**).
+* The margin $\Omega-0.2-P_L+H$ of the gapped certificate has 47 local minima below 0.03 on $[2000,37345]$. 45 of them are below 0: the deepest is $-0.85$, at $t=2448.0$, and the last is at $t=6508.5$.
+* `fix_dips` with E17's settings failed at the pair of dips $3997.8$ and $4142.4$, though in isolation the pair needs only 7 packets ($\sum|a|=1.06$; $\lambda(d)\approx2.1$).
+* The cause was the buffer. It applied on the hull of the program's packet centres, and at $t=4071.3$, 71–74 from both dips, the margin is 0.066–0.08: below target + buffer and out of the packets' reach.
+* `core_per_dip` applies the fine grid and the buffer only within each dip's window. With it, 230 packets ($\sum|a|=67.7$, $\max|a|=3.06$, carriers 4.65–12.65) lift all 47 minima in 6 minutes.
+* `trajectory_check` certifies $\beta=0.2$ from $T=2000$: 1767256 cells, 6656 refined once, minimum margin $1.5\times10^{-5}$ (at $t=3002.2$), evaluation error $2.5\times10^{-7}$, $T_2=37345$, 89 s.
+
+**Certification of $[-1.8,1.8]$** (**Machine-checked**). The gapped certificate with the 230 packets, $T=2000$ ($3.2\,t_0$), $\beta=0.2$, 2712 modes per sector ($\lceil1.1\,eLT/4\rceil+20$), 235 digits, one sector after the other (both together do not fit in the memory here).
+* Even sector: assembly 3.0 hours (48963 nodes in 267 panels, quadrature error unit $1.4\times10^{-234}$), then the $LDL^T$ certificate; 3.6 hours in all. $\lambda_{\min}(R_A)\approx2.591\times10^{-186}$, certified $c=2.539\times10^{-186}$.
+* Odd sector: 3.5 hours (assembly 3.0). $\lambda_{\min}(R_A)\approx1.922\times10^{-181}$, certified $c=1.883\times10^{-181}$.
+* Tail bounds: $\varepsilon_B\le7\times10^{-242}$, $\varepsilon_D\le10^{-300}$. Peak memory 7.4 GB (measured in the odd sector; the even sector has the same dimensions).
+* So $Q(f)\ge2.53\times10^{-186}\lVert f\rVert^2$ for every real $f$ supported in $[-1.8,1.8]$. The certified constant falls by 36 orders of magnitude from $L=1.7$ ($1.79\times10^{-150}$), after 19, 24 and 29 for the three previous steps of 0.1.
+
+**Two fixes.**
+* `rh.weil_envelope.panels` computed the node count from $\log(\text{const}/\text{target})$. At 240 digits and with this $H$ (const $\approx10^{93}$), the quotient overflows a double. It now uses $\log\text{const}-\log\text{target}$, which leaves every earlier result unchanged.
+* `core_per_dip`, as above; the default keeps E17's packets exactly (a refit agrees to $9\times10^{-13}$).
+
+**Labels.**
+* **Machine-checked:** the joint certificate $(*)$ with $A'=8.169$ (gapped: 8.490), the trajectory constant $\beta=0.2$ from $T=2000$ with the 230 packets, and the bound $Q\ge2.53\times10^{-186}\lVert f\rVert^2$ on $[-1.8,1.8]$.
+* **Numerical:** the floor probes and the control at $L=1.7$; the local operator norms; the fit.
+* Nothing here bears on RH beyond the finite pieces of Weil's criterion that are certified.
+
 ---
 
 ## Summary of the state of the evidence after all experiments
 
-Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ with the pointwise envelope (E13), up to $[-1.6,1.6]$ with a non-pointwise bound for the prime comb (E14), and on $[-1.7,1.7]$ with a gapped trajectory certificate (E16). These are zero-free proofs of finite pieces of Weil's criterion. Torus certificates of this envelope type are limited by the operator norm of the comb, which still grows exponentially in $L$. Trajectory certificates are not (E15). What limits the envelope then is its own floor: the near-minimisers of $Q$ keep spectral mass above $T$. At $L=1.7$, with E15's certificate, that floor lies above the cutoff the trajectory allows ($T=2460$). E16 traced the part of the floor that grew with the certificate's $H$ to a resonance of a few terms of $H$ just above frequency $2L$; a gapped certificate and a larger $\beta$ remove it, and with them $[-1.7,1.7]$ is certified ($Q\ge1.79\times10^{-150}\lVert f\rVert^2$); E17 certifies it again from $T=1000$, with wave packets of higher carriers and a sixth of the cost. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.
+Every criterion computed behaves exactly as RH predicts, to the accuracy and height reached (including Weil positivity of the arithmetic side on polynomial test-function spaces, E10). The controls behave as they must: Weil positivity fails, rigorously, for the Davenport–Heilbronn function, whose RH violation it detects from 42 coefficients (E12). For ζ, Weil positivity is now certified on whole windows up to $[-1,1]$ with the pointwise envelope (E13), up to $[-1.6,1.6]$ with a non-pointwise bound for the prime comb (E14), and on $[-1.7,1.7]$ and $[-1.8,1.8]$ with gapped trajectory certificates and wave packets (E16–E18). These are zero-free proofs of finite pieces of Weil's criterion. Torus certificates of this envelope type are limited by the operator norm of the comb, which still grows exponentially in $L$. Trajectory certificates are not (E15). What limits the envelope then is its own floor: the near-minimisers of $Q$ keep spectral mass above $T$. At $L=1.7$, with E15's certificate, that floor lies above the cutoff the trajectory allows ($T=2460$). E16 traced the part of the floor that grew with the certificate's $H$ to a resonance of a few terms of $H$ just above frequency $2L$; a gapped certificate and a larger $\beta$ remove it, and with them $[-1.7,1.7]$ is certified ($Q\ge1.79\times10^{-150}\lVert f\rVert^2$); E17 certifies it again from $T=1000$, with wave packets of higher carriers and a sixth of the cost. E18 certifies $[-1.8,1.8]$ ($Q\ge2.53\times10^{-186}\lVert f\rVert^2$), from $T=2000$: the floor there lies between $2.4$ and $3.2\,t_0$. None of this is new evidence beyond the known verifications; the value is (i) all of it is reproduced from scratch with rigorous zeros and tested code, (ii) several second-order phenomena are quantified (the oscillation of $d_N^2\log N$ around Burnol's constant, the prime-driven structure of the Nyman–Beurling optimiser, the explicit-formula representation of the sequential criterion, the trivial-zero dominance in $c_k$, the constant $3/4$ in the Li archimedean part, the $1/\sqrt{\log n}$ margin of Robin's inequality on colossally abundant numbers), and (iii) the sensitivity of each criterion to a hypothetical off-line zero is calibrated. For Li, Nyman–Beurling, Báez-Duarte and the integral criteria it is essentially nil at the heights that matter. Weil positivity is the exception: it needs primes only up to about the height of the zero (E12). But this reach is local in height, so it is no shortcut either.
