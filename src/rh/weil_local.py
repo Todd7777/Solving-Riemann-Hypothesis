@@ -341,7 +341,7 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
              buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None,
              merge_on_fail: int | None = None, cut: float | None = None, refine: float | None = None,
-             refine_rounds: int = 6) -> LocalCorrection:
+             refine_rounds: int = 6, later_slack: float | None = None) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -380,7 +380,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     within cut (or the reach) of its centres, at the points of this and earlier programs; its local minima below
     half the target join the program's points and it is solved again, up to refine_rounds times (then the
     program counts as failed). With large packets and carriers of 15 and more, the grid of `step` can miss
-    notches between its points. The fit is numerical either way; `rh.weil_comb.trajectory_check` checks the
+    notches between its points.
+    later_slack = d (E20, with cut): a program also constrains the points of later programs within cut of its
+    centres, which it would otherwise leave free: it may not take their margin below min(margin, target) - d.
+    Without it, large packets can dig notches there that the later programs cannot repair. The fit is numerical either way; `rh.weil_comb.trajectory_check` checks the
     full packets."""
     import numpy as np
     import scipy.sparse as sp
@@ -489,18 +492,29 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             return out + fitted(tq) if atoms else out
 
         own, keep = classify(ts)
-        ts, own = ts[keep], own[keep]
+        if later_slack is None:
+            ts, own = ts[keep], own[keep]
+            later = np.zeros(len(ts), bool)
+        else:
+            later = ~keep                             # the points of later programs: do no harm there
         r = residual(ts)
         if refine is not None:
             ext = cut if cut is not None else reach
             tf = np.arange(max(T, taus[0] - ext), taus[-1] + ext, refine)
-            tf = tf[classify(tf)[1]]
+            if later_slack is None:
+                tf = tf[classify(tf)[1]]
+                later_f = np.zeros(len(tf), bool)
+            else:
+                later_f = ~classify(tf)[1]
             rf = residual(tf)
+            req_f = np.where(later_f, np.minimum(rf, target) - (later_slack or 0.0), 0.5 * target)
         failed, new = None, []
         for rnd in range(1 if refine is None else refine_rounds + 1):
             need = r - target - buf * own
             if cut is not None:                       # the points of earlier programs keep 3/4 of the target: the
                 need = need + 0.25 * target * (~own)  # truncated tails of their own packets may take a little
+            if later_slack is not None:
+                need = np.where(later, np.maximum(r - target, 0.0) + later_slack, need)
             if cut is None:
                 C = cols(taus, ts)
                 n = C.shape[1]
@@ -511,10 +525,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
                 Cs = cols_sparse(taus, ts)
                 n = Cs.shape[1]
                 hit = np.diff(Cs.indptr) > 0
-                short = (r - target)[~hit]            # out of every atom's reach: half the target (earlier programs
+                short = (r - target)[~hit & ~later]   # out of every atom's reach: half the target (earlier programs
                 if np.any(short < -0.5 * target):     # leave 3/4; the tails beyond cut may take ~1e-4 more)
-                    failed = (f"points out of reach below the target, e.g. t = {ts[~hit][np.argmin(short)]:.2f} "
-                              f"({short.min() + target:.4f})")
+                    failed = (f"points out of reach below the target, e.g. t = "
+                              f"{ts[~hit & ~later][np.argmin(short)]:.2f} ({short.min() + target:.4f})")
                     break
                 Cs, need = Cs[hit], need[hit]
             A = sp.hstack([-Cs, Cs]).tocsr()
@@ -533,16 +547,22 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             if refine is None:
                 break
             mf = rf + packets_at(new, tf)             # the margin between the grid points
-            low = mf < 0.5 * target
+            low = mf < req_f
             if not low.any():
                 break
             if rnd == refine_rounds:
                 failed = (f"the margin stays below half the target between the grid points after {refine_rounds} "
                           f"refinements (min {mf.min():.4f} at t = {tf[np.argmin(mf)]:.2f})")
                 break
-            lm = np.nonzero(low & np.r_[True, mf[1:] <= mf[:-1]] & np.r_[mf[:-1] <= mf[1:], True])[0]
+            ex = mf - req_f
+            lm = np.nonzero(low & np.r_[True, ex[1:] <= ex[:-1]] & np.r_[ex[:-1] <= ex[1:], True])[0]
             ts = np.union1d(ts, tf[lm])               # the notches join the program's points
-            own = classify(ts)[0]
+            own, keep = classify(ts)
+            if later_slack is None:
+                ts, own = ts[keep], own[keep]
+                later = np.zeros(len(ts), bool)
+            else:
+                later = ~keep
             r = residual(ts)
         if failed is not None:
             if merge_on_fail is not None and buf > 0:  # first without the buffer: its points beyond the packets'
