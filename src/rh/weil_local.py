@@ -339,7 +339,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              dw: float = 0.5, dtau: float = 1.0, half_width: float = 12.0, gap: float = 0.0, target: float = 0.01,
              step: float = 0.02, amax: float = 4.0, max_group: int | None = None,
              method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
-             buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None) -> LocalCorrection:
+             buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None,
+             merge_on_fail: int | None = None) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -363,7 +364,9 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     Omega - beta - G sit between large peaks, and only high carriers fit into them with small amplitudes.
     max_chain (E20): a program also closes after max_chain dips when the gaps are shorter than 2.5 half_width.
     At L = 1.9 the dips come in long chains with short gaps, and one program for a whole chain has a dense
-    constraint matrix of tens of thousands squared; split, the later programs keep the earlier margins as above."""
+    constraint matrix of tens of thousands squared; split, the later programs keep the earlier margins as above.
+    merge_on_fail = n (E20): when a program is infeasible, the packets of the previous program are removed and the
+    two are solved as one, as long as the merged program has at most n dips (then the error is raised)."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -412,7 +415,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
         return out
     all_dips = np.array([d for grp in groups for d in grp])
     dip_group = np.array([k for k, grp in enumerate(groups) for _ in grp])
-    for k, grp in enumerate(groups):
+    n_added = []                                      # atoms added by each program solved so far
+    k = 0
+    while k < len(groups):
+        grp = groups[k]
         taus = np.unique(np.concatenate([np.arange(d - half_width, d + half_width + 1e-9, dtau) for d in grp]))
         lo, hi = max(T, grp[0] - half_width - reach), grp[-1] + half_width + reach
         if core_pad is None:
@@ -456,10 +462,20 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
                       bounds=[(0, amax)] * (2 * n), method=method)
         del A
         if res.status != 0:
+            if merge_on_fail is not None and k > 0 and len(groups[k - 1]) + len(grp) <= merge_on_fail:
+                drop = n_added.pop()                  # undo the previous program and solve both as one
+                del atoms[len(atoms) - drop:]
+                groups[k - 1:k + 1] = [groups[k - 1] + grp]
+                dip_group = np.array([kk for kk, g in enumerate(groups) for _ in g])
+                k -= 1
+                continue
             raise RuntimeError(f"LP failed at dips {grp}: {res.message}")
         av = res.x[:n] - res.x[n:]
         av = np.array([math.ldexp(round(math.ldexp(x, 40)), -40) if abs(x) > 1e-9 else 0.0 for x in av])
-        for jj in np.nonzero(av)[0]:
+        nz = np.nonzero(av)[0]
+        for jj in nz:
             kk, q = divmod(jj, 2 * len(omegas))
             atoms.append((float(taus[kk]), float(omegas[q // 2]), int(q % 2), float(av[jj])))
+        n_added.append(len(nz))
+        k += 1
     return LocalCorrection(L=L, b=b, m=m, atoms=atoms)
