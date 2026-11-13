@@ -369,7 +369,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     two are solved as one, as long as the merged program has at most n dips (then the error is raised).
     cut (E20): the constraint matrix is built sparse, an atom's column only at the points within cut of its
     centre, and the points no atom reaches are dropped after checking that they already meet 3/4 of the target
-    (for m = 6, b = 1 the envelope is below 4.4e-6 for |t - tau| > 47 and below 1.5e-6 beyond 50). The fit is
+    (for m = 6, b = 1 the envelope is below 4.4e-6 for |t - tau| > 47 and below 1.5e-6 beyond 50). With cut, a
+    program asks 3/4 of the target (no buffer) at the points of earlier programs: the truncated tails of their
+    own packets can leave them slightly below the target, and beyond ~47 a program's atoms are too small to lift
+    them (a program asks it as an absolute bound, so the losses do not add up). The fit is
     numerical either way; `rh.weil_comb.trajectory_check` checks the full packets."""
     import numpy as np
     import scipy.sparse as sp
@@ -472,6 +475,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
         if atoms:
             r = r + fitted(ts)
         need = r - target - buffer * own
+        if cut is not None:                           # the points of earlier programs keep 3/4 of the target: the
+            need = need + 0.25 * target * (~own)      # truncated tails of their own packets may take a little
         if cut is None:
             C = cols(taus, ts)
             n = C.shape[1]
