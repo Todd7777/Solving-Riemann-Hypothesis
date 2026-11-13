@@ -213,3 +213,31 @@ def test_block_ldl_on_an_indefinite_matrix():
     assert abs(float(we.approx_lambda_min(S)[0].mid()) - 0.011) < 1e-9
     assert abs(float(we.approx_lambda_min(M)[0].mid()) - 0.011) < 1e-9
     ctx.dps = 15
+
+
+def test_block_assembly_checkpoint_and_resume(tmp_path):
+    """envelope_blocks(checkpoint=...): an assembly stopped after its first checkpoint and resumed from it gives
+    the same R_A as one run through with the same checkpoints (midpoints equal; radii within one unit of the
+    30-bit radius mantissa, the restored balls containing the saved ones), and a checkpoint of another assembly
+    is not used."""
+    from flint import ctx
+    L, T, N = 0.5, 40.0, 30
+    kw = dict(dps=40, chunk=50, storage="blocks", block=7, checkpoint_every=4)
+    ref = we.envelope_blocks(L, T, {"even": N, "odd": N}, checkpoint=str(tmp_path / "ref.pkl"), **kw)
+    path = str(tmp_path / "ck.pkl")
+    with pytest.raises(we._CheckpointStop):
+        we.envelope_blocks(L, T, {"even": N, "odd": N}, checkpoint=path, _stop_after_checkpoint=1, **kw)
+    res = we.envelope_blocks(L, T, {"even": N, "odd": N}, checkpoint=path, **kw)
+    assert ref["even"]["resumed_from_panel"] == 0 and res["even"]["resumed_from_panel"] == 4
+    ctx.dps = 40
+    for par in ("even", "odd"):
+        A, B = ref[par]["R"], res[par]["R"]
+        assert res[par]["n_nodes"] == ref[par]["n_nodes"]
+        for i in range(N):
+            for j in range(N):
+                a, b = A[i, j], B[i, j]
+                assert a.mid() == b.mid()
+                assert b.rad() >= a.rad() and b.rad() <= a.rad() * (1 + 1e-7) + arb(2) ** -200
+    other = we.envelope_blocks(L, T + 1.0, {"even": N, "odd": N}, checkpoint=path, **kw)   # another assembly
+    assert other["even"]["resumed_from_panel"] == 0
+    ctx.dps = 15

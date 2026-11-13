@@ -565,9 +565,93 @@ def _finalize_blocks(S, scale, orders, p, s, beta, drop, qc):
     return S
 
 
+class _CheckpointStop(Exception):
+    """Raised by `envelope_blocks(_stop_after_checkpoint=k)` after its k-th checkpoint (tests)."""
+
+
+def _dump_arb_mat(B) -> list:
+    """The entries of an arb_mat as Python ints (m, e, rm, re): midpoint m 2^e and radius rm 2^re, exactly."""
+    out = []
+    for i in range(B.nrows()):
+        for j in range(B.ncols()):
+            v = B[i, j]
+            m, e = v.mid().man_exp()
+            rm, re = v.rad().man_exp()
+            out.append((int(m), int(e), int(rm), int(re)))
+    return out
+
+
+def _load_arb_mat(nr: int, nc: int, data):
+    """Inverse of `_dump_arb_mat`: the midpoints exactly, the radii rounded up (by at most one unit of the 30-bit
+    radius mantissa), so that every restored ball contains the saved one."""
+    from flint import arb, arb_mat
+    B = arb_mat(nr, nc)
+    for k, (m, e, rm, re) in enumerate(data):
+        B[k // nc, k % nc] = arb(arb((m, e)), arb((rm, re)))
+    return B
+
+
+def _assembly_key(L, T, Ns, dps, target, wmax, truncate, block, chunk, pans, comb_cert) -> str:
+    """A fingerprint of an assembly: the parameters, the panels and the comb certificate."""
+    import hashlib
+    parts = [repr(x) for x in (L, T, sorted(Ns.items()), dps, target, wmax, truncate, block, chunk)]
+    parts.append(repr([(P.lo, P.hi, P.nu, P.rho, P.err_unit) for P in pans]))
+    if comb_cert is not None:
+        parts.append(repr((float(comb_cert.A_prime.upper()), len(getattr(comb_cert, "terms", []) or []),
+                           getattr(comb_cert, "H_sup", None))))
+        loc = getattr(comb_cert, "local", None)
+        if loc is not None:
+            parts.append(repr([tuple(a) for a in loc.atoms]))
+        tr = getattr(comb_cert, "trajectory", None)
+        if tr:
+            parts.append(repr((tr.get("T"), tr.get("beta"), tr.get("imposed"))))
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()
+
+
+def _save_assembly(path: str, key: str, sectors: dict, scalars: dict) -> None:
+    """Write the block-storage state of an assembly (block by block, to keep the memory spike small)."""
+    import os
+    import pickle
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        pickle.dump({"key": key, **scalars,
+                     "layout": {par: (sec["N"], sec["S"].b, sorted(sec["S"].blocks)) for par, sec in sectors.items()}},
+                    f, protocol=5)
+        for par, sec in sectors.items():
+            for IJ in sorted(sec["S"].blocks):
+                B = sec["S"].blocks[IJ]
+                pickle.dump((par, IJ, B.nrows(), B.ncols(), _dump_arb_mat(B)), f, protocol=5)
+    os.replace(tmp, path)
+
+
+def _load_assembly(path: str, key: str, sectors: dict):
+    """Restore the blocks saved by `_save_assembly` into the sectors' SymBlocks; None (and nothing restored) if
+    there is no checkpoint or it belongs to another assembly."""
+    import os
+    import pickle
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        head = pickle.load(f)
+        if head.get("key") != key or set(head["layout"]) != set(sectors):
+            return None
+        for par, sec in sectors.items():
+            N, b, ijs = head["layout"][par]
+            if N != sec["N"] or b != sec["S"].b:
+                return None
+        for par, sec in sectors.items():
+            for IJ in head["layout"][par][2]:
+                p2, IJ2, nr, nc, data = pickle.load(f)
+                if p2 != par or tuple(IJ2) != tuple(IJ):
+                    raise ValueError(f"checkpoint {path} is damaged")
+                sec["S"].blocks[tuple(IJ)] = _load_arb_mat(nr, nc, data)
+    return head
+
+
 def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = None, chunk: int = 4000,
                     verbose: bool = False, comb_cert=None, wmax: float = 4.0, truncate: bool = True,
-                    storage: str = "dense", block: int = 512) -> dict:
+                    storage: str = "dense", block: int = 512, checkpoint: Optional[str] = None,
+                    checkpoint_every: int = 16, _stop_after_checkpoint: Optional[int] = None) -> dict:
     """`envelope_block` for several parity sectors at once, Ns = {parity: N}.  The sectors share the panels
     (chosen for the largest order of all), the nodes, the symbol (with H) and the Bessel values at every
     node; only the accumulation is per sector.  Returns {parity: info}.
@@ -575,7 +659,13 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
     node are copied into per-chunk buffers (`_add_node_blocks`), each chunk adds GT_I W_J to the blocks I >= J
     only (half the products of the dense C + G^T W), the factor sqrt(2L(2n+1)) and the sign of G_n are applied
     once at the end, and R is formed in place: no second n x n matrix.  At most 1024 nodes are held at a time
-    (buffers ~ n x chunk entries; larger chunks gain little speed)."""
+    (buffers ~ n x chunk entries; larger chunks gain little speed).
+    checkpoint (a file name; block storage only, E20): after every `checkpoint_every` panels and after the last
+    one, the node buffers are flushed and the blocks saved there (`_save_assembly`: the midpoints exactly, the
+    radii rounded up by at most one unit of their 30-bit mantissa, so every restored ball contains the saved one);
+    a run started with an existing checkpoint of the same assembly (same parameters, panels and certificate)
+    continues after its last panel.  The flushes at the checkpoints are part of the schedule, so a resumed run
+    goes through the same arithmetic as an uninterrupted one with checkpoints."""
     from bisect import bisect_right
     from flint import arb, arb_mat, ctx
     from .weil_form import _gl_nodes
@@ -628,7 +718,21 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
 
         inv_pi = 1 / arb.pi()
         work = ctx.prec
-        for P in pans:
+        start, n_saved = 0, 0
+        if checkpoint is not None and not use_blocks:
+            raise ValueError("checkpoint needs storage='blocks'")
+        if checkpoint is not None:
+            key = _assembly_key(L, T, Ns, dps, target, wmax, truncate, block, chunk, pans, comb_cert)
+            head = _load_assembly(checkpoint, key, sectors)
+            if head is not None:
+                start, n_nodes = head["next_panel"], head["n_nodes"]
+                err_unit_total, sum_abs_wsig = head["err_unit_total"], head["sum_abs_wsig"]
+                if verbose:
+                    print(f"  envelope_blocks: resumed from {checkpoint} after panel {start}/{len(pans)} "
+                          f"({n_nodes} nodes)", flush=True)
+        for ip, P in enumerate(pans):
+            if ip < start:
+                continue
             # nodes at an extended precision: the Bessel recurrences amplify the radius of their
             # argument by ~10^guard (see bessel_guard_digits)
             g_dig = max(bessel_guard_digits(L * P.lo + 1e-9, n_max), bessel_guard_digits(L * P.hi, n_max))
@@ -662,6 +766,19 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                         flush(sec)
                 n_nodes += 1
             err_unit_total += P.err_unit
+            if checkpoint is not None and ((ip + 1) % checkpoint_every == 0 or ip + 1 == len(pans)):
+                for sec in sectors.values():
+                    _flush_blocks(sec)
+                tc = time.time()
+                _save_assembly(checkpoint, key, sectors, {"next_panel": ip + 1, "n_nodes": n_nodes,
+                                                          "err_unit_total": err_unit_total,
+                                                          "sum_abs_wsig": sum_abs_wsig})
+                n_saved += 1
+                if verbose:
+                    print(f"  envelope_blocks: checkpoint after panel {ip + 1}/{len(pans)}, {n_nodes} nodes "
+                          f"[{time.time() - t0:.0f}s; saved in {time.time() - tc:.0f}s]", flush=True)
+                if _stop_after_checkpoint is not None and n_saved >= _stop_after_checkpoint:
+                    raise _CheckpointStop(ip + 1)
         out = {}
         for parity, sec in sectors.items():
             if use_blocks:
@@ -675,7 +792,8 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                 out[parity] = {"R": R, "beta": beta, "A": A, "panels": pans, "n_nodes": n_nodes, "orders": orders,
                                "A_prime": comb_cert.A_prime if comb_cert is not None else None,
                                "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
-                               "seconds": time.time() - t0, "dps": dps, "storage": "blocks"}
+                               "seconds": time.time() - t0, "dps": dps, "storage": "blocks",
+                               "resumed_from_panel": start}
                 continue
             flush(sec)
             N, orders, C = sec["N"], sec["orders"], sec["C"]
@@ -1241,14 +1359,17 @@ def certify_window(L, parity: str, T, N, dps: int = 40, lam0=None, safety: float
 
 def certify_windows(L, T, Ns: dict, dps: int = 40, safety: float = 0.98, verbose: bool = False, comb_cert=None,
                     wmax: float = 4.0, chunk: int = 4000, storage: str = "blocks", block: int = 512,
-                    threads: Optional[int] = None) -> dict:
+                    threads: Optional[int] = None, checkpoint: Optional[str] = None,
+                    checkpoint_every: int = 16) -> dict:
     """`certify_window` for several sectors (Ns = {parity: N}) from one shared-node assembly
     (`envelope_blocks`); the sectors are then certified one after the other, each block released after its
-    certificate.  Returns {parity: result}."""
+    certificate.  checkpoint: see `envelope_blocks` (the assembly resumes after a restart).  Returns
+    {parity: result}."""
     with _threads(threads):
         t0 = time.time()
         blks = envelope_blocks(L, T, Ns, dps=dps, verbose=verbose, comb_cert=comb_cert, wmax=wmax, chunk=chunk,
-                               storage=storage, block=block)
+                               storage=storage, block=block, checkpoint=checkpoint,
+                               checkpoint_every=checkpoint_every)
         out = {}
         for parity in list(blks):
             blk = blks.pop(parity)

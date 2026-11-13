@@ -16,7 +16,8 @@ Parts:
   * fit: `rh.weil_local.fix_dips` with the options of E18 (packets stored in results/json/weil_l19_packets_T*.json),
     then `trajectory_check` of the stored packets from T with beta = 0.2 (Machine-checked);
   * --certify: the certification of [-1.9, 1.9] at T with these packets, both sectors from one assembly (block
-    storage; run nothing else alongside).
+    storage; run nothing else alongside). With RH_CHECKPOINT_DIR set, the assembly is checkpointed there every
+    16 panels (~2 GB) and resumes after a restart.
 
 Usage: python3 scripts/run_weil_l19.py [--quick] [--parts cert,local,scan,fit] [--floor-T 2300,2700] [--certify]
 --quick checks the trajectory constant of the stored packets. Writes results/json/weil_l19_summary.json.
@@ -322,8 +323,11 @@ def part_certify():
     if not tr["certified"]:
         raise SystemExit("trajectory check failed")
     N = n_modes(P["T"])
+    ck = os.environ.get("RH_CHECKPOINT_DIR")          # the assembly resumes from there after a restart (~2 GB)
+    ck = os.path.join(ck, f"l19_assembly_T{P['T']:.0f}.pkl") if ck else None
     res = we.certify_windows(P["L"], P["T"], {"even": N, "odd": N}, dps=P["dps"], verbose=True, comb_cert=cert,
-                             wmax=8.0, chunk=P["chunk"], storage="blocks", threads=P["threads"])
+                             wmax=8.0, chunk=P["chunk"], storage="blocks", threads=P["threads"], checkpoint=ck,
+                             checkpoint_every=16)
     out = []
     for par in ("even", "odd"):
         r = res[par]
