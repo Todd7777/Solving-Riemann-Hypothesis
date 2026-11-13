@@ -110,6 +110,32 @@ def test_fix_dips_buffer_and_coarse_far_grid():
     assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
 
 
+def test_fix_dips_sparse_cut_merge_and_chain():
+    """The options for dense chains of dips (E20): programs of at most max_chain dips, merged with the previous
+    one when infeasible, and sparse columns cut at 50 from the packet centres. Five narrow dips 12 apart (closer
+    than 2.5 half widths, so without max_chain they would form one program): the margin must hold on a fine grid
+    over the whole stretch with the full packets."""
+    L, beta, gap = 1.0, 0.05, 0.3
+
+    def Om(ts):
+        return np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
+
+    centres = [300.0, 312.0, 324.0, 336.0, 348.0]
+
+    def G(ts):
+        return Om(ts) - beta - 0.5 + sum(0.8 * np.exp(-((ts - c) / 0.3) ** 2) for c in centres)
+    kw = dict(gap=gap, max_group=1, W=6.0, core_pad=10.0, far_step=0.1, buffer=0.05, max_chain=2,
+              merge_on_fail=4, cut=50.0)
+    loc = wl.fix_dips(G, Om, L, 150.0, centres, beta, **kw)
+    taus = sorted({tau for tau, _, _, _ in loc.atoms})
+    assert taus[0] < 306.0 and taus[-1] > 342.0
+    ts = np.arange(150.0, 560.0, 0.01)
+    ctx.prec = 128
+    vals, errs = loc.eval_float([arb(150.0)], 0.01, len(ts))
+    ctx.prec = 53
+    assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
+
+
 def test_fix_dips_core_per_dip():
     """Two dips 120 apart in one program, and between them (60 from each) a shallow minimum of the margin at 0.03,
     above the target 0.01 but below target + buffer = 0.06. The hull core asks 0.06 there, out of the packets'

@@ -340,7 +340,7 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              step: float = 0.02, amax: float = 4.0, max_group: int | None = None,
              method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
              buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None,
-             merge_on_fail: int | None = None) -> LocalCorrection:
+             merge_on_fail: int | None = None, cut: float | None = None) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -366,7 +366,11 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     At L = 1.9 the dips come in long chains with short gaps, and one program for a whole chain has a dense
     constraint matrix of tens of thousands squared; split, the later programs keep the earlier margins as above.
     merge_on_fail = n (E20): when a program is infeasible, the packets of the previous program are removed and the
-    two are solved as one, as long as the merged program has at most n dips (then the error is raised)."""
+    two are solved as one, as long as the merged program has at most n dips (then the error is raised).
+    cut (E20): the constraint matrix is built sparse, an atom's column only at the points within cut of its
+    centre, and the points no atom reaches are dropped after checking that they already meet the target (for
+    m = 6, b = 1 the envelope is below 4.4e-6 for |t - tau| > 47 and below 1.5e-6 beyond 50). The fit is
+    numerical either way; `rh.weil_comb.trajectory_check` checks the full packets."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -391,6 +395,22 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
                 out[:, j + 1] = e1 * np.sin(w * (t - tau)) - e2 * np.sin(w * (t + tau))
                 j += 2
         return out
+
+    def cols_sparse(taus, t):                         # the columns of `cols`, only where |t - tau| <= cut
+        ri, ci, vals = [], [], []
+        j = 0
+        for tau in taus:
+            i0, i1 = np.searchsorted(t, tau - cut), np.searchsorted(t, tau + cut, side="right")
+            tt = t[i0:i1]
+            idx = np.arange(i0, i1)
+            e1, e2 = env(tt - tau), env(tt + tau)
+            for w in omegas:
+                ri += [idx, idx]
+                ci += [np.full(len(idx), j), np.full(len(idx), j + 1)]
+                vals += [e1 * np.cos(w * (tt - tau)) + e2 * np.cos(w * (tt + tau)),
+                         e1 * np.sin(w * (tt - tau)) - e2 * np.sin(w * (tt + tau))]
+                j += 2
+        return sp.csr_matrix((np.concatenate(vals), (np.concatenate(ri), np.concatenate(ci))), shape=(len(t), j))
 
     atoms = []
     groups = []
@@ -451,15 +471,24 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
         r = Om_of_t(ts) - beta - G_of_t(ts)
         if atoms:
             r = r + fitted(ts)
-        C = cols(taus, ts)
-        n = C.shape[1]
-        C[np.abs(C) < 1e-13] = 0.0                    # far from its centre an atom is negligible here
-        Cs = sp.csr_matrix(C)
-        del C
+        need = r - target - buffer * own
+        if cut is None:
+            C = cols(taus, ts)
+            n = C.shape[1]
+            C[np.abs(C) < 1e-13] = 0.0                # far from its centre an atom is negligible here
+            Cs = sp.csr_matrix(C)
+            del C
+        else:
+            Cs = cols_sparse(taus, ts)
+            n = Cs.shape[1]
+            hit = np.diff(Cs.indptr) > 0
+            if np.any(need[~hit] < 0):                # out of every atom's reach and below the target
+                raise RuntimeError(f"LP failed at dips {grp}: points out of reach below the target, e.g. "
+                                   f"t = {ts[~hit][np.argmin(need[~hit])]:.2f}")
+            Cs, need = Cs[hit], need[hit]
         A = sp.hstack([-Cs, Cs]).tocsr()
         del Cs
-        res = linprog(np.ones(2 * n), A_ub=A, b_ub=r - target - buffer * own,
-                      bounds=[(0, amax)] * (2 * n), method=method)
+        res = linprog(np.ones(2 * n), A_ub=A, b_ub=need, bounds=[(0, amax)] * (2 * n), method=method)
         del A
         if res.status != 0:
             if merge_on_fail is not None and k > 0 and len(groups[k - 1]) + len(grp) <= merge_on_fail:
