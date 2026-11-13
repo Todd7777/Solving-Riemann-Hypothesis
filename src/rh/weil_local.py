@@ -576,7 +576,9 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
                 dip_group = np.array([kk for kk, g in enumerate(groups) for _ in g])
                 k -= 1
                 continue
-            raise RuntimeError(f"LP failed at dips {grp}: {failed}")
+            err = RuntimeError(f"LP failed at dips {grp}: {failed}")
+            err.atoms = list(atoms)                   # the packets fitted before the failure (for diagnosis)
+            raise err
         atoms += new
         n_added.append(len(new))
         nobuf = None
