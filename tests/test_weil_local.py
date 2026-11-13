@@ -136,6 +136,35 @@ def test_fix_dips_sparse_cut_merge_and_chain():
     assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.005 + errs[0]
 
 
+def test_fix_dips_refine_checks_between_grid_points():
+    """refine (E20): the notches sit midway between the points of a coarse grid (step 0.25; each 0.125 past the
+    dip passed in), where the grid sees half their depth. The margin is checked on a grid of step 0.005 after each
+    program and the notches found there join the program: with it the margin holds on a fine grid, while the
+    coarse grid alone leaves the notches below zero."""
+    L, beta, gap = 1.0, 0.05, 0.3
+
+    def Om(ts):
+        return np.real(digamma(0.25 + 0.5j * ts)) - math.log(math.pi)
+
+    centres = [300.0, 316.0, 332.0]
+
+    def G(ts):
+        return Om(ts) - beta - 0.5 + sum(1.2 * np.exp(-((ts - c - 0.125) / 0.15) ** 2) for c in centres)
+    kw = dict(gap=gap, max_group=1, W=8.0, step=0.25, core_pad=10.0, far_step=0.25, buffer=0.02, max_chain=2,
+              merge_on_fail=4, cut=50.0)
+    ts = np.arange(150.0, 540.0, 0.002)
+    ctx.prec = 128
+    try:
+        coarse = wl.fix_dips(G, Om, L, 150.0, centres, beta, **kw)
+        vals_c, _ = coarse.eval_float([arb(150.0)], 0.002, len(ts))
+        loc = wl.fix_dips(G, Om, L, 150.0, centres, beta, refine=0.005, **kw)
+        vals, errs = loc.eval_float([arb(150.0)], 0.002, len(ts))
+    finally:
+        ctx.prec = 53
+    assert (Om(ts) - beta - G(ts) + vals_c[0]).min() < 0          # the coarse grid misses notches
+    assert (Om(ts) - beta - G(ts) + vals[0]).min() > 0.002 + errs[0]
+
+
 def test_fix_dips_core_per_dip():
     """Two dips 120 apart in one program, and between them (60 from each) a shallow minimum of the margin at 0.03,
     above the target 0.01 but below target + buffer = 0.06. The hull core asks 0.06 there, out of the packets'

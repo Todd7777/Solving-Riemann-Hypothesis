@@ -340,7 +340,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              step: float = 0.02, amax: float = 4.0, max_group: int | None = None,
              method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
              buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None,
-             merge_on_fail: int | None = None, cut: float | None = None) -> LocalCorrection:
+             merge_on_fail: int | None = None, cut: float | None = None, refine: float | None = None,
+             refine_rounds: int = 6) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -372,8 +373,13 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     (for m = 6, b = 1 the envelope is below 4.4e-6 for |t - tau| > 47 and below 1.5e-6 beyond 50). With cut, a
     program asks 3/4 of the target (no buffer) at the points of earlier programs: the truncated tails of their
     own packets can leave them slightly below the target, and beyond ~47 a program's atoms are too small to lift
-    them (a program asks it as an absolute bound, so the losses do not add up). The fit is
-    numerical either way; `rh.weil_comb.trajectory_check` checks the full packets."""
+    them (a program asks it as an absolute bound, so the losses do not add up).
+    refine = h (E20): after a program is solved, the margin with its packets is evaluated on a grid of step h
+    within cut (or the reach) of its centres, at the points of this and earlier programs; its local minima below
+    half the target join the program's points and it is solved again, up to refine_rounds times (then the
+    program counts as failed). With large packets and carriers of 15 and more, the grid of `step` can miss
+    notches between its points. The fit is numerical either way; `rh.weil_comb.trajectory_check` checks the
+    full packets."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -426,8 +432,11 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             groups.append([d])
 
     def fitted(t):                                    # the packets fitted so far, at the points t
+        return packets_at(atoms, t)
+
+    def packets_at(alist, t):                         # the packets of alist at the (increasing) points t
         out = np.zeros(len(t))
-        for tau, w, kind, a in atoms:
+        for tau, w, kind, a in alist:
             if tau < t[0] - reach or tau > t[-1] + reach:
                 continue
             e1, e2 = env(t - tau), env(t + tau)
@@ -462,41 +471,76 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
                 infar |= (far >= a) & (far < c)
             ts = np.unique(np.concatenate([far[~infar]] + [np.arange(a, c, step) for a, c in windows]))
             ts = ts[(ts >= lo) & (ts < hi)]
-        incore = np.zeros(len(ts), bool)
-        for a, c in windows:
-            incore |= (ts >= a) & (ts < c)
-        j = np.searchsorted(all_dips, ts)
-        jl, jr = np.clip(j - 1, 0, len(all_dips) - 1), np.clip(j, 0, len(all_dips) - 1)
-        nearest = np.where(np.abs(ts - all_dips[jl]) <= np.abs(ts - all_dips[jr]), jl, jr)
-        own = (dip_group[nearest] == k) & incore
-        keep = dip_group[nearest] <= k                # the points of this and earlier groups
+        def classify(tq):                             # own core points; the points of this and earlier groups
+            inc = np.zeros(len(tq), bool)
+            for a, c in windows:
+                inc |= (tq >= a) & (tq < c)
+            jq = np.searchsorted(all_dips, tq)
+            jl, jr = np.clip(jq - 1, 0, len(all_dips) - 1), np.clip(jq, 0, len(all_dips) - 1)
+            nq = np.where(np.abs(tq - all_dips[jl]) <= np.abs(tq - all_dips[jr]), jl, jr)
+            return (dip_group[nq] == k) & inc, dip_group[nq] <= k
+
+        def residual(tq):
+            out = Om_of_t(tq) - beta - G_of_t(tq)
+            return out + fitted(tq) if atoms else out
+
+        own, keep = classify(ts)
         ts, own = ts[keep], own[keep]
-        r = Om_of_t(ts) - beta - G_of_t(ts)
-        if atoms:
-            r = r + fitted(ts)
-        need = r - target - buffer * own
-        if cut is not None:                           # the points of earlier programs keep 3/4 of the target: the
-            need = need + 0.25 * target * (~own)      # truncated tails of their own packets may take a little
-        if cut is None:
-            C = cols(taus, ts)
-            n = C.shape[1]
-            C[np.abs(C) < 1e-13] = 0.0                # far from its centre an atom is negligible here
-            Cs = sp.csr_matrix(C)
-            del C
-        else:
-            Cs = cols_sparse(taus, ts)
-            n = Cs.shape[1]
-            hit = np.diff(Cs.indptr) > 0
-            short = (r - target)[~hit]                # out of every atom's reach: half the target (earlier programs
-            if np.any(short < -0.5 * target):         # leave 3/4; the tails beyond cut may take ~1e-4 more)
-                raise RuntimeError(f"LP failed at dips {grp}: points out of reach below the target, e.g. "
-                                   f"t = {ts[~hit][np.argmin(short)]:.2f} ({short.min() + target:.4f})")
-            Cs, need = Cs[hit], need[hit]
-        A = sp.hstack([-Cs, Cs]).tocsr()
-        del Cs
-        res = linprog(np.ones(2 * n), A_ub=A, b_ub=need, bounds=[(0, amax)] * (2 * n), method=method)
-        del A
-        if res.status != 0:
+        r = residual(ts)
+        if refine is not None:
+            ext = cut if cut is not None else reach
+            tf = np.arange(max(T, taus[0] - ext), taus[-1] + ext, refine)
+            tf = tf[classify(tf)[1]]
+            rf = residual(tf)
+        failed, new = None, []
+        for rnd in range(1 if refine is None else refine_rounds + 1):
+            need = r - target - buffer * own
+            if cut is not None:                       # the points of earlier programs keep 3/4 of the target: the
+                need = need + 0.25 * target * (~own)  # truncated tails of their own packets may take a little
+            if cut is None:
+                C = cols(taus, ts)
+                n = C.shape[1]
+                C[np.abs(C) < 1e-13] = 0.0            # far from its centre an atom is negligible here
+                Cs = sp.csr_matrix(C)
+                del C
+            else:
+                Cs = cols_sparse(taus, ts)
+                n = Cs.shape[1]
+                hit = np.diff(Cs.indptr) > 0
+                short = (r - target)[~hit]            # out of every atom's reach: half the target (earlier programs
+                if np.any(short < -0.5 * target):     # leave 3/4; the tails beyond cut may take ~1e-4 more)
+                    failed = (f"points out of reach below the target, e.g. t = {ts[~hit][np.argmin(short)]:.2f} "
+                              f"({short.min() + target:.4f})")
+                    break
+                Cs, need = Cs[hit], need[hit]
+            A = sp.hstack([-Cs, Cs]).tocsr()
+            del Cs
+            res = linprog(np.ones(2 * n), A_ub=A, b_ub=need, bounds=[(0, amax)] * (2 * n), method=method)
+            del A
+            if res.status != 0:
+                failed = res.message
+                break
+            av = res.x[:n] - res.x[n:]
+            av = np.array([math.ldexp(round(math.ldexp(x, 40)), -40) if abs(x) > 1e-9 else 0.0 for x in av])
+            new = []
+            for jj in np.nonzero(av)[0]:
+                kk, q = divmod(jj, 2 * len(omegas))
+                new.append((float(taus[kk]), float(omegas[q // 2]), int(q % 2), float(av[jj])))
+            if refine is None:
+                break
+            mf = rf + packets_at(new, tf)             # the margin between the grid points
+            low = mf < 0.5 * target
+            if not low.any():
+                break
+            if rnd == refine_rounds:
+                failed = (f"the margin stays below half the target between the grid points after {refine_rounds} "
+                          f"refinements (min {mf.min():.4f} at t = {tf[np.argmin(mf)]:.2f})")
+                break
+            lm = np.nonzero(low & np.r_[True, mf[1:] <= mf[:-1]] & np.r_[mf[:-1] <= mf[1:], True])[0]
+            ts = np.union1d(ts, tf[lm])               # the notches join the program's points
+            own = classify(ts)[0]
+            r = residual(ts)
+        if failed is not None:
             if merge_on_fail is not None and k > 0 and len(groups[k - 1]) + len(grp) <= merge_on_fail:
                 drop = n_added.pop()                  # undo the previous program and solve both as one
                 del atoms[len(atoms) - drop:]
@@ -504,13 +548,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
                 dip_group = np.array([kk for kk, g in enumerate(groups) for _ in g])
                 k -= 1
                 continue
-            raise RuntimeError(f"LP failed at dips {grp}: {res.message}")
-        av = res.x[:n] - res.x[n:]
-        av = np.array([math.ldexp(round(math.ldexp(x, 40)), -40) if abs(x) > 1e-9 else 0.0 for x in av])
-        nz = np.nonzero(av)[0]
-        for jj in nz:
-            kk, q = divmod(jj, 2 * len(omegas))
-            atoms.append((float(taus[kk]), float(omegas[q // 2]), int(q % 2), float(av[jj])))
-        n_added.append(len(nz))
+            raise RuntimeError(f"LP failed at dips {grp}: {failed}")
+        atoms += new
+        n_added.append(len(new))
         k += 1
     return LocalCorrection(L=L, b=b, m=m, atoms=atoms)
