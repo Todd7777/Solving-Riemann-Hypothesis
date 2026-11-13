@@ -204,6 +204,22 @@ def test_admm_joint_certificate_matches_barrier_and_is_valid():
     assert cert.omega_min >= 2 * L
 
 
+def test_admm_resumes_from_its_state_file(tmp_path):
+    """An ADMM run interrupted and resumed from its state file goes through the same iterates as an
+    uninterrupted one (the dual variable and rho are part of the state)."""
+    L, Lam = 0.9, 5.0
+    full = wcb.joint_gram_admm(L, Lam, iters=300, report=100, alpha=1.6)
+    st = str(tmp_path / "admm_state.npz")
+    part = wcb.joint_gram_admm(L, Lam, iters=200, report=100, alpha=1.6, state=st)
+    assert part["iters"] == 200
+    rest = wcb.joint_gram_admm(L, Lam, iters=300, report=100, alpha=1.6, state=st)
+    assert rest["iters"] == 300
+    assert rest["admm_value"] == full["admm_value"]
+    assert np.array_equal(rest["R"].T @ rest["R"], full["R"].T @ full["R"])
+    with pytest.raises(ValueError):
+        wcb.joint_gram_admm(L, 4.5, iters=10, report=5, alpha=1.6, state=st)
+
+
 def test_low_rank_alm_joint_certificate():
     """The low-rank augmented Lagrangian (meant for monomial sets of thousands) reaches the barrier optimum on
     a small case, and its factor gives a valid certificate whose A' reproduces the solver's value."""

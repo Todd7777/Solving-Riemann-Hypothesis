@@ -500,7 +500,7 @@ def joint_gram(L: float, Lam: float, mu_min: float = 1e-9, verbose: bool = False
 
 def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, tol: float = 1e-9,
                     verbose: bool = False, report: int = 1000, alpha: float = 1.0, warm: dict | None = None,
-                    checkpoint: str | None = None) -> dict:
+                    checkpoint: str | None = None, state: str | None = None) -> dict:
     """Near-optimal Gram matrix for the joint certificate by ADMM on the primal SOS problem (for monomial sets
     too large for the barrier method of `joint_gram`, whose Newton systems have one unknown per free moment).
 
@@ -510,7 +510,11 @@ def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, 
     monomial, and one ADMM step costs one eigendecomposition.  The iterate Z is positive semidefinite by
     construction; its value as a certificate is tr Z + sum_m |s_m(Z) - t_m| (mismatches are absorbed into A'
     by `joint_comb_certificate`), and the best Z seen is returned.  alpha > 1 is over-relaxation; `warm` (the
-    result for a smaller Lambda, whose monomials are a subset) embeds its Gram matrix as the starting point."""
+    result for a smaller Lambda, whose monomials are a subset) embeds its Gram matrix as the starting point.
+    `state` (a file name ending in .npz): the whole iterate (Z, the dual U, rho, the best Z) is saved there every
+    `report` iterations, and if the file exists the run continues from it, through the same iterates as an
+    uninterrupted run (a warm start from a factor restarts the dual at 0 and loses ground)."""
+    import os
     import numpy as np
     comb = prime_comb(L)
     primes = sorted(comb)
@@ -569,7 +573,18 @@ def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, 
         Z[np.ix_(idx, idx)] = warm["R"].T @ warm["R"]
     U = np.zeros((nB, nB))
     best = (float("inf"), None, None)
-    for it in range(1, iters + 1):
+    it = it0 = 0
+    if state is not None and os.path.exists(state):
+        with np.load(state) as S:
+            if int(S["nB"]) != nB or float(S["L"]) != L or float(S["Lam"]) != Lam or float(S["alpha"]) != alpha:
+                raise ValueError(f"state file {state} belongs to another problem")
+            Z, U, rho, it = S["Z"].copy(), S["U"].copy(), float(S["rho"]), int(S["it"])
+            if np.isfinite(float(S["best_val"])):
+                best = (float(S["best_val"]), S["best_Z"].copy(), float(S["best_mis"]))
+        it0 = it
+        if verbose:
+            print(f"  admm L={L} Lam={Lam}: resumed at it={it0} (best value {best[0]:.6f}, rho {rho:.2g})", flush=True)
+    for it in range(it0 + 1, iters + 1):
         X = proj_aff(Z - U - I / rho)
         Zold = Z
         Xh = alpha * X + (1 - alpha) * Z
@@ -590,6 +605,12 @@ def joint_gram_admm(L: float, Lam: float, iters: int = 20000, rho: float = 1.0, 
             if verbose and it % report == 0:
                 print(f"  admm L={L} Lam={Lam} it={it}: value {val:.6f} (trace {val - mis:.6f}, mismatch {mis:.2e})"
                       f" r_p {rp:.1e} r_d {rd:.1e} rho {rho:.2g}", flush=True)
+            if state is not None and it % report == 0:          # the whole iterate, written atomically
+                tmp = state[:-4] + ".tmp.npz" if state.endswith(".npz") else state + ".tmp.npz"
+                np.savez(tmp, Z=Z, U=U, rho=rho, it=it, best_val=best[0],
+                         best_Z=best[1] if best[1] is not None else np.zeros((0, 0)), best_mis=best[2],
+                         nB=nB, L=L, Lam=Lam, alpha=alpha)
+                os.replace(tmp, state)
             if checkpoint is not None and it % report == 0:     # the best iterate so far, as a usable result
                 import pickle
                 lam_c, Q_c = np.linalg.eigh((best[1] + best[1].T) / 2)
