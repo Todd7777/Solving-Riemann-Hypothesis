@@ -1,0 +1,188 @@
+{
+ "profile": {
+  "settings": {
+   "L": 0.9,
+   "T": 1400.0,
+   "N": 962,
+   "dps": 235,
+   "block": 512
+  },
+  "runs": [
+   {
+    "mode": "dense",
+    "L": 0.9,
+    "T": 1400.0,
+    "N": 962,
+    "dps": 235,
+    "block": 512,
+    "chunk": 1000,
+    "assembly": {
+     "peak_GB": 2.55,
+     "rss_GB": 2.217,
+     "seconds": 1271.4,
+     "n_nodes": 27418
+    },
+    "estimate": {
+     "peak_GB": 2.217,
+     "rss_GB": 2.217,
+     "seconds": 42.0
+    },
+    "residual": {
+     "peak_GB": 2.217,
+     "rss_GB": 2.217,
+     "seconds": 65.5
+    },
+    "lambda_approx": 3.828940397657219e-23,
+    "certified": true,
+    "lower_bound": 3.752361589704074e-23,
+    "residual_F": 6.228873179379865e-224,
+    "seconds": 1379.0
+   },
+   {
+    "mode": "blocks",
+    "L": 0.9,
+    "T": 1400.0,
+    "N": 962,
+    "dps": 235,
+    "block": 512,
+    "chunk": 1000,
+    "assembly": {
+     "peak_GB": 1.109,
+     "rss_GB": 1.052,
+     "seconds": 1377.4,
+     "n_nodes": 27418
+    },
+    "estimate": {
+     "peak_GB": 1.062,
+     "rss_GB": 1.054,
+     "seconds": 30.9
+    },
+    "residual": {
+     "peak_GB": 1.062,
+     "rss_GB": 1.054,
+     "seconds": 41.7
+    },
+    "lambda_approx": 3.828940397657219e-23,
+    "certified": true,
+    "lower_bound": 3.752361589704074e-23,
+    "residual_F": 6.228873224984481e-224,
+    "seconds": 1450.0
+   },
+   {
+    "mode": "blocks",
+    "L": 0.9,
+    "T": 1400.0,
+    "N": 962,
+    "dps": 235,
+    "block": 512,
+    "chunk": 512,
+    "assembly": {
+     "peak_GB": 0.756,
+     "rss_GB": 0.697,
+     "seconds": 1373.7,
+     "n_nodes": 27418
+    },
+    "estimate": {
+     "peak_GB": 0.724,
+     "rss_GB": 0.687,
+     "seconds": 30.4
+    },
+    "residual": {
+     "peak_GB": 0.774,
+     "rss_GB": 0.687,
+     "seconds": 40.4
+    },
+    "lambda_approx": 3.828940397657219e-23,
+    "certified": true,
+    "lower_bound": 3.752361589704074e-23,
+    "residual_F": 6.228873539621803e-224,
+    "seconds": 1444.6
+   }
+  ],
+  "same_certificate": true
+ },
+ "description": "E19: memory of the certification (`rh.weil_envelope.certify_window`), the dense arb_mat path against the block",
+ "seconds_last_run": 18.2,
+ "bench": {
+  "n": 4300,
+  "dps": 280,
+  "chunk": 1024,
+  "block": 512,
+  "threads": 3,
+  "matrix": {
+   "peak_GB": 1.803,
+   "rss_GB": 1.803,
+   "seconds": 4.8,
+   "entries": 10314384
+  },
+  "fill": {
+   "peak_GB": 2.561,
+   "rss_GB": 2.561,
+   "seconds": 1.4
+  },
+  "flush": {
+   "peak_GB": 3.325,
+   "rss_GB": 2.97,
+   "seconds": 155.3
+  },
+  "estimate": {
+   "peak_GB": 4.478,
+   "rss_GB": 4.29,
+   "seconds": 473.8
+  },
+  "residual": {
+   "peak_GB": 4.382,
+   "rss_GB": 4.309,
+   "seconds": 706.1,
+   "certified": true
+  },
+  "seconds": 1341.4
+ },
+ "recert17": {
+  "N": 1361,
+  "dps": 195,
+  "threads": 3,
+  "seconds": 3328.6,
+  "peak_GB": 1.627,
+  "rss_GB": 1.334,
+  "stored_dense": {
+   "seconds": 3582.0,
+   "peak_GB": 4.41
+  },
+  "sectors": {
+   "even": {
+    "certified_lower_bound": 1.057767064087161e-150,
+    "stored_certified_lower_bound": 1.057767064087161e-150,
+    "lambda_approx": 1.0793541470277154e-150,
+    "stored_lambda_approx": 1.0793541470277154e-150,
+    "residual_F": 1.251343525880041e-186,
+    "stored_residual_F": 1.251343724362156e-186,
+    "same_bound": true
+   },
+   "odd": {
+    "certified_lower_bound": 6.380885248877399e-146,
+    "stored_certified_lower_bound": 6.380885248877399e-146,
+    "lambda_approx": 6.511107396813672e-146,
+    "stored_lambda_approx": 6.511107396813672e-146,
+    "residual_F": 1.2516645196084452e-186,
+    "stored_residual_F": 1.2516647185382837e-186,
+    "same_bound": true
+   }
+  }
+ },
+ "inner": {
+  "dps": 280,
+  "block": 512,
+  "inner": [
+   256,
+   512,
+   1024
+  ],
+  "threads": 3,
+  "ns_per_multiply_add": {
+   "256": 25.88,
+   "512": 17.56,
+   "1024": 15.74
+  }
+ }
+}

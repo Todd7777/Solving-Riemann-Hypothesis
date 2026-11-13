@@ -10,12 +10,15 @@ Parts (each measurement in a fresh process; the peak RSS of each phase is VmHWM,
   * bench: a synthetic SymBlocks matrix of the size of an L = 1.9 sector (N = 4300, 280 digits): memory and time
     of one full-width assembly flush, of the blocked LDL^T with inverse iteration and of the residual certificate
     (about 25 minutes with 3 threads, 4.5 GB; the matrix is synthetic, only memory and time are meaningful);
+  * inner: one block product (512 x k)(k x 512) at 280 digits, as in an assembly flush, for k = 256, 512 and 1024
+    (the chunk): time per multiply-add (under a minute);
   * recert17 (not in the default parts): [-1.7, 1.7] from T = 1000 (E17) certified again with the block path
     and compared with the stored dense results (about an hour, both sectors).
 
-Usage: python3 scripts/run_cert_memory.py [--quick] [--parts profile,bench,recert17] [--threads 3]
---quick: the profile at L = 0.5, T = 40, N = 37 (40 digits, blocks of 8) and the benchmark at N = 300 (about a
-minute); it prints and writes nothing.  Otherwise writes results/json/cert_memory_summary.json.
+Usage: python3 scripts/run_cert_memory.py [--quick] [--parts profile,bench,inner,recert17] [--threads 3]
+--quick: the profile at L = 0.5, T = 40, N = 37 (40 digits, blocks of 8), the benchmark at N = 300 and the
+products with blocks of 64 (about a minute); it prints and writes nothing.  Otherwise writes (and merges into)
+results/json/cert_memory_summary.json.
 """
 import argparse
 import json
@@ -36,6 +39,8 @@ PROFILE_QUICK = {"L": 0.5, "T": 40.0, "N": 37, "dps": 40, "block": 8}
 PROFILE_QUICK_RUNS = [("dense", 50), ("blocks", 50)]
 BENCH = {"n": 4300, "dps": 280, "chunk": 1024, "block": 512}
 BENCH_QUICK = {"n": 300, "dps": 60, "chunk": 64, "block": 64}
+INNER = {"dps": 280, "block": 512, "inner": [256, 512, 1024]}
+INNER_QUICK = {"dps": 60, "block": 64, "inner": [32, 64]}
 
 
 def _status() -> dict:
@@ -122,6 +127,34 @@ def child_bench(p: dict, threads: int) -> dict:
     return out
 
 
+def child_inner(p: dict, threads: int) -> dict:
+    """A block product (block x k)(k x block), as in `_flush_blocks`: seconds per multiply-add against the inner
+    dimension k (the chunk); random full-precision entries, best of two."""
+    from flint import arb, arb_mat, ctx
+    random.seed(2)
+    ctx.dps, ctx.threads = p["dps"], threads
+    s2 = arb(2).sqrt()
+    b = p["block"]
+
+    def rnd(m, n):
+        M = arb_mat(m, n)
+        for i in range(m):
+            for j in range(n):
+                M[i, j] = arb(random.random() - 0.5) * s2
+        return M
+
+    out = {**p, "threads": threads, "ns_per_multiply_add": {}}
+    for k in p["inner"]:
+        A, B = rnd(b, k), rnd(k, b)
+        best = math.inf
+        for _ in range(2):
+            t = time.time()
+            A * B
+            best = min(best, time.time() - t)
+        out["ns_per_multiply_add"][str(k)] = round(best / (b * b * k) * 1e9, 2)
+    return out
+
+
 def child_recert17(threads: int) -> dict:
     sys.path.insert(0, os.path.join(ROOT, "scripts"))
     import run_weil_lift as rl
@@ -195,16 +228,24 @@ def part_bench(p: dict, threads: int) -> dict:
     return r
 
 
+def part_inner(p: dict, threads: int) -> dict:
+    r = run_child("inner", p, threads)
+    print("  " + ", ".join(f"inner {k}: {v} ns" for k, v in r["ns_per_multiply_add"].items())
+          + f" per multiply-add ({r['dps']} digits, blocks of {r['block']}, {r['threads']} threads)", flush=True)
+    return r
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--quick", action="store_true")
-    ap.add_argument("--parts", default="profile,bench")
+    ap.add_argument("--parts", default="profile,bench,inner")
     ap.add_argument("--threads", type=int, default=3)
     ap.add_argument("--child", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
     if args.child is not None:
         kind, *rest = json.loads(args.child)
-        fn = {"profile": child_profile, "bench": child_bench, "recert17": child_recert17}[kind]
+        fn = {"profile": child_profile, "bench": child_bench, "inner": child_inner,
+              "recert17": child_recert17}[kind]
         print(json.dumps(fn(*rest), default=str), flush=True)
         return
     t0 = time.time()
@@ -213,6 +254,8 @@ def main():
         part_profile(PROFILE_QUICK, PROFILE_QUICK_RUNS)
         print("[bench, quick]", flush=True)
         part_bench(BENCH_QUICK, 1)
+        print("[inner, quick]", flush=True)
+        part_inner(INNER_QUICK, 1)
         print(f"done [{time.time() - t0:.0f}s]", flush=True)
         return
     out = {}
@@ -226,6 +269,9 @@ def main():
     if "bench" in parts:
         print("[bench]", flush=True)
         out["bench"] = part_bench(BENCH, args.threads)
+    if "inner" in parts:
+        print("[inner]", flush=True)
+        out["inner"] = part_inner(INNER, args.threads)
     if "recert17" in parts:
         print("[recert17]", flush=True)
         out["recert17"] = run_child("recert17", args.threads)
