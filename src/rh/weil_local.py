@@ -366,8 +366,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     max_chain (E20): a program also closes after max_chain dips when the gaps are shorter than 2.5 half_width.
     At L = 1.9 the dips come in long chains with short gaps, and one program for a whole chain has a dense
     constraint matrix of tens of thousands squared; split, the later programs keep the earlier margins as above.
-    merge_on_fail = n (E20): when a program is infeasible, the packets of the previous program are removed and the
-    two are solved as one, as long as the merged program has at most n dips (then the error is raised).
+    merge_on_fail = n (E20): when a program is infeasible it is first solved again without the buffer (its core
+    reaches beyond the packets' main lobes, where target + buffer may be out of reach); if it is still infeasible,
+    the packets of the previous program are removed and the two are solved as one, as long as the merged program
+    has at most n dips (then the error is raised).
     cut (E20): the constraint matrix is built sparse, an atom's column only at the points within cut of its
     centre, and the points no atom reaches are dropped after checking that they already meet half the target
     (for m = 6, b = 1 the envelope is below 4.4e-6 for |t - tau| > 47 and below 1.5e-6 beyond 50). With cut, a
@@ -448,9 +450,11 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     all_dips = np.array([d for grp in groups for d in grp])
     dip_group = np.array([k for k, grp in enumerate(groups) for _ in grp])
     n_added = []                                      # atoms added by each program solved so far
+    nobuf = None                                      # the program being retried without the buffer (merge_on_fail)
     k = 0
     while k < len(groups):
         grp = groups[k]
+        buf = 0.0 if nobuf == k else buffer
         taus = np.unique(np.concatenate([np.arange(d - half_width, d + half_width + 1e-9, dtau) for d in grp]))
         lo, hi = max(T, grp[0] - half_width - reach), grp[-1] + half_width + reach
         if core_pad is None:
@@ -494,7 +498,7 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             rf = residual(tf)
         failed, new = None, []
         for rnd in range(1 if refine is None else refine_rounds + 1):
-            need = r - target - buffer * own
+            need = r - target - buf * own
             if cut is not None:                       # the points of earlier programs keep 3/4 of the target: the
                 need = need + 0.25 * target * (~own)  # truncated tails of their own packets may take a little
             if cut is None:
@@ -541,6 +545,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             own = classify(ts)[0]
             r = residual(ts)
         if failed is not None:
+            if merge_on_fail is not None and buf > 0:  # first without the buffer: its points beyond the packets'
+                nobuf = k                             # main lobes cannot always be lifted to target + buffer
+                continue
+            nobuf = None
             if merge_on_fail is not None and k > 0 and len(groups[k - 1]) + len(grp) <= merge_on_fail:
                 drop = n_added.pop()                  # undo the previous program and solve both as one
                 del atoms[len(atoms) - drop:]
@@ -551,5 +559,6 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             raise RuntimeError(f"LP failed at dips {grp}: {failed}")
         atoms += new
         n_added.append(len(new))
+        nobuf = None
         k += 1
     return LocalCorrection(L=L, b=b, m=m, atoms=atoms)
