@@ -357,7 +357,13 @@ def main():
             print(f"[{name}]", flush=True)
             out[name] = fn()
     scan = None
-    if "scan" in parts or "fit" in parts:
+    stored = out.get("scan")
+    if "fit" in parts and "scan" not in parts and stored and stored.get("T") == P["T"] \
+            and stored.get("beta") == P["beta"] and abs(stored.get("T2", 0) - (2 * math.pi * math.exp(
+                float(gapped().A_prime.upper()) + P["beta"]) + 1)) < 1e-6:
+        print("[scan] the stored scan of this certificate", flush=True)
+        scan = stored
+    elif "scan" in parts or "fit" in parts:
         print("[scan]", flush=True)
         scan = part_scan()
         out["scan"] = scan
