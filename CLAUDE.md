@@ -23,13 +23,13 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-12: 306 pass, about 5 minutes
+python3 -m pytest                   # 2026-11-13: 311 pass, about 6 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
 `data/zeros/` already holds 10^6 rigorous zero ordinates. Full experiment runs take hours.
 
-## State on 2026-11-12
+## State on 2026-11-13
 
 - E12 is complete (`docs/06_experiment_log.md`, E12; synthesis in `docs/08_findings_and_outlook.md`, item 1b).
   `src/rh/weil_form_general.py` was reviewed and is covered by `tests/test_weil_form_general.py`; a float64
@@ -90,15 +90,24 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   digits, one sector at a time (~3.6 h and ~7 GB each). The floor (beta = 0.2) is between 2.4 and 3.2 t0.
   `scripts/run_weil_l18.py` reproduces it (`--quick` in run_all; `--parts floor` the probes; `--certify`).
 
+- E19 is complete: the certification keeps R_A as its lower block triangle (`SymBlocks`, blocks of 512), forms it
+  in place and factorises it by blocks on one copy; `certify_window(s)` use it by default (`storage="dense"` is the
+  old path). Same certificates (E17 re-certified: identical bounds). Peak at N = 962, 235 digits: 0.76 GB
+  (chunk 512) vs 2.55 GB dense; a synthetic L = 1.9 sector (N = 4300, 280 digits) needs 4.5 GB (Numerical).
+  Pass threads=3. chunk=512 cuts the peak at N ~ 1000; for N in the thousands the factorisation sets the peak
+  and chunk=1024 flushes ~10% faster. `scripts/run_cert_memory.py` reproduces it (~1 h; `--quick` in
+  run_all; `--parts recert17` adds E17 again, ~55 min).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
 - L = 1.9: the same steps (run_weil_l18.py as the template). The floor grows faster than t0 (between 2.4 and
-  3.2 t0 at L = 1.8, below 1.95 t0 at L = 1.7), so the mode count and the memory grow faster than e^{2L}:
-  ~7 GB per sector at L = 1.8, and the limit here is ~13 GB. Locate the floor first (H = 0 probes are a fair
-  proxy), then size N with the tail bound (eLT/4N)^{2N}. A prolate basis or a reduction that keeps part of the
-  spectral side above T would lower the cost;
+  3.2 t0 at L = 1.8, below 1.95 t0 at L = 1.7), so the mode count grows faster than e^{2L}. Memory is no longer
+  the limit (E19: ~4.5 GB per sector at N = 4300, 280 digits); time is (5-9 h for both sectors, ~2 h of it
+  single-threaded Bessel values at the nodes). Locate the floor first (H = 0 probes, storage="blocks"), then
+  size N with the tail bound (eLT/4N)^{2N}. A prolate basis or a reduction that keeps part of the spectral side
+  above T would lower the cost;
 - the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
   side above T;
 - sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T
