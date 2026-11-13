@@ -339,7 +339,7 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              dw: float = 0.5, dtau: float = 1.0, half_width: float = 12.0, gap: float = 0.0, target: float = 0.01,
              step: float = 0.02, amax: float = 4.0, max_group: int | None = None,
              method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
-             buffer: float = 0.0, core_per_dip: bool = False) -> LocalCorrection:
+             buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -360,7 +360,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     of the windows [d - half_width - core_pad, d + half_width + core_pad] of its dips (E18): for two dips far
     apart the hull holds points no packet reaches, where target + buffer may be out of reach.
     Dense dips can need carriers well above 2L + b (W = 8 rather than 4): the deep notches of
-    Omega - beta - G sit between large peaks, and only high carriers fit into them with small amplitudes."""
+    Omega - beta - G sit between large peaks, and only high carriers fit into them with small amplitudes.
+    max_chain (E20): a program also closes after max_chain dips when the gaps are shorter than 2.5 half_width.
+    At L = 1.9 the dips come in long chains with short gaps, and one program for a whole chain has a dense
+    constraint matrix of tens of thousands squared; split, the later programs keep the earlier margins as above."""
     import numpy as np
     import scipy.sparse as sp
     from scipy.optimize import linprog
@@ -390,7 +393,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     groups = []
     for d in sorted(dips):
         if groups and d - groups[-1][-1] < 2 * (reach + half_width) and (
-                max_group is None or len(groups[-1]) < max_group or d - groups[-1][-1] < 2.5 * half_width):
+                max_group is None or len(groups[-1]) < max_group or d - groups[-1][-1] < 2.5 * half_width) and (
+                max_chain is None or len(groups[-1]) < max_chain):
             groups[-1].append(d)
         else:
             groups.append([d])
