@@ -41,9 +41,10 @@ from rh import weil_local as wl  # noqa: E402
 ROOT = os.path.join(HERE, "..")
 OUT_JSON = os.path.join(ROOT, "results", "json", "weil_l19_summary.json")
 GRAM = os.path.join(ROOT, "results", "json", "weil_gram_L1.9.npz")
-P = {"L": 1.9, "Lambda": 9.0, "g": 0.002, "beta": 0.2, "T": 2300.0, "gap": 0.05, "thr": 0.03,
-     "fit": {"W": 8.0, "amax": 16.0, "half_width": 8.0, "step": 0.03, "far_step": 0.15, "core_pad": 25.0,
-             "target": 0.02, "buffer": 0.06, "max_group": 2, "dw": 0.5, "dtau": 1.0, "core_per_dip": True},
+P = {"L": 1.9, "Lambda": 8.5, "g": 0.002, "beta": 0.2, "T": 2300.0, "gap": 0.05, "thr": 0.03,
+     "fit": {"W": 12.0, "amax": 32.0, "half_width": 8.0, "step": 0.03, "far_step": 0.15, "core_pad": 25.0,
+             "target": 0.02, "buffer": 0.06, "max_group": 2, "dw": 1.0, "dtau": 2.0, "core_per_dip": True,
+             "max_chain": 3},
      "dps": 280, "modes_factor": 1.1, "floor_T": (2300.0,), "floor_dps": 280, "threads": 2, "chunk": 1024}
 T0 = 2 * math.pi * math.exp(1 + 2 * P["L"])           # t0 = 2 pi e^{1+2L} = 763.4
 
@@ -63,7 +64,13 @@ def load_summary():
     return {}
 
 
-def save_summary(out):
+def save_summary(out, keys=None):
+    """Write the summary; with `keys`, only those keys of `out` are merged into the file as it is now (other
+    runs, e.g. a floor probe, may have written it meanwhile)."""
+    if keys is not None:
+        fresh = load_summary()
+        fresh.update({k: out[k] for k in keys if k in out})
+        out = fresh
     out["description"] = __doc__.split("\n")[0]
     tmp = OUT_JSON + ".tmp"
     with open(tmp, "w") as f:
@@ -273,7 +280,7 @@ def fit_packets(scan=None):
                       target=F["target"], step=F["step"], W=F["W"], dw=F["dw"], dtau=F["dtau"],
                       half_width=F["half_width"], amax=F["amax"], max_group=F["max_group"],
                       core_pad=F["core_pad"], far_step=F["far_step"], buffer=F["buffer"],
-                      core_per_dip=F["core_per_dip"])
+                      core_per_dip=F["core_per_dip"], max_chain=F["max_chain"])
     return loc, dips, time.time() - t0
 
 
@@ -369,7 +376,12 @@ def main():
                                       "certified_lower_bound": min(r["certified_lower_bound"] for r in res)
                                       if ok else None}
     out["seconds_last_run"] = time.time() - t0
-    save_summary(out)
+    touched = [k for k in ("cert", "local", "fit") if k in parts]
+    if "scan" in parts or "fit" in parts:
+        touched.append("scan")
+    if args.certify:
+        touched += ["certify_L19", "certify_L19_status", "certify_L19_summary"]
+    save_summary(out, keys=touched + ["seconds_last_run"])
     print(f"done [{time.time() - t0:.0f}s]", flush=True)
 
 
