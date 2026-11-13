@@ -368,7 +368,7 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     merge_on_fail = n (E20): when a program is infeasible, the packets of the previous program are removed and the
     two are solved as one, as long as the merged program has at most n dips (then the error is raised).
     cut (E20): the constraint matrix is built sparse, an atom's column only at the points within cut of its
-    centre, and the points no atom reaches are dropped after checking that they already meet 3/4 of the target
+    centre, and the points no atom reaches are dropped after checking that they already meet half the target
     (for m = 6, b = 1 the envelope is below 4.4e-6 for |t - tau| > 47 and below 1.5e-6 beyond 50). With cut, a
     program asks 3/4 of the target (no buffer) at the points of earlier programs: the truncated tails of their
     own packets can leave them slightly below the target, and beyond ~47 a program's atoms are too small to lift
@@ -487,8 +487,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             Cs = cols_sparse(taus, ts)
             n = Cs.shape[1]
             hit = np.diff(Cs.indptr) > 0
-            short = (r - target)[~hit]                # out of every atom's reach: no buffer asked there, and the
-            if np.any(short < -0.25 * target):        # tails beyond cut of later packets may take a little
+            short = (r - target)[~hit]                # out of every atom's reach: half the target (earlier programs
+            if np.any(short < -0.5 * target):         # leave 3/4; the tails beyond cut may take ~1e-4 more)
                 raise RuntimeError(f"LP failed at dips {grp}: points out of reach below the target, e.g. "
                                    f"t = {ts[~hit][np.argmin(short)]:.2f} ({short.min() + target:.4f})")
             Cs, need = Cs[hit], need[hit]
