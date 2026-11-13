@@ -1,0 +1,35 @@
+{
+ "local": [
+  {
+   "L": 1.9,
+   "range": [
+    1700.0,
+    2000.0
+   ],
+   "max_lambda": 4.519956587935433,
+   "min_Omega_minus_lambda": 1.2267897843822322,
+   "at": 1967.149999999757
+  },
+  {
+   "L": 1.9,
+   "range": [
+    2200.0,
+    2400.0
+   ],
+   "max_lambda": 4.593661436583524,
+   "min_Omega_minus_lambda": 1.2652865109994629,
+   "at": 2200.9000000000033
+  },
+  {
+   "L": 1.9,
+   "range": [
+    2600.0,
+    2800.0
+   ],
+   "max_lambda": 5.03581277607951,
+   "min_Omega_minus_lambda": 1.0636669910575858,
+   "at": 2799.9500000007274
+  }
+ ],
+ "description": "E20: Weil positivity on [-1.9, 1.9]: the steps of E18 at L = 1.9, with the block storage of E19."
+}
