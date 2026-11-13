@@ -106,9 +106,12 @@ def floor_probe(T, dps=None, threads=None, chunk=None):
     N = n_modes(T)
     t0 = time.time()
     rows = []
+    ck = os.environ.get("RH_CHECKPOINT_DIR")          # the assembly resumes from there after a restart
+    ck = os.path.join(ck, f"l19_floor_T{T:.0f}_d{dps}.pkl") if ck else None
     with we._threads(threads or P["threads"]):
         blks = we.envelope_blocks(P["L"], T, {"even": N, "odd": N}, dps=dps, comb_cert=h0_certificate(T),
-                                  wmax=8.0, chunk=chunk or P["chunk"], storage="blocks", verbose=True)
+                                  wmax=8.0, chunk=chunk or P["chunk"], storage="blocks", verbose=True,
+                                  checkpoint=ck, checkpoint_every=16)
         t_asm = time.time() - t0
         for par in ("even", "odd"):
             blk = blks.pop(par)
