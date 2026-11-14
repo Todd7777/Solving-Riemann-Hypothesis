@@ -43,7 +43,7 @@ from rh import weil_local as wl  # noqa: E402
 ROOT = os.path.join(HERE, "..")
 OUT_JSON = os.path.join(ROOT, "results", "json", "weil_l20_summary.json")
 GRAM = os.path.join(ROOT, "results", "json", "weil_gram_L2.0.npz")
-P = {"L": 2.0, "Lambda": 8.5, "g": 0.002, "beta": 0.2, "T": 1500.0, "gap": 0.05, "thr": 0.03,
+P = {"L": 2.0, "Lambda": 8.0, "g": 0.002, "beta": 0.2, "T": 1500.0, "gap": 0.05, "thr": 0.03,
      "fit": {"W": 12.0, "amax": 32.0, "half_width": 8.0, "step": 0.03, "far_step": 0.15, "core_pad": 25.0,
              "target": 0.02, "buffer": 0.06, "max_group": 2, "dw": 1.0, "dtau": 2.0, "core_per_dip": True,
              "max_chain": 3, "merge_on_fail": 6, "cut": 50.0, "refine": 0.005},
