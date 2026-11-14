@@ -916,7 +916,7 @@ The three runs went in parallel. All three give $\lambda_{\min}\approx3.829\time
 
 **Outcome.**
 * *Comb* (**Machine-checked**). The joint certificate ($\Lambda=8.5$, 1475 monomials, rank 453) has $A'=10.018$, against the pointwise constant $A_L=21.61$. With the terms within 0.002 of $2L$ moved into $A'$, $A'=10.132$ and $T_2=192942$.
-* *Floor* (**Numerical**). With $H=0$ and $\beta=0.2$ the envelope form is positive in both sectors at every cutoff probed from $T=2300$ ($3.01\,t_0$) down to $T=1221$ ($1.60\,t_0$). At $L=1.8$ the same probe was indefinite at $2.0$ and $2.4\,t_0$.
+* *Floor* (**Numerical**). With $H=0$ and $\beta=0.2$ the envelope form is positive in both sectors at every cutoff probed from $T=2300$ ($3.01\,t_0$) down to $T=1221$ ($1.60\,t_0$), and indefinite in both at $T=916$ ($1.20\,t_0$): the floor lies between $1.20$ and $1.60\,t_0$. At $L=1.8$ the same probe was indefinite at $2.0$ and $2.4\,t_0$.
 * *Comb bound from $T=2300$* (**Machine-checked**). 1601 wave packets ($\sum|a|=4968$) lift the 295 dips below 0 on $[2300,192942]$, and $\beta=0.2$ holds from $T=2300$.
 * *Window:* $[-1.9,1.9]$ is certified from $T=2300$: $Q(f)\ge3.73\times10^{-230}\lVert f\rVert^2$ for every real $f$ supported there (**Machine-checked**; 3287 modes per sector, 280 digits).
 
@@ -944,13 +944,14 @@ The three runs went in parallel. All three give $\lambda_{\min}\approx3.829\time
 
 | $T$ | $T/t_0$ | modes, nodes | even | odd |
 |---|---|---|---|---|
+| 916 | 1.20 | 1321, 24262 | indefinite (2 negative pivots, the smallest $-2.1$, the first at index 355) | indefinite (1 negative pivot, the smallest $-2.2\times10^{-3}$, the first at index 369) |
 | 1221 | 1.60 | 1755, 31419 | positive ($\lambda_{\min}\approx2.29\times10^{-230}$) | positive ($\lambda_{\min}\approx2.79\times10^{-225}$) |
 | 1527 | 2.00 | 2189, 38429 | positive ($\lambda_{\min}\approx2.90\times10^{-230}$) | positive ($\lambda_{\min}\approx3.21\times10^{-225}$) |
 | 1832 | 2.40 | 2622, 45430 | positive ($\lambda_{\min}\approx3.27\times10^{-230}$) | positive ($\lambda_{\min}\approx3.60\times10^{-225}$) |
 | 2000 | 2.62 | 2861, 49296 | positive ($\lambda_{\min}\approx3.43\times10^{-230}$) | positive ($\lambda_{\min}\approx3.79\times10^{-225}$) |
 | 2300 | 3.01 | 3287, 56121 | positive ($\lambda_{\min}\approx3.69\times10^{-230}$) | positive ($\lambda_{\min}\approx4.06\times10^{-225}$) |
 
-* At $L=1.8$ the floor lay between $2.4$ and $3.2\,t_0$; at $L=1.9$ it lies below $1.60\,t_0$. So it did not keep growing faster than $t_0$, as E18 extrapolated from $L=1.7$ and 1.8 (Heuristic then): in units of $t_0$ it is lower at $L=1.9$. Above it, $\lambda_{\min}$ hardly depends on $T$ (even sector: $2.29\times10^{-230}$ to $3.69\times10^{-230}$).
+* At $L=1.8$ the floor lay between $2.4$ and $3.2\,t_0$; at $L=1.9$ it lies between $1.20$ and $1.60\,t_0$, where it lay for $L\le1.2$ (near $t_0$) and at $L=1.4$ (E16: between $1.42$ and $1.78\,t_0$ for $\beta=0.2$). So it did not keep growing faster than $t_0$, as E18 extrapolated from $L=1.7$ and 1.8 (Heuristic then): in units of $t_0$ it is lower at $L=1.9$, and $L=1.8$ looks like the exception (Heuristic: one $L$ each). Above it, $\lambda_{\min}$ hardly depends on $T$ (even sector: $2.29\times10^{-230}$ to $3.69\times10^{-230}$).
 * With the gapped $H$ and the packets the certification finds $\lambda_{\min}\approx3.81\times10^{-230}$ (even) and $3.78\times10^{-225}$ (odd) at $T=2300$, against $3.69\times10^{-230}$ and $4.06\times10^{-225}$ with $H=0$: $H=0$ is a fair proxy here too.
 
 **Certification of $[-1.9,1.9]$.** The gapped certificate with the 1601 packets, $T=2300$ ($3.01\,t_0$), $\beta=0.2$, 3287 modes per sector ($\lceil1.1\,eLT/4\rceil+20$), 280 digits, both sectors from one block-storage assembly (68808 nodes in 304 panels; checkpoints every 16 panels).

@@ -24,7 +24,7 @@ is known and why the standard approaches stall. RH is open, and this repository 
 ```bash
 pip install -e ".[dev]"
 python3 -m pytest                   # 2026-11-14: 315 pass, about 7 minutes
-python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
+python3 scripts/run_all.py --quick  # every experiment at reduced size, about 16 minutes
 ```
 
 `data/zeros/` already holds 10^6 rigorous zero ordinates. Full experiment runs take hours.
@@ -105,7 +105,8 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   merge_on_fail = 6, cut = 50, refine = 0.005; results/json/weil_l19_packets_T2300.json, ~1 h); trajectory
   check beta = 0.2 from T = 2300 (11 min). Certification: 3287 modes per sector, 280 digits, both sectors from
   one block assembly of 68808 nodes, ~9 h, checkpointed (RH_CHECKPOINT_DIR). The H = 0 probes are
-  positive down to T = 1221 (1.60 t0) (Numerical): the floor is lower in units of t0 than at L = 1.8.
+  positive down to T = 1221 (1.60 t0) and indefinite at T = 916 (1.20 t0) (Numerical): the floor lies between
+  1.20 and 1.60 t0, lower in units of t0 than at L = 1.8 (above 2.4 t0).
   `scripts/run_weil_l19.py` reproduces it (`--quick` in run_all; `--parts floor --floor-T ...`; `--certify`).
 
 ## Where the next steps are
