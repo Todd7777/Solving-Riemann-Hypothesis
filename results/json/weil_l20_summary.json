@@ -4120,5 +4120,83 @@
    "assembly_seconds": 5388.276446342468,
    "seconds": 327.96589827537537
   }
- ]
+ ],
+ "local": [
+  {
+   "L": 2.0,
+   "range": [
+    1100.0,
+    1300.0
+   ],
+   "max_lambda": 4.543,
+   "min_Omega_minus_lambda": 0.69,
+   "at": 1176.55
+  },
+  {
+   "L": 2.0,
+   "range": [
+    1400.0,
+    1600.0
+   ],
+   "max_lambda": 4.326,
+   "min_Omega_minus_lambda": 1.081,
+   "at": 1400.0
+  },
+  {
+   "L": 2.0,
+   "range": [
+    1500.0,
+    1800.0
+   ],
+   "max_lambda": 4.626,
+   "min_Omega_minus_lambda": 0.95,
+   "at": 1657.35
+  },
+  {
+   "L": 2.0,
+   "range": [
+    1800.0,
+    2000.0
+   ],
+   "max_lambda": 4.72,
+   "min_Omega_minus_lambda": 1.027,
+   "at": 1968.45
+  },
+  {
+   "L": 2.0,
+   "range": [
+    2600.0,
+    2800.0
+   ],
+   "max_lambda": 5.25,
+   "min_Omega_minus_lambda": 0.849,
+   "at": 2799.95
+  },
+  {
+   "L": 2.0,
+   "range": [
+    3600.0,
+    3700.0
+   ],
+   "max_lambda": 4.578,
+   "min_Omega_minus_lambda": 1.78,
+   "at": 3624.45
+  }
+ ],
+ "admm": {
+  "Lambda_8": {
+   "monomials": 1184,
+   "iterations": 9000,
+   "value": 11.660483,
+   "rank": 409,
+   "seconds": 3459
+  },
+  "Lambda_8.5": {
+   "monomials": 1651,
+   "iterations": 9000,
+   "value": 11.71257,
+   "rank": 535,
+   "note": "worse than Lambda 8 at equal iterations; not used"
+  }
+ }
 }
