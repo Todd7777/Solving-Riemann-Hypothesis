@@ -20,7 +20,8 @@ Parts:
     16 panels (~2 GB) and resumes after a restart.
 
 Usage: python3 scripts/run_weil_l19.py [--quick] [--parts cert,local,scan,fit] [--floor-T 2300,2700] [--certify]
---quick checks the trajectory constant of the stored packets. Writes results/json/weil_l19_summary.json.
+--quick evaluates the margin with the stored packets on [T, T + 700] in floats (a smoke test, about a minute; the
+rigorous trajectory check is --parts fit). Writes results/json/weil_l19_summary.json (not with --quick).
 """
 import argparse
 import json
@@ -320,6 +321,29 @@ def part_fit(scan=None):
     return row
 
 
+def part_quick(span=700.0, step=0.005):
+    """A float smoke test of the stored packets: the margin Omega - beta - P_L + H + packets on [T, T + span] at
+    step `step` (the rigorous check over [T, T2] is `--parts fit`, about 11 minutes)."""
+    from flint import arb, ctx
+    cert, D = lifted()
+    ts = np.arange(P["T"], P["T"] + span, step)
+    old = ctx.prec
+    ctx.prec = 128
+    try:
+        vals, errs = cert.local.eval_float([arb(P["T"])], step, len(ts))
+    finally:
+        ctx.prec = old
+    m = omega_float(ts) - P["beta"] - G_function(cert)(ts) + np.asarray(vals[0])
+    i = int(np.argmin(m))
+    row = {"packets": len(cert.local.atoms), "span": [P["T"], P["T"] + span], "step": step,
+           "min_margin_float": float(m[i]), "at": float(ts[i])}
+    print(f"  {row['packets']} packets; float margin on [{P['T']:.0f}, {P['T'] + span:.0f}] at step {step}: min "
+          f"{m[i]:.4f} at t = {ts[i]:.3f}", flush=True)
+    if not m[i] > 0:
+        raise SystemExit("the stored packets leave a negative margin")
+    return row
+
+
 def part_certify():
     cert, _ = lifted()
     tr = wcb.trajectory_check(cert, P["T"], P["beta"], verbose=True)
@@ -351,8 +375,8 @@ def main():
     t0 = time.time()
     out = load_summary()
     if args.quick:
-        print("[fit, stored packets]", flush=True)
-        part_fit()
+        print("[quick: the stored packets near T, in floats]", flush=True)
+        part_quick()
         print(f"done [{time.time() - t0:.0f}s]", flush=True)
         return
     parts = args.parts.split(",")
