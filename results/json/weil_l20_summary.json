@@ -4089,6 +4089,36 @@
   "n_negative": 975,
   "seconds": 2585.7459185123444
  },
- "seconds_last_run": 2598.020715713501,
- "description": "E21: Weil positivity on [-2, 2]: the steps of E20 at L = 2.0 (template: run_weil_l19.py)."
+ "seconds_last_run": 6030.439941644669,
+ "description": "E21: Weil positivity on [-2, 2]: the steps of E20 at L = 2.0 (template: run_weil_l19.py).",
+ "floor": [
+  {
+   "T": 1500.0,
+   "T_over_t0": 1.6085663567934818,
+   "parity": "even",
+   "N": 2263,
+   "dps": 340,
+   "n_nodes": 43982,
+   "n_negative": 0,
+   "first_negative": null,
+   "min_pivot": 2.2683513922602616e-21,
+   "lambda_approx": 6.230408236071658e-284,
+   "assembly_seconds": 5388.276446342468,
+   "seconds": 313.5305299758911
+  },
+  {
+   "T": 1500.0,
+   "T_over_t0": 1.6085663567934818,
+   "parity": "odd",
+   "N": 2263,
+   "dps": 340,
+   "n_nodes": 43982,
+   "n_negative": 0,
+   "first_negative": null,
+   "min_pivot": 5.365375581716704e-21,
+   "lambda_approx": 1.1148332034104917e-278,
+   "assembly_seconds": 5388.276446342468,
+   "seconds": 327.96589827537537
+  }
+ ]
 }
