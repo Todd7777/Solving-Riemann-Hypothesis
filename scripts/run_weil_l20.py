@@ -44,9 +44,9 @@ ROOT = os.path.join(HERE, "..")
 OUT_JSON = os.path.join(ROOT, "results", "json", "weil_l20_summary.json")
 GRAM = os.path.join(ROOT, "results", "json", "weil_gram_L2.0.npz")
 P = {"L": 2.0, "Lambda": 8.0, "g": 0.002, "beta": 0.2, "T": 1500.0, "gap": 0.05, "thr": 0.03,
-     "fit": {"W": 12.0, "amax": 32.0, "half_width": 8.0, "step": 0.03, "far_step": 0.15, "core_pad": 25.0,
+     "fit": {"W": 12.0, "amax": 32.0, "half_width": 8.0, "step": 0.04, "far_step": 0.15, "core_pad": 25.0,
              "target": 0.02, "buffer": 0.06, "max_group": 2, "dw": 1.0, "dtau": 2.0, "core_per_dip": True,
-             "max_chain": 3, "merge_on_fail": 6, "cut": 50.0, "refine": 0.005},
+             "max_chain": 2, "merge_on_fail": 4, "cut": 50.0, "refine": 0.005, "relax_on_fail": 0.005},
      "dps": 340, "modes_factor": 1.1, "floor_T": (1500.0,), "floor_dps": 340, "threads": 2, "chunk": 1024}
 T0 = 2 * math.pi * math.exp(1 + 2 * P["L"])           # t0 = 2 pi e^{1+2L} = 763.4
 
@@ -287,7 +287,7 @@ def fit_packets(scan=None):
                       half_width=F["half_width"], amax=F["amax"], max_group=F["max_group"],
                       core_pad=F["core_pad"], far_step=F["far_step"], buffer=F["buffer"],
                       core_per_dip=F["core_per_dip"], max_chain=F["max_chain"], merge_on_fail=F["merge_on_fail"],
-                      cut=F["cut"], refine=F["refine"])
+                      cut=F["cut"], refine=F["refine"], relax_on_fail=F["relax_on_fail"])
     return loc, dips, time.time() - t0
 
 

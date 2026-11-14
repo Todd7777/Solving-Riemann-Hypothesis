@@ -341,7 +341,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              method: str = "highs", core_pad: float | None = None, far_step: float | None = None,
              buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None,
              merge_on_fail: int | None = None, cut: float | None = None, refine: float | None = None,
-             refine_rounds: int = 6, later_slack: float | None = None) -> LocalCorrection:
+             refine_rounds: int = 6, later_slack: float | None = None,
+             relax_on_fail: float | None = None) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -381,6 +382,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     half the target join the program's points and it is solved again, up to refine_rounds times (then the
     program counts as failed). With large packets and carriers of 15 and more, the grid of `step` can miss
     notches between its points.
+    relax_on_fail = s_max (E21): when a program is infeasible, the smallest uniform relaxation s* of its
+    requirements is computed (one more linear program); if s* <= s_max the program is solved again with every
+    requirement lowered by s* (the target is a cushion; the refinement and the trajectory check decide). At
+    L = 2.0 programs failed by 6e-5.
     later_slack = d (E20, with cut): a program also constrains the points of later programs within cut of its
     centres, which it would otherwise leave free: it may not take their margin below min(margin, target) - d.
     Without it, large packets can dig notches there that the later programs cannot repair. The fit is numerical either way; `rh.weil_comb.trajectory_check` checks the
@@ -534,6 +539,14 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
             A = sp.hstack([-Cs, Cs]).tocsr()
             del Cs
             res = linprog(np.ones(2 * n), A_ub=A, b_ub=need, bounds=[(0, amax)] * (2 * n), method=method)
+            if res.status != 0 and relax_on_fail is not None:
+                Ar = sp.hstack([A, -sp.csr_matrix(np.ones((A.shape[0], 1)))]).tocsr()
+                rr = linprog(np.r_[np.zeros(2 * n), 1.0], A_ub=Ar, b_ub=need,
+                             bounds=[(0, amax)] * (2 * n) + [(0, None)], method=method)
+                del Ar
+                if rr.status == 0 and rr.x[-1] <= relax_on_fail:
+                    res = linprog(np.ones(2 * n), A_ub=A, b_ub=need + rr.x[-1] * (1 + 1e-6) + 1e-9,
+                                  bounds=[(0, amax)] * (2 * n), method=method)
             del A
             if res.status != 0:
                 failed = res.message
