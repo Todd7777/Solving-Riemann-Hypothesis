@@ -23,13 +23,13 @@ is known and why the standard approaches stall. RH is open, and this repository 
 
 ```bash
 pip install -e ".[dev]"
-python3 -m pytest                   # 2026-11-13: 311 pass, about 6 minutes
+python3 -m pytest                   # 2026-11-14: 315 pass, about 7 minutes
 python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10 minutes
 ```
 
 `data/zeros/` already holds 10^6 rigorous zero ordinates. Full experiment runs take hours.
 
-## State on 2026-11-13
+## State on 2026-11-14
 
 - E12 is complete (`docs/06_experiment_log.md`, E12; synthesis in `docs/08_findings_and_outlook.md`, item 1b).
   `src/rh/weil_form_general.py` was reviewed and is covered by `tests/test_weil_form_general.py`; a float64
@@ -98,16 +98,26 @@ python3 scripts/run_all.py --quick  # every experiment at reduced size, about 10
   and chunk=1024 flushes ~10% faster. `scripts/run_cert_memory.py` reproduces it (~1 h; `--quick` in
   run_all; `--parts recert17` adds E17 again, ~55 min).
 
+- E20 is complete: [-1.9, 1.9] certified, Q >= 3.73e-230 ||f||^2 (Machine-checked). Joint certificate Lambda = 8.5
+  by ADMM (results/json/weil_gram_L1.9.npz, best iterate after 9000 iterations): A' = 10.018 (gapped 10.132),
+  T2 = 192942. The comb bound has 295 dips below 0 on [2300, 192942] (deepest -2.63; 45 and -0.85 at L = 1.8):
+  1601 packets from fix_dips with the new options (W = 12, amax = 32, dtau = 2, dw = 1, max_chain = 3,
+  merge_on_fail = 6, cut = 50, refine = 0.005; results/json/weil_l19_packets_T2300.json, ~1 h); trajectory
+  check beta = 0.2 from T = 2300 (11 min). Certification: 3287 modes per sector, 280 digits, both sectors from
+  one block assembly of 68808 nodes, ~9 h, checkpointed (RH_CHECKPOINT_DIR). The H = 0 probes are
+  positive down to T = 1221 (1.60 t0) (Numerical): the floor is lower in units of t0 than at L = 1.8.
+  `scripts/run_weil_l19.py` reproduces it (`--quick` in run_all; `--parts floor --floor-T ...`; `--certify`).
+
 ## Where the next steps are
 
 Start with `docs/08_findings_and_outlook.md`, then `docs/05_research_program.md` and `docs/07_how_to_extend.md`.
 The open threads are listed in §8.3:
-- L = 1.9: the same steps (run_weil_l18.py as the template). The floor grows faster than t0 (between 2.4 and
-  3.2 t0 at L = 1.8, below 1.95 t0 at L = 1.7), so the mode count grows faster than e^{2L}. Memory is no longer
-  the limit (E19: ~4.5 GB per sector at N = 4300, 280 digits); time is (5-9 h for both sectors, ~2 h of it
-  single-threaded Bessel values at the nodes). Locate the floor first (H = 0 probes, storage="blocks"), then
-  size N with the tail bound (eLT/4N)^{2N}. A prolate basis or a reduction that keeps part of the spectral side
-  above T would lower the cost;
+- L = 2.0: the same steps (run_weil_l19.py as the template; RH_CHECKPOINT_DIR for every long run; state= for
+  the ADMM). The hard part is now the comb bound: its dips grow in number and depth with L (295 and -2.63 at
+  L = 1.9) and fix_dips with them. A certificate H shaped for the trajectory (not only for the torus maximum)
+  would leave fewer dips. The H = 0 floor need not grow faster than t0 (E20); probe it, then size N with the
+  tail bound (eLT/4N)^{2N}. The panel setup at 280 digits costs ~25 min per run (ellipse bounds at full
+  precision); 128-bit bounds would remove it;
 - the envelope floor without H (E15, E16): how it grows with L, and a reduction that keeps part of the spectral
   side above T;
 - sum-of-squares certificates with a spectral gap above 2L built in (E16), and a prolate basis to make larger T

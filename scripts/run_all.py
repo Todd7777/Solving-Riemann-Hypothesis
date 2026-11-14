@@ -32,6 +32,7 @@ EXPERIMENTS = [
     ("run_weil_lift.py", [], ["--quick"]),         # E17 packets from T = 1000; --certify certifies [-1.7, 1.7] there
     ("run_weil_l18.py", [], ["--quick"]),          # E18 L = 1.8: certificate, packets from T = 2000; --certify (hours)
     ("run_cert_memory.py", [], ["--quick"]),       # E19 memory of the certification: dense vs block storage
+    ("run_weil_l19.py", [], ["--quick"]),          # E20 L = 1.9: the stored packets near T (floats); --certify (hours)
 ]
 
 
