@@ -342,7 +342,7 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
              buffer: float = 0.0, core_per_dip: bool = False, max_chain: int | None = None,
              merge_on_fail: int | None = None, cut: float | None = None, refine: float | None = None,
              refine_rounds: int = 6, later_slack: float | None = None,
-             relax_on_fail: float | None = None) -> LocalCorrection:
+             relax_on_fail: float | None = None, refine_halo: float = 0.0) -> LocalCorrection:
     """Fewest packets for isolated violations (numerical; one linear program per dip): for each dip d, atoms
     centred in [d - half_width, d + half_width] with carriers 2L + b + gap + j dw, minimising sum |a| subject to
     Omega - beta - G + H_loc >= target on every grid point t >= T the atoms reach. Unlike
@@ -382,6 +382,8 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
     half the target join the program's points and it is solved again, up to refine_rounds times (then the
     program counts as failed). With large packets and carriers of 15 and more, the grid of `step` can miss
     notches between its points.
+    refine_halo = h (E21): each notch joins with the points within h of it at step h/10, so that the next solve
+    cannot just move the notch next to the point added (at L = 2.0 six rounds of single points left -0.003).
     relax_on_fail = s_max (E21): when a program is infeasible, the smallest uniform relaxation s* of its
     requirements is computed (one more linear program); if s* <= s_max the program is solved again with every
     requirement lowered by s* (the target is a cushion; the refinement and the trajectory check decide). At
@@ -569,7 +571,10 @@ def fix_dips(G_of_t, Om_of_t, L: float, T: float, dips, beta: float, b: float = 
                 break
             ex = mf - req_f
             lm = np.nonzero(low & np.r_[True, ex[1:] <= ex[:-1]] & np.r_[ex[:-1] <= ex[1:], True])[0]
-            ts = np.union1d(ts, tf[lm])               # the notches join the program's points
+            add = tf[lm] if refine_halo <= 0 else (tf[lm][:, None] + refine_halo
+                                                   * np.linspace(-1.0, 1.0, 21)[None, :]).ravel()
+            add = add[add >= T]
+            ts = np.union1d(ts, add)                  # the notches join the program's points
             own, keep = classify(ts)
             if later_slack is None:
                 ts, own = ts[keep], own[keep]
