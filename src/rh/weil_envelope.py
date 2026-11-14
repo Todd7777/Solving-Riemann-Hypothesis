@@ -867,8 +867,10 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                            "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
                            "seconds": time.time() - t0, "dps": dps, "storage": "dense"}
     if verbose:
+        q = next(iter(out.values())).get("quad_error_unit_log10")
+        qs = f"10^{q:.1f}" if (q is not None and err_unit_total == 0.0) else f"{err_unit_total:.1e}"
         print(f"envelope_blocks L={L} T={T} {Ns}: {n_nodes} nodes in {len(pans)} panels, "
-              f"quad err unit {err_unit_total:.1e}, {time.time() - t0:.0f}s", flush=True)
+              f"quad err unit {qs}, {time.time() - t0:.0f}s", flush=True)
     return out
 
 
