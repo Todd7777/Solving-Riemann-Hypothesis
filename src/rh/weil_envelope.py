@@ -305,6 +305,7 @@ class Panel:
     nu: int
     rho: float
     err_unit: float        # bound on |I - I_nu| for the integrand sigma G_m G_n divided by 2L sqrt((2m+1)(2n+1))
+    log_err_unit: Optional[float] = None   # its natural log when it is below the double range (err_unit is then 0)
 
 
 def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10, comb_cert=None):
@@ -344,12 +345,18 @@ def _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, n_boxes=96, max_depth=10, 
     return best
 
 
-def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3, 4, 6, 8), comb_cert=None):
+def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3, 4, 6, 8), comb_cert=None,
+           log_target: Optional[float] = None, bound_prec: Optional[int] = None):
     """Composite rule on [0, T]: widths w0 near t = 0 (the poles of Omega sit at +-i/2), growing to
     wmax.  For each panel the (rho, nu) with the fewest nodes meeting `target` for the worst entry
     (orders <= n_max) is chosen; err_unit is the rigorous per-entry bound divided by
     2L sqrt((2m+1)(2n+1)) (evaluated in floats from Arb upper bounds; `envelope_block` inflates the
-    resulting radii by a relative 1e-9, which covers the float rounding)."""
+    resulting radii by a relative 1e-9, which covers the float rounding).  log_target: the natural log of the
+    target, for targets below the double range (dps > ~300); an error unit below e^-660 is then kept as its log
+    (`Panel.log_err_unit`, err_unit = 0) and summed in arb by `envelope_blocks`.  bound_prec: the precision (bits)
+    of the ellipse bounds M (ball arithmetic encloses them at any precision; at 280 digits the complex digamma
+    near t = 0 took most of half an hour per assembly, at 128 bits seconds)."""
+    from flint import ctx
     from flint import arb
     comb_list, A = comb(L)
     beta = beta_star(L, T, comb_cert)  # the exact ball: sup |Psi_L (+ H) - beta| is bounded with it
@@ -360,6 +367,7 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
         t = min(T, t + w)
         edges.append(t)
     out = []
+    lt = math.log(target) if log_target is None else log_target
     worst = 2 * L * (2 * n_max + 1)
     for lo, hi in zip(edges[:-1], edges[1:]):
         c, h = 0.5 * (lo + hi), 0.5 * (hi - lo)
@@ -370,7 +378,15 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
             ae, be = h * (rho + 1 / rho) / 2, h * (rho - 1 / rho) / 2
             if (c / ae) ** 2 + (0.5 / be) ** 2 <= 1.05:
                 continue
-            M = _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, comb_cert=comb_cert)
+            if bound_prec is None:
+                M = _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, comb_cert=comb_cert)
+            else:
+                old_prec = ctx.prec
+                ctx.prec = bound_prec
+                try:
+                    M = _ellipse_sup_sigma(L, comb_list, beta, c, h, rho, comb_cert=comb_cert)
+                finally:
+                    ctx.prec = old_prec
             if not math.isfinite(M):
                 continue
             growth = math.exp(2 * L * be)               # e^{2L |Im z|}
@@ -378,12 +394,14 @@ def panels(L, T, n_max, target=1e-60, w0=0.25, wmax=4.0, rho_choices=(1.5, 2, 3,
             const = (64 / 15) * M * growth * worst * h / (rho * rho - 1)
             # log(const) - log(target), not log(const / target): at high precision (target ~ 1e-245) and a large
             # H the quotient overflows a double although both logs are moderate
-            nu = max(4, int(math.ceil((math.log(const) - math.log(target)) / (2 * math.log(rho)))))
+            nu = max(4, int(math.ceil((math.log(const) - lt) / (2 * math.log(rho)))))
+            pre = (64 / 15) * M * growth * h / (rho * rho - 1)
+            log_e = math.log(pre) - 2 * nu * math.log(rho)
             if best is None or nu < best[1]:
-                best = (rho, nu, (64 / 15) * M * growth * h / (rho * rho - 1) * rho ** (-2 * nu))
+                best = (rho, nu, pre * rho ** (-2 * nu), None) if log_e > -660.0 else (rho, nu, 0.0, log_e)
         if best is None:
             raise RuntimeError(f"no admissible ellipse for panel [{lo}, {hi}]")
-        out.append(Panel(lo, hi, best[1], best[0], best[2]))
+        out.append(Panel(lo, hi, best[1], best[0], best[2], best[3]))
     return out
 
 
@@ -549,6 +567,8 @@ def _finalize_blocks(S, scale, orders, p, s, beta, drop, qc):
     from flint import arb
     qf = [math.sqrt(2 * m + 1) for m in orders]
     p2 = [s * 2 * x for x in p]
+    balls = isinstance(drop, arb) or isinstance(qc, arb)      # radii below the double range (dps > ~300)
+    U = arb(0, 1)
     for (I, J), B in S.blocks.items():
         si, sj = S.starts[I], S.starts[J]
         for a in range(S.sizes[I]):
@@ -556,7 +576,8 @@ def _finalize_blocks(S, scale, orders, p, s, beta, drop, qc):
             sci, pi2, qi = scale[i], p2[i], qf[i]
             for c in range(S.sizes[J] if I > J else a + 1):
                 j = sj + c
-                v = B[a, c] * (sci * scale[j]) + pi2 * p[j] + arb(0, drop + qc * qi * qf[j])
+                rad = (drop + qc * (qi * qf[j])) * U if balls else arb(0, drop + qc * qi * qf[j])
+                v = B[a, c] * (sci * scale[j]) + pi2 * p[j] + rad
                 if i == j:
                     v += beta
                 B[a, c] = v
@@ -680,12 +701,19 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
         sectors[parity] = {"N": N, "orders": sector_orders(parity, N)}
     n_max = max(sec["orders"][-1] for sec in sectors.values())
     with _ctx(dps):
+        log_target = None
         if target is None:
             target = 10.0 ** (-(dps - 5))
+            if target < 1e-300:                             # below the double range: carried as a log
+                log_target = -(dps - 5) * math.log(10)
         comb_list, A = comb(L)
         beta = beta_star(L, T, comb_cert)
         LL = arb(L)
-        pans = panels(L, T, n_max, target=target, wmax=wmax, comb_cert=comb_cert)
+        pans = panels(L, T, n_max, target=target, wmax=wmax, comb_cert=comb_cert, log_target=log_target,
+                      bound_prec=128 if log_target is not None else None)
+        tiny = any(P.log_err_unit is not None for P in pans)
+        if tiny and not use_blocks:
+            raise ValueError("error units below the double range (dps > ~300) need storage='blocks'")
         for sec in sectors.values():
             sec["scale"] = [((2 * LL * (2 * n + 1)).sqrt()) * (1 if (n // 2) % 2 == 0 else -1) for n in sec["orders"]]
             if use_blocks:
@@ -719,6 +747,7 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
         inv_pi = 1 / arb.pi()
         work = ctx.prec
         start, n_saved = 0, 0
+        err_small = arb(0)                                  # the error units below the double range, in arb
         if checkpoint is not None and not use_blocks:
             raise ValueError("checkpoint needs storage='blocks'")
         if checkpoint is not None:
@@ -732,6 +761,8 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                           f"({n_nodes} nodes)", flush=True)
         for ip, P in enumerate(pans):
             if ip < start:
+                if P.log_err_unit is not None:
+                    err_small += arb(P.log_err_unit).exp()
                 continue
             # nodes at an extended precision: the Bessel recurrences amplify the radius of their
             # argument by ~10^guard (see bessel_guard_digits)
@@ -766,6 +797,8 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                         flush(sec)
                 n_nodes += 1
             err_unit_total += P.err_unit
+            if P.log_err_unit is not None:
+                err_small += arb(P.log_err_unit).exp()
             if checkpoint is not None and ((ip + 1) % checkpoint_every == 0 or ip + 1 == len(pans)):
                 for sec in sectors.values():
                     _flush_blocks(sec)
@@ -786,14 +819,27 @@ def envelope_blocks(L, T, Ns: dict, dps: int = 40, target: Optional[float] = Non
                 N, orders = sec["N"], sec["orders"]
                 drop = (10.0 ** log10_tau * math.sqrt(2 * L * (2 * n_max + 1)) * sum_abs_wsig * (1 + 1e-9)
                         if truncate else 0.0)
+                qc = err_unit_total * 2 * L / math.pi * (1 + 1e-9)
+                # the float radius drop + qc ... is valid when qc's padding covers drop (as up to E20, where the
+                # quadrature term was ~35 orders above the truncation term); otherwise, and whenever error units
+                # fell below the double range, both are balls
+                log_drop = (log10_tau * math.log(10) + 0.5 * math.log(2 * L * (2 * n_max + 1))
+                            + math.log(max(sum_abs_wsig, 1e-300))) if truncate else -math.inf
+                if tiny or (truncate and not (qc > 0 and log_drop < math.log(qc) - 25)):
+                    drop = (arb(10) ** log10_tau * arb(math.sqrt(2 * L * (2 * n_max + 1)) * (1 + 1e-12))
+                            * arb(sum_abs_wsig) * arb(1 + 1e-9)) if truncate else arb(0)
+                    qc = (arb(err_unit_total) + err_small) * 2 * arb(L) / arb.pi() * arb(1 + 1e-9)
                 p = pole_vector(L, orders, parity)
                 R = _finalize_blocks(sec.pop("S"), sec["scale"], orders, p, 1 if parity == "even" else -1, beta,
-                                     drop, err_unit_total * 2 * L / math.pi * (1 + 1e-9))
+                                     drop, qc)
                 out[parity] = {"R": R, "beta": beta, "A": A, "panels": pans, "n_nodes": n_nodes, "orders": orders,
                                "A_prime": comb_cert.A_prime if comb_cert is not None else None,
                                "quad_error_unit": err_unit_total, "p": p, "comb": [n for n, _ in comb_list],
                                "seconds": time.time() - t0, "dps": dps, "storage": "blocks",
-                               "resumed_from_panel": start}
+                               "resumed_from_panel": start,
+                               "quad_error_unit_log10": float(((arb(err_unit_total) + err_small).log()
+                                                               / arb(10).log()).upper())
+                               if (err_unit_total > 0 or tiny) else None}
                 continue
             flush(sec)
             N, orders, C = sec["N"], sec["orders"], sec["C"]

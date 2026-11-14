@@ -241,3 +241,29 @@ def test_block_assembly_checkpoint_and_resume(tmp_path):
     other = we.envelope_blocks(L, T + 1.0, {"even": N, "odd": N}, checkpoint=path, **kw)   # another assembly
     assert other["even"]["resumed_from_panel"] == 0
     ctx.dps = 15
+
+
+def test_error_units_below_the_double_range():
+    """At 330 digits the quadrature target (1e-325) and the per-panel error units fall below the double range;
+    they are carried as logs and summed in arb (E21), so every entry of R_A keeps a radius at least the
+    quadrature error, and the estimate of lambda_min agrees with a run at 60 digits."""
+    from flint import ctx
+    L, T, N = 0.5, 40.0, 30
+    hi = we.envelope_blocks(L, T, {"even": N}, dps=330, chunk=50, storage="blocks", block=8)["even"]
+    assert any(P.log_err_unit is not None for P in hi["panels"])
+    assert hi["quad_error_unit_log10"] < -300
+    ctx.dps = 330
+    q = arb(10) ** hi["quad_error_unit_log10"]           # an upper bound of the error unit, as a ball
+    R = hi["R"]
+    for i in range(N):
+        for j in range(N):
+            assert R[i, j].rad() > 0
+    assert R[N - 1, N - 1].rad() >= (q * 2 * L / arb.pi() * (2 * hi["orders"][-1] + 1)).lower() * 1e-3
+    lam_hi = float(we.approx_lambda_min_ldl(R)[0].mid())
+    lo = we.envelope_blocks(L, T, {"even": N}, dps=60, chunk=50, storage="blocks", block=8)["even"]
+    ctx.dps = 60
+    lam_lo = float(we.approx_lambda_min_ldl(lo["R"])[0].mid())
+    assert abs(lam_hi / lam_lo - 1) < 1e-10
+    with pytest.raises(ValueError):
+        we.envelope_blocks(L, T, {"even": N}, dps=330, chunk=50, storage="dense")
+    ctx.dps = 15
